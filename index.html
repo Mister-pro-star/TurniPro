@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organizzazione Turni</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
+    input:focus { outline: none; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f1117; }
+    ::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+
+
+
+
+
+    const ACCESS_CODE = (() => { try { return localStorage.getItem("turni_access_code") || "Vaniusa1987."; } catch(e) { return "Vaniusa1987."; } })();
+
+    function LoginScreen({ onLogin }) {
+      const [code, setCode] = React.useState("");
+      const [error, setError] = React.useState(false);
+      const [shake, setShake] = React.useState(false);
+
+      const tryLogin = () => {
+        if (code === ACCESS_CODE) {
+          onLogin();
+        } else {
+          setError(true);
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+          setTimeout(() => setError(false), 2000);
+          setCode("");
+        }
+      };
+
+      return (
+        <div style={{
+          minHeight:"100vh", background:"#0f1117", display:"flex", alignItems:"center", justifyContent:"center",
+          fontFamily:"'Courier New','Consolas',monospace",
+        }}>
+          <div style={{
+            background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"16px",
+            padding:"48px 40px", width:"340px", textAlign:"center",
+            boxShadow:"0 20px 60px rgba(0,0,0,0.5)",
+            animation: shake ? "shake 0.4s ease" : "none",
+          }}>
+            <div style={{ fontSize:"48px", marginBottom:"16px" }}>📦</div>
+            <div style={{ fontSize:"18px", fontWeight:"bold", letterSpacing:"4px", color:"#f59e0b", marginBottom:"6px" }}>ORGANIZZAZIONE TURNI</div>
+            <div style={{ fontSize:"10px", color:"#555", letterSpacing:"2px", marginBottom:"36px" }}>ACCESSO RISERVATO</div>
+
+            <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#555", marginBottom:"8px", textAlign:"left" }}>CODICE DI ACCESSO</div>
+            <input
+              type="password"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && tryLogin()}
+              placeholder="••••••••••"
+              style={{
+                width:"100%", background:"#0f1117", border:`2px solid ${error ? "#ef4444" : "#2a2d3a"}`,
+                borderRadius:"8px", color:"#e8e8e0", fontFamily:"inherit", fontSize:"18px",
+                padding:"12px 16px", textAlign:"center", letterSpacing:"4px",
+                outline:"none", marginBottom:"16px", transition:"border-color 0.2s",
+              }}
+            />
+
+            {error && (
+              <div style={{ color:"#ef4444", fontSize:"11px", letterSpacing:"2px", marginBottom:"12px" }}>
+                ✗ CODICE ERRATO
+              </div>
+            )}
+
+            <button onClick={tryLogin} style={{
+              width:"100%", padding:"14px", background:"linear-gradient(135deg,#f59e0b,#d97706)",
+              border:"none", borderRadius:"8px", color:"#000", fontFamily:"inherit",
+              fontSize:"13px", fontWeight:"bold", letterSpacing:"3px", cursor:"pointer",
+              transition:"opacity 0.2s",
+            }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity="0.85"}
+              onMouseLeave={(e) => e.currentTarget.style.opacity="1"}
+            >ENTRA</button>
+          </div>
+          <style>{`
+            @keyframes shake {
+              0%,100% { transform: translateX(0); }
+              20% { transform: translateX(-10px); }
+              40% { transform: translateX(10px); }
+              60% { transform: translateX(-8px); }
+              80% { transform: translateX(8px); }
+            }
+          `}</style>
+        </div>
+      );
+    }
+
+    const { useState, useCallback, useEffect } = React;
+    const LS_KEY = "turni_app_v1";
+
+    function timeToMin(t) {
+      if (!t) return 0;
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+    function minToTime(m) {
+      let h = Math.floor(m / 60);
+      let mn = Math.round(m % 60);
+      if (mn === 60) { h += 1; mn = 0; }
+      return `${String(h).padStart(2,"0")}:${String(mn).padStart(2,"0")}`;
+    }
+
+    function colliPerTurno(t, rate) {
+      if (!t.inizio || !t.fine || !Number(t.persone)) return 0;
+      let minuti = timeToMin(t.fine) - timeToMin(t.inizio);
+      if (t.pausaInizio && t.pausaFine) minuti -= (timeToMin(t.pausaFine) - timeToMin(t.pausaInizio));
+      if (minuti <= 0) return 0;
+      return Math.round((minuti / 60) * Number(t.persone) * rate);
+    }
+
+    function colliStraTurno(s, rateDefault) {
+      if (!s || !s.inizio || !s.fine || !Number(s.persone)) return 0;
+      const minuti = timeToMin(s.fine) - timeToMin(s.inizio);
+      if (minuti <= 0) return 0;
+      return Math.round((minuti / 60) * Number(s.persone) * rateDefault);
+    }
+
+    function calcola(colli, turni, rate) {
+      const events = new Set();
+      turni.forEach((t) => {
+        events.add(timeToMin(t.inizio));
+        events.add(timeToMin(t.fine));
+        if (t.pausaInizio && t.pausaFine) {
+          events.add(timeToMin(t.pausaInizio));
+          events.add(timeToMin(t.pausaFine));
+        }
+      });
+      const sorted = Array.from(events).sort((a, b) => a - b);
+      let cumulo = 0;
+      const rows = [];
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const from = sorted[i], to = sorted[i + 1];
+        if (from >= to) continue;
+        let persone = 0;
+        turni.forEach((t) => {
+          const tIn = timeToMin(t.inizio), tOut = timeToMin(t.fine);
+          const pIn = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+          const pOut = t.pausaFine ? timeToMin(t.pausaFine) : null;
+          const active = from >= tIn && to <= tOut;
+          const inPausa = pIn !== null && from >= pIn && to <= pOut;
+          if (active && !inPausa) persone += Number(t.persone);
+        });
+        const durataH = (to - from) / 60;
+        const produzione = persone * rate * durataH;
+        if (cumulo >= colli) break;
+        if (cumulo + produzione >= colli) {
+          const mancanti = colli - cumulo;
+          const fineEsatta = from + (mancanti / (persone * rate)) * 60;
+          cumulo = colli;
+          rows.push({ from: minToTime(from), to: minToTime(to), persone, colliH: Math.round(persone * rate), durata: `${Math.floor(to - from)}min`, produzione: Math.round(mancanti), cumulo, highlight: true, fineEsatta: minToTime(fineEsatta) });
+          return { rows, fineEsatta: minToTime(fineEsatta), ok: true };
+        } else {
+          cumulo += produzione;
+          rows.push({ from: minToTime(from), to: minToTime(to), persone, colliH: Math.round(persone * rate), durata: `${Math.floor(to - from)}min`, produzione: Math.round(produzione), cumulo: Math.round(cumulo), highlight: false });
+        }
+      }
+      return { rows, fineEsatta: null, ok: false, cumulo: Math.round(cumulo) };
+    }
+
+    function calcolaAnticipo(turni, fineEsattaStr, rate, straordinari = []) {
+      if (!fineEsattaStr) return { dettaglio: [], totale: 0 };
+      const fineMin = timeToMin(fineEsattaStr);
+      const dettaglio = [];
+      let totale = 0;
+      const tuttiTurni = [
+        ...turni.map(t => ({ ...t, _rate: rate })),
+        ...straordinari.filter(s => s.inizio && s.fine && Number(s.persone) > 0)
+                       .map(s => ({ ...s, _rate: Number(s.rate) || rate })),
+      ];
+      tuttiTurni.forEach((t) => {
+        const tOut = timeToMin(t.fine);
+        const pIn  = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+        const pOut = t.pausaFine   ? timeToMin(t.pausaFine)   : null;
+        if (tOut <= fineMin) return;
+        const start = Math.max(fineMin, timeToMin(t.inizio));
+        if (start >= tOut) return;
+        let minutiEffettivi = tOut - start;
+        let pausaMinuti = 0;
+        if (pIn !== null && pOut !== null && pIn < tOut && pOut > start) {
+          pausaMinuti = Math.min(pOut, tOut) - Math.max(pIn, start);
+          if (pausaMinuti > 0) minutiEffettivi -= pausaMinuti;
+        }
+        if (minutiEffettivi <= 0) return;
+        const colli = Math.round((minutiEffettivi / 60) * t._rate * Number(t.persone));
+        totale += colli;
+        dettaglio.push({
+          nome: t.nome || "Turno",
+          persone: Number(t.persone),
+          dalle: minToTime(start),
+          alle: t.fine,
+          minutiEffettivi,
+          pausaMinuti: pausaMinuti > 0 ? pausaMinuti : null,
+          pausaDalle: pausaMinuti > 0 ? minToTime(Math.max(pIn, start)) : null,
+          pausaAlle:  pausaMinuti > 0 ? minToTime(Math.min(pOut, tOut)) : null,
+          colli,
+        });
+      });
+      return { dettaglio, totale };
+    }
+
+    function calcolaStrao(straordinari, colliRimanenti) {
+      if (!straordinari || straordinari.length === 0 || colliRimanenti <= 0) return null;
+      let cumulo = 0;
+      const rows = [];
+      for (const s of straordinari) {
+        if (!s.inizio || !s.fine || !s.persone) continue;
+        const pIn = s.pausaInizio ? timeToMin(s.pausaInizio) : null;
+        const pOut = s.pausaFine ? timeToMin(s.pausaFine) : null;
+        let minuti = timeToMin(s.fine) - timeToMin(s.inizio);
+        if (pIn !== null && pOut) minuti -= (pOut - pIn);
+        if (minuti <= 0) continue;
+        const r = Number(s.rate) || 90;
+        const colliTotali = Math.round((minuti / 60) * r * Number(s.persone));
+        if (cumulo + colliTotali >= colliRimanenti) {
+          const mancanti = colliRimanenti - cumulo;
+          const fineEsatta = timeToMin(s.inizio) + (mancanti / (r * Number(s.persone))) * 60;
+          cumulo = colliRimanenti;
+          rows.push({ nome: s.nome || "Straordinario", persone: Number(s.persone), inizio: s.inizio, fineEsatta: minToTime(fineEsatta), fine: s.fine, rate: r, colli: Math.round(mancanti), cumulo, highlight: true });
+          return { rows, fineEsatta: minToTime(fineEsatta), ok: true };
+        } else {
+          cumulo += colliTotali;
+          rows.push({ nome: s.nome || "Straordinario", persone: Number(s.persone), inizio: s.inizio, fine: s.fine, rate: r, colli: colliTotali, cumulo, highlight: false });
+        }
+      }
+      return { rows, ok: false, cumulo };
+    }
+
+    const emptyTurno = () => ({ id: Date.now(), nome: "", inizio: "06:00", fine: "12:30", persone: 1, pausaInizio: "10:00", pausaFine: "10:20" });
+    const emptyStrao = () => ({ id: Date.now() + 1, nome: "", inizio: "19:30", fine: "22:00", persone: 5, rate: 90, pausaInizio: "", pausaFine: "" });
+
+    const DEFAULT_TURNI = [
+      {id:1, nome:"Mattina 06:00",    inizio:"06:00", fine:"12:20", persone:0, pausaInizio:"10:00", pausaFine:"10:20"},
+      {id:5, nome:"Giornata 08:00",   inizio:"08:00", fine:"14:20", persone:0, pausaInizio:"12:00", pausaFine:"12:20"},
+      {id:2, nome:"Giornata 10:00",   inizio:"10:00", fine:"16:20", persone:0, pausaInizio:"14:00", pausaFine:"14:20"},
+      {id:3, nome:"Pomeriggio 13:00", inizio:"13:00", fine:"19:20", persone:0, pausaInizio:"17:00", pausaFine:"17:20"},
+    ];
+    const DEFAULT_STRAPERSONE = [
+      {id:1, inizio:"12:20", fine:"13:20", persone:0, rate:90},
+      {id:5, inizio:"",      fine:"",      persone:0, rate:90},
+      {id:2, inizio:"",      fine:"",      persone:0, rate:90},
+      {id:3, inizio:"12:00", fine:"13:00", persone:0, rate:90},
+    ];
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(LS_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return null;
+    }
+
+    function App() {
+      const saved = loadState();
+      const [colli, setColli] = useState(saved?.colli ?? 12900);
+      const [rate, setRate] = useState(saved?.rate ?? 90);
+      const [turni, setTurni] = useState(saved?.turni ?? DEFAULT_TURNI);
+      const [straordinari, setStraordinari] = useState(saved?.straordinari ?? []);
+      const [risultato, setRisultato] = useState(null);
+      const [oraTarget, setOraTarget] = useState(saved?.oraTarget ?? "18:00");
+      const [emailDest, setEmailDest] = useState(saved?.emailDest ?? "tarus.ion17@gmail.com");
+      const [tema, setTema] = useState(saved?.tema ?? "dark");
+      const [storico, setStorico] = useState(() => { try { return JSON.parse(localStorage.getItem("turni_storico") || "[]"); } catch(e) { return []; } });
+      const [showStorico, setShowStorico] = useState(false);
+      const [turniImp, setTurniImp] = useState(null); // copia turni per editing in impostazioni
+      const aggTurnoImp = () => setTurniImp(prev => [...prev, { id: Date.now(), nome:"Nuovo Turno", inizio:"07:00", fine:"13:00", persone:0, pausaInizio:"", pausaFine:"" }]);
+      const updTurnoImp = (id, field, val) => setTurniImp(prev => prev.map(t => t.id===id ? {...t, [field]:val} : t));
+      const delTurnoImp = (id) => setTurniImp(prev => prev.filter(t => t.id!==id));
+      const salvaDefaultTurni = () => {
+        // Mantieni le persone già inserite se il turno esiste, altrimenti 0
+        setTurni(turniImp.map(t => {
+          const existing = turni.find(x => x.id === t.id);
+          return { ...t, persone: existing ? existing.persone : 0, assenti: existing ? (existing.assenti||0) : 0 };
+        }));
+        try { localStorage.setItem("turni_default_turni", JSON.stringify(turniImp)); } catch(e) {}
+      };
+      const [invResult, setInvResult] = useState(null);
+      const [copiatoMsg, setCopiatoMsg] = useState(false);
+      const [puntoOra, setPuntoOra] = useState("");
+      const [showCambiaPassword, setShowCambiaPassword] = useState(false);
+      const [showImpostazioni, setShowImpostazioni] = useState(false);
+      const [nuovaPass, setNuovaPass] = useState("");
+      const [confPass, setConfPass] = useState("");
+      const [passMsg, setPassMsg] = useState("");
+      const [puntoRimanenti, setPuntoRimanenti] = useState("");
+      const [puntoResult, setPuntoResult] = useState(null);
+      // Straordinari inline per turno: { id, inizio, fine, persone, rate }
+      const [straPersone, setStraPersone] = useState(() => {
+        const savedStra = saved?.straPersone;
+        return savedStra || DEFAULT_STRAPERSONE.map(s => ({ ...s }));
+      });
+
+      // Sincronizza straPersone quando cambiano i turni (aggiungi/rimuovi)
+      React.useEffect(() => {
+        setStraPersone(prev => turni.map(t => {
+          const existing = prev.find(s => s.id === t.id);
+          return existing || { id: t.id, inizio: "", fine: "", persone: 0, rate: 90 };
+        }));
+      }, [turni]);
+
+      const aggiornaStraTurno = (id, field, value) =>
+        setStraPersone(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+
+      const resetPersone = () => setTurni(turni.map(t => ({ ...t, persone: 0 })));
+      const resetTutti = () => {
+        setTurni(DEFAULT_TURNI.map(t => ({ ...t })));
+        setStraPersone(DEFAULT_STRAPERSONE.map(s => ({ ...s })));
+      };
+      const resetTurno = (id) => {
+        const def = DEFAULT_TURNI.find(d => d.id === id);
+        if (!def) return;
+        setTurni(turni.map(t => t.id === id ? { ...def } : t));
+      };
+      const resetStraPersone = () => setStraPersone(prev => prev.map(s => ({ ...s, inizio: "", fine: "", persone: 0 })));
+
+      // Salvataggio automatico ad ogni modifica
+      useEffect(() => {
+        try {
+          localStorage.setItem(LS_KEY, JSON.stringify({ colli, rate, turni, straordinari, oraTarget, straPersone, emailDest, tema }));
+        } catch(e) {}
+      }, [colli, rate, turni, straordinari, oraTarget, straPersone, emailDest, tema]);
+
+      // Ricalcolo automatico ad ogni modifica
+      useEffect(() => {
+        if (!colli || turni.length === 0) return;
+        // Trasforma straPersone in turni aggiuntivi (stesso formato dei turni normali)
+        const straPersoneValidi = straPersone
+          .filter(s => s.inizio && s.fine && Number(s.persone) > 0)
+          .map(s => ({
+            id: s.id + "_stra",
+            nome: (turni.find(t => t.id === s.id)?.nome || "Strao") + " (strao)",
+            inizio: s.inizio,
+            fine: s.fine,
+            persone: Number(s.persone),
+            pausaInizio: "",
+            pausaFine: "",
+          }));
+        // Tutti i turni inclusi gli straordinari inline
+        const tuttiTurni = [...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) })), ...straPersoneValidi];
+        // Straordinari manuali separati (sezione ORE STRAORDINARIE)
+        const tuttiStrao = [...straordinari];
+
+        const res = calcola(Number(colli), tuttiTurni, Number(rate));
+        if (res.ok) {
+          res.fineFinale = res.fineEsatta;
+          res.anticipo = calcolaAnticipo(tuttiTurni, res.fineEsatta, Number(rate), tuttiStrao);
+        } else {
+          if (tuttiStrao.length > 0) {
+            const rimanenti = Number(colli) - res.cumulo;
+            res.straResult = calcolaStrao(tuttiStrao, rimanenti);
+            if (res.straResult && res.straResult.ok) {
+              res.fineFinale = res.straResult.fineEsatta;
+              res.anticipo = calcolaAnticipo(tuttiTurni, res.straResult.fineEsatta, Number(rate), tuttiStrao);
+            }
+          }
+        }
+        setRisultato(res);
+      }, [colli, rate, turni, straordinari, straPersone]);
+
+      const copiaPianificazione = () => {
+        const oggi = new Date();
+        const dd = String(oggi.getDate()).padStart(2,'0');
+        const mm = String(oggi.getMonth()+1).padStart(2,'0');
+        const yyyy = oggi.getFullYear();
+        const lines = [];
+        lines.push('📦 PIANIFICAZIONE TURNI - ' + dd + '/' + mm + '/' + yyyy);
+        lines.push('=====================================');
+        lines.push('COLLI DA PROCESSARE: ' + (colli || 0));
+        lines.push('COLLI/ORA: ' + (rate || 90));
+        lines.push('');
+        lines.push('TURNI');
+        lines.push('─────────────────────────────────────');
+        turni.forEach(t => {
+          const pers = Number(t.persone) - Number(t.assenti||0);
+          if (pers > 0) {
+            lines.push(t.nome + '  ' + t.inizio + ' → ' + t.fine + '  👥 ' + pers + ' pers');
+          }
+        });
+        const straValidi = straPersone.filter(s => s.inizio && s.fine && Number(s.persone) > 0);
+        if (straValidi.length > 0) {
+          lines.push('');
+          lines.push('STRAORDINARI');
+          lines.push('─────────────────────────────────────');
+          straValidi.forEach(s => {
+            const t = turni.find(x => x.id === s.id);
+            lines.push((t ? t.nome : 'Strao') + '  ' + s.inizio + ' → ' + s.fine + '  👥 ' + s.persone + ' pers');
+          });
+        }
+        if (risultato) {
+          lines.push('');
+          lines.push('RISULTATO');
+          lines.push('─────────────────────────────────────');
+          if (risultato.ok) {
+            const fine = risultato.fineFinale || risultato.fineEsatta;
+            lines.push('🏁 Chiusura stimata: ' + fine);
+            if (risultato.anticipo && risultato.anticipo.totale > 0)
+              lines.push('⚡ Anticipo per domani: +' + risultato.anticipo.totale.toLocaleString('it-IT') + ' colli');
+          } else {
+            lines.push('🔴 NON CE LA FACCIAMO');
+            const mancano = Number(colli) - (risultato.cumulo || 0);
+            if (mancano > 0) lines.push('Mancano: ' + mancano.toLocaleString('it-IT') + ' colli');
+          }
+        }
+        const testo = lines.join('\n');
+        navigator.clipboard.writeText(testo).then(() => {
+          setCopiatoMsg(true);
+          setTimeout(() => setCopiatoMsg(false), 2500);
+        }).catch(() => {
+          prompt('Copia manualmente:', testo);
+        });
+      };
+
+      const inviaEmail = () => {
+        const oggi = new Date();
+        const giorni = ['Domenica','Lunedi','Martedi','Mercoledi','Giovedi','Venerdi','Sabato'];
+        const giorno = giorni[oggi.getDay()];
+        const dd = String(oggi.getDate()).padStart(2,'0');
+        const mm = String(oggi.getMonth()+1).padStart(2,'0');
+        const yyyy = oggi.getFullYear();
+        const sep  = '═══════════════════════════════════════';
+        const sep2 = '───────────────────────────────────────';
+        const lines = [];
+
+        lines.push('📦  PIANIFICAZIONE TURNI');
+        lines.push(giorno + ' ' + dd + '/' + mm + '/' + yyyy);
+        lines.push(sep);
+        lines.push('');
+        lines.push('📊  OBIETTIVO');
+        lines.push(sep2);
+        lines.push('  Colli da processare : ' + Number(colli||0).toLocaleString('it-IT'));
+        lines.push('  Velocita            : ' + (rate||90) + ' colli/ora per persona');
+        lines.push('');
+
+        // Turni attivi
+        const turniAttivi = turni.filter(t => (Number(t.persone) - Number(t.assenti||0)) > 0);
+        if (turniAttivi.length > 0) {
+          lines.push('👥  TURNI IN SERVIZIO');
+          lines.push(sep2);
+          turniAttivi.forEach(t => {
+            const pers = Number(t.persone) - Number(t.assenti||0);
+            const ass  = Number(t.assenti||0);
+            const colliT = colliPerTurno({ ...t, persone: pers }, Number(rate));
+            let riga = '  ' + t.nome.padEnd(22) + t.inizio + ' → ' + t.fine + '   ' + pers + ' pers';
+            if (ass > 0) riga += '  (' + ass + ' assenti)';
+            if (colliT > 0) riga += '   ~' + colliT.toLocaleString('it-IT') + ' colli';
+            lines.push(riga);
+          });
+          lines.push('');
+        }
+
+        // Totali persone
+        const totPresenti = turni.reduce((a,t) => a + Math.max(0, Number(t.persone)-Number(t.assenti||0)), 0);
+        const totAssenti  = turni.reduce((a,t) => a + Number(t.assenti||0), 0);
+        lines.push('  Totale presenti: ' + totPresenti + '   |   Totale assenti: ' + totAssenti);
+        lines.push('');
+
+        // Straordinari
+        const straValidi = straPersone.filter(s => s.inizio && s.fine && Number(s.persone) > 0);
+        if (straValidi.length > 0) {
+          lines.push('⚡  STRAORDINARI');
+          lines.push(sep2);
+          let totOreMin = 0;
+          straValidi.forEach(s => {
+            const t = turni.find(x => x.id === s.id);
+            const min = timeToMin(s.fine) - timeToMin(s.inizio);
+            totOreMin += min * Number(s.persone);
+            lines.push('  ' + (t ? t.nome : 'Strao').padEnd(22) + s.inizio + ' → ' + s.fine + '   ' + s.persone + ' pers');
+          });
+          const h = Math.floor(totOreMin/60), m = totOreMin%60;
+          lines.push('  Ore straordinario totali: ' + (m > 0 ? h+'h '+m+'m' : h+'h'));
+          lines.push('');
+        }
+
+        // Risultato
+        lines.push('🏁  RISULTATO');
+        lines.push(sep2);
+        if (risultato) {
+          const isOk = risultato.ok || (risultato.straResult && risultato.straResult.ok);
+          if (isOk && risultato.fineFinale) {
+            lines.push('  ✅  OBIETTIVO RAGGIUNGIBILE');
+            lines.push('  Chiusura prevista: ' + risultato.fineFinale);
+            if (risultato.anticipo && risultato.anticipo.totale > 0)
+              lines.push('  ⚡ Anticipo: +' + risultato.anticipo.totale.toLocaleString('it-IT') + ' colli');
+          } else {
+            const mancano = Number(colli) - (risultato.cumulo||0) - (risultato.straResult ? risultato.straResult.cumulo : 0);
+            lines.push('  ❌  TURNI INSUFFICIENTI');
+            lines.push('  Mancano: ' + mancano.toLocaleString('it-IT') + ' colli');
+          }
+        } else {
+          lines.push('  Nessun calcolo disponibile.');
+        }
+
+        lines.push('');
+        lines.push(sep);
+        lines.push('Inviato automaticamente dal sistema Gestione Turni');
+
+        const subject = encodeURIComponent('Turni ' + giorno + ' ' + dd + '/' + mm + '/' + yyyy);
+        const body = encodeURIComponent(lines.join('\n'));
+        window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(emailDest) + '&su=' + subject + '&body=' + body, '_blank');
+      };
+
+      const aggiungiTurno = () => setTurni([...turni, emptyTurno()]);
+      const rimuoviTurno = (id) => setTurni(turni.filter((t) => t.id !== id));
+      const aggiornaTurno = (id, field, value) => setTurni(turni.map((t) => (t.id === id ? { ...t, [field]: value } : t)));
+      const setPersone = (id, val) => aggiornaTurno(id, "persone", Math.max(0, val));
+      const setAssenti = (id, val) => aggiornaTurno(id, "assenti", Math.max(0, val));
+
+      const aggiungiStrao = () => setStraordinari([...straordinari, emptyStrao()]);
+      const rimuoviStrao  = (id) => setStraordinari(straordinari.filter((s) => s.id !== id));
+      const aggiornaStrao = (id, field, value) => setStraordinari(straordinari.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+
+      const calcola_click = useCallback(() => {
+        const straPersoneValidi = straPersone
+          .filter(s => s.inizio && s.fine && Number(s.persone) > 0)
+          .map(s => ({
+            id: s.id + "_stra",
+            nome: (turni.find(t => t.id === s.id)?.nome || "Strao") + " (strao)",
+            inizio: s.inizio,
+            fine: s.fine,
+            persone: Number(s.persone),
+            pausaInizio: "",
+            pausaFine: "",
+          }));
+        const tuttiTurni = [...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) })), ...straPersoneValidi];
+        const tuttiStrao = [...straordinari];
+
+        const res = calcola(Number(colli), tuttiTurni, Number(rate));
+        if (res.ok) {
+          res.fineFinale = res.fineEsatta;
+          res.anticipo   = calcolaAnticipo(tuttiTurni, res.fineEsatta, Number(rate), tuttiStrao);
+        } else {
+          if (tuttiStrao.length > 0) {
+            const rimanenti = Number(colli) - res.cumulo;
+            res.straResult  = calcolaStrao(tuttiStrao, rimanenti);
+            if (res.straResult && res.straResult.ok) {
+              res.fineFinale = res.straResult.fineEsatta;
+              res.anticipo   = calcolaAnticipo(tuttiTurni, res.straResult.fineEsatta, Number(rate), tuttiStrao);
+            }
+          }
+        }
+        setRisultato(res);
+      }, [colli, turni, rate, straordinari, straPersone]);
+
+      const salva = useCallback(() => {
+        // Legge il sorgente JSX originale dal tag script (non il DOM compilato da Babel)
+        const scriptEl = document.querySelector('script[type="text/babel"]');
+        let src = scriptEl.textContent;
+
+        // Sostituisce i valori iniziali con quelli attuali
+        src = src.replace(
+          /const \[colli, setColli\] = useState\(\d+\)/,
+          'const [colli, setColli] = useState(' + colli + ')'
+        );
+        src = src.replace(
+          /const \[rate, setRate\] = useState\(\d+\)/,
+          'const [rate, setRate] = useState(' + rate + ')'
+        );
+        const turniJson = JSON.stringify(turni, null, 8);
+        src = src.replace(
+          /const \[turni, setTurni\] = useState\([\s\S]*?\n      \]\);/,
+          'const [turni, setTurni] = useState(' + turniJson + ');'
+        );
+        const straoJson = JSON.stringify(straordinari, null, 8);
+        src = src.replace(
+          /const \[straordinari, setStraordinari\] = useState\([\s\S]*?\n      \]\);/,
+          'const [straordinari, setStraordinari] = useState(' + straoJson + ');'
+        );
+
+        // Ricostruisce l'HTML completo
+        const headHtml = document.querySelector('head').innerHTML;
+        const newHtml = [
+          '<!DOCTYPE html>',
+          '<html lang="it">',
+          '<head>' + headHtml + '</head>',
+          '<body>',
+          '  <div id="root"></div>',
+          '  <script type="text/babel">',
+          src,
+          '<\/script>',
+          '</body>',
+          '</html>'
+        ].join('\n');
+
+        const blob = new Blob([newHtml], { type: 'text/html' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        const today = new Date().toISOString().slice(0, 10);
+        a.download = 'calcolatore_turni_' + today + '.html';
+        a.click();
+        URL.revokeObjectURL(url);
+      }, [colli, rate, turni, straordinari]);
+
+      const reset = useCallback(() => {
+        if (!window.confirm("Sei sicuro di voler cancellare tutto e ricominciare da zero?")) return;
+        localStorage.removeItem(LS_KEY);
+        setColli(12900);
+        setRate(90);
+        setTurni(DEFAULT_TURNI);
+        setStraordinari([]);
+        setStraPersone(DEFAULT_TURNI.map(t => ({ id: t.id, inizio: "", fine: "", persone: 0, rate: 90 })));
+        setRisultato(null);
+        setInvResult(null);
+        setOraTarget("18:00");
+      }, []);
+
+      const calcolaInverso = useCallback(() => {
+        const target = timeToMin(oraTarget);
+        const colliN = Number(colli);
+        const r = Number(rate);
+        const TOL = 20;
+
+        const calcFine = (allT) => {
+          const evSet = new Set();
+          allT.forEach(t => {
+            evSet.add(timeToMin(t.inizio)); evSet.add(timeToMin(t.fine));
+            if (t.pausaInizio && t.pausaFine) { evSet.add(timeToMin(t.pausaInizio)); evSet.add(timeToMin(t.pausaFine)); }
+          });
+          const ev = Array.from(evSet).sort((a,b) => a-b);
+          let cum = 0;
+          for (let i = 0; i < ev.length-1; i++) {
+            const frm = ev[i], to = ev[i+1];
+            let pers = 0;
+            allT.forEach(t => {
+              const tIn = timeToMin(t.inizio), tOut = timeToMin(t.fine);
+              const pIn = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+              const pOut = t.pausaFine ? timeToMin(t.pausaFine) : null;
+              if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
+                pers += Number(t.persone);
+            });
+            if (pers === 0) continue;
+            const prod = pers * r * (to - frm) / 60;
+            if (cum + prod >= colliN) return frm + (colliN - cum) / (pers * r) * 60;
+            cum += prod;
+          }
+          return null;
+        };
+
+        const turniEff = turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) }));
+        const mat = turniEff.find(t => /mattina/i.test(t.nome));
+        const pom = turniEff.find(t => /pomeriggio/i.test(t.nome));
+        const fineAtt = calcFine(turniEff);
+        const fineAttStr = fineAtt ? minToTime(Math.round(fineAtt)) : null;
+        const diff = fineAtt ? fineAtt - target : null;
+
+        if (fineAtt && Math.abs(diff) <= TOL) {
+          setInvResult({ tipo: 'ok', fineAttuale: fineAttStr }); return;
+        }
+
+        // PASSO 1: sposta persone mattina <-> pomeriggio
+        if (mat && pom && fineAtt) {
+          const verso = diff < 0 ? 'mat_pom' : 'pom_mat';
+          const maxS = verso === 'mat_pom' ? mat.persone : pom.persone;
+          for (let s = 1; s <= maxS; s++) {
+            const tm = turniEff.map(t => {
+              const tc = { ...t };
+              if (verso === 'mat_pom') { if (t.id === mat.id) tc.persone = Math.max(0, mat.persone-s); if (t.id === pom.id) tc.persone = pom.persone+s; }
+              else { if (t.id === mat.id) tc.persone = mat.persone+s; if (t.id === pom.id) tc.persone = Math.max(0, pom.persone-s); }
+              return tc;
+            });
+            const fm = calcFine(tm);
+            if (fm && Math.abs(fm - target) <= TOL) {
+              setInvResult({ tipo: 'sposta', fineAttuale: fineAttStr, fineNuova: minToTime(Math.round(fm)),
+                spostamento: { quante: s, da: verso === 'mat_pom' ? mat.nome : pom.nome, a: verso === 'mat_pom' ? pom.nome : mat.nome,
+                  mattinaNew: verso === 'mat_pom' ? mat.persone-s : mat.persone+s,
+                  pomeriggioNew: verso === 'mat_pom' ? pom.persone+s : Math.max(0, pom.persone-s) },
+                straordinari: null }); return;
+            }
+          }
+        }
+
+        // PASSO 2: straordinari (mattina 12:20-13:20, pomeriggio 12:00-13:00)
+        const maxM = mat ? mat.persone : 0, maxP = pom ? pom.persone : 0;
+        for (let pm = 0; pm <= maxP; pm++) {
+          for (let sm = 0; sm <= maxM; sm++) {
+            if (pm === 0 && sm === 0) continue;
+            const st = [];
+            if (sm > 0) st.push({ nome:'Strao Mattina', inizio:'12:20', fine:'13:20', persone:sm, pausaInizio:'', pausaFine:'' });
+            if (pm > 0) st.push({ nome:'Strao Pomeriggio', inizio:'12:00', fine:'13:00', persone:pm, pausaInizio:'', pausaFine:'' });
+            const fm = calcFine([...turniEff, ...st]);
+            if (fm && Math.abs(fm - target) <= TOL) {
+              setInvResult({ tipo: 'straordinario', fineAttuale: fineAttStr, fineNuova: minToTime(Math.round(fm)), spostamento: null, straordinari: st }); return;
+            }
+          }
+        }
+
+        // PASSO 3: combinato
+        if (mat && pom) {
+          for (let s = 1; s <= Math.min(mat.persone, pom.persone); s++) {
+            const tm = turniEff.map(t => { const tc={...t}; if(t.id===mat.id) tc.persone=Math.max(0,mat.persone-s); if(t.id===pom.id) tc.persone=pom.persone+s; return tc; });
+            for (let pm = 0; pm <= maxP; pm++) {
+              for (let sm = 0; sm <= maxM; sm++) {
+                if (pm === 0 && sm === 0) continue;
+                const st = [];
+                if (sm > 0) st.push({ nome:'Strao Mattina', inizio:'12:20', fine:'13:20', persone:sm, pausaInizio:'', pausaFine:'' });
+                if (pm > 0) st.push({ nome:'Strao Pomeriggio', inizio:'12:00', fine:'13:00', persone:pm, pausaInizio:'', pausaFine:'' });
+                const fm = calcFine([...tm, ...st]);
+                if (fm && Math.abs(fm - target) <= TOL) {
+                  setInvResult({ tipo: 'combinato', fineAttuale: fineAttStr, fineNuova: minToTime(Math.round(fm)),
+                    spostamento: { quante: s, da: mat.nome, a: pom.nome, mattinaNew: mat.persone-s, pomeriggioNew: pom.persone+s },
+                    straordinari: st }); return;
+                }
+              }
+            }
+          }
+        }
+
+        setInvResult({ tipo: 'impossibile', fineAttuale: fineAttStr, messaggio: 'Nessuna soluzione trovata con gli strumenti disponibili' });
+      }, [oraTarget, colli, rate, turni]);
+
+      const calcolaPunto = useCallback(() => {
+        if (!puntoOra || !puntoRimanenti) return;
+        const colliFatti = colli ? Math.max(0, Number(colli) - Number(puntoRimanenti)) : null;
+        const oraMinCheck = timeToMin(puntoOra);
+        const r2 = Number(rate);
+        const straValCheck = straPersone.filter(s => s.inizio && s.fine && Number(s.persone) > 0).map(s => ({ ...s, _rate: r2, nome: (turni.find(t => t.id === s.id)?.nome || "") + " (strao)" }));
+        const tuttiCheck = [...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)), _rate: r2 })), ...straValCheck, ...straordinari.filter(s => s.inizio && s.fine && Number(s.persone) > 0).map(s => ({ ...s, _rate: Number(s.rate) || r2 }))];
+        let colliPianificati = 0;
+        tuttiCheck.forEach(t => {
+          const tIn = timeToMin(t.inizio), tOut = Math.min(oraMinCheck, timeToMin(t.fine));
+          if (tIn >= oraMinCheck || tOut <= tIn) return;
+          const pIn = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+          const pOut = t.pausaFine ? timeToMin(t.pausaFine) : null;
+          let min = tOut - tIn;
+          if (pIn !== null && pOut > tIn && pIn < tOut) min -= Math.min(pOut, tOut) - Math.max(pIn, tIn);
+          if (min > 0) colliPianificati += Math.round(min / 60 * t._rate * Number(t.persone));
+        });
+        const confronto = colliFatti !== null ? { fatti: colliFatti, pianificati: Math.round(colliPianificati), delta: colliFatti - Math.round(colliPianificati) } : null;
+        const oraMin = timeToMin(puntoOra);
+        const rimanenti = Number(puntoRimanenti);
+        const r = Number(rate);
+        const straPersoneValidi = straPersone
+          .filter(s => s.inizio && s.fine && Number(s.persone) > 0)
+          .map(s => ({
+            id: s.id + "_stra",
+            nome: (turni.find(t => t.id === s.id)?.nome || "Strao") + " (strao)",
+            inizio: s.inizio,
+            fine: s.fine,
+            persone: Number(s.persone),
+            pausaInizio: "",
+            pausaFine: "",
+            _rate: r,
+          }));
+        const tuttiTurni = [
+          ...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)), _rate: r })),
+          ...straPersoneValidi,
+          ...straordinari.filter(s => s.inizio && s.fine && Number(s.persone) > 0).map(s => ({ ...s, _rate: Number(s.rate) || r })),
+        ];
+        let capRimanente = 0;
+        const dettaglio = [];
+        tuttiTurni.forEach(t => {
+          const tIn  = timeToMin(t.inizio);
+          const tOut = timeToMin(t.fine);
+          const pIn  = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+          const pOut = t.pausaFine   ? timeToMin(t.pausaFine)   : null;
+          const start = Math.max(oraMin, tIn);
+          if (start >= tOut) return;
+          let minDisp = tOut - start;
+          if (pIn !== null && pOut > start && pIn < tOut)
+            minDisp -= Math.min(pOut, tOut) - Math.max(pIn, start);
+          if (minDisp <= 0) return;
+          const colliTurno = Math.round(minDisp / 60 * t._rate * Number(t.persone));
+          capRimanente += colliTurno;
+          dettaglio.push({ nome: t.nome || "Turno", dalle: minToTime(start), alle: t.fine, persone: Number(t.persone), colli: colliTurno });
+        });
+        const ok = capRimanente >= rimanenti;
+        const mancaDelta = Math.round(Math.abs(rimanenti - capRimanente));
+        // Stima ora di fine precisa
+        let fineStimata = null;
+        if (ok) {
+          const events = new Set([oraMin]);
+          tuttiTurni.forEach(t => {
+            if (timeToMin(t.fine) > oraMin) {
+              events.add(Math.max(oraMin, timeToMin(t.inizio)));
+              events.add(timeToMin(t.fine));
+              if (t.pausaInizio && t.pausaFine) {
+                const pI = timeToMin(t.pausaInizio);
+                const pO = timeToMin(t.pausaFine);
+                if (pI > oraMin) events.add(pI);
+                if (pO > oraMin) events.add(pO);
+              }
+            }
+          });
+          const sorted = Array.from(events).filter(e => e >= oraMin).sort((a,b) => a-b);
+          let cum = 0;
+          for (let i = 0; i < sorted.length - 1; i++) {
+            const from = sorted[i], to = sorted[i+1];
+            if (from < oraMin) continue;
+            let pers = 0;
+            tuttiTurni.forEach(t => {
+              const tIn = timeToMin(t.inizio), tOut = timeToMin(t.fine);
+              const pIn = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+              const pOut = t.pausaFine  ? timeToMin(t.pausaFine)   : null;
+              const active = from >= tIn && to <= tOut;
+              const inPausa = pIn !== null && from >= pIn && to <= pOut;
+              if (active && !inPausa) pers += Number(t.persone);
+            });
+            if (pers === 0) continue;
+            const prod = pers * r * (to - from) / 60;
+            if (cum + prod >= rimanenti) {
+              fineStimata = minToTime(from + (rimanenti - cum) / (pers * r) * 60);
+              break;
+            }
+            cum += prod;
+          }
+        }
+        // Calcola colli in anticipo: produzione dalla fineStimata fino alla fine di tutti i turni
+        let anticipo = null;
+        if (ok && fineStimata) {
+          const fineMin = timeToMin(fineStimata);
+          let totaleAnticipo = 0;
+          const dettaglioAnticipo = [];
+          tuttiTurni.forEach(t => {
+            const tIn  = timeToMin(t.inizio);
+            const tOut = timeToMin(t.fine);
+            const pIn  = t.pausaInizio ? timeToMin(t.pausaInizio) : null;
+            const pOut = t.pausaFine   ? timeToMin(t.pausaFine)   : null;
+            const start = Math.max(fineMin, tIn);
+            if (start >= tOut) return;
+            let minDisp = tOut - start;
+            if (pIn !== null && pOut > start && pIn < tOut)
+              minDisp -= Math.min(pOut, tOut) - Math.max(pIn, start);
+            if (minDisp <= 0) return;
+            const colliTurno = Math.round(minDisp / 60 * t._rate * Number(t.persone));
+            totaleAnticipo += colliTurno;
+            dettaglioAnticipo.push({ nome: t.nome || "Turno", dalle: minToTime(start), alle: t.fine, persone: Number(t.persone), colli: colliTurno });
+          });
+          anticipo = { totale: totaleAnticipo, dettaglio: dettaglioAnticipo };
+        }
+
+        setPuntoResult({ ok, capRimanente: Math.round(capRimanente), rimanenti, mancaDelta, fineStimata, dettaglio, anticipo, confronto, colliFatti, puntoTotale: Number(colli) });
+      }, [puntoOra, puntoRimanenti, turni, straordinari, straPersone, rate]);
+
+      const TEMI = {
+        dark:     { bg:"#0f1117", bg2:"#1a1d27", border:"#2a2d3a", text:"#e8e8e0", textDim:"#555", accent:"#f59e0b", accent2:"#a78bfa", ok:"#10b981", err:"#ef4444", headerBg:"linear-gradient(135deg,#1a1d27 0%,#0f1117 100%)", iconBg:"#f59e0b", iconColor:"#000" },
+        light:    { bg:"#f5f5f0", bg2:"#ffffff", border:"#d1d5db", text:"#1a1a1a", textDim:"#9ca3af", accent:"#ea580c", accent2:"#7c3aed", ok:"#059669", err:"#dc2626", headerBg:"linear-gradient(135deg,#ffffff 0%,#f5f5f0 100%)", iconBg:"#ea580c", iconColor:"#fff" },
+        crt:      { bg:"#020c02", bg2:"#060f06", border:"#1a4a12", text:"#39ff14", textDim:"#1a7a08", accent:"#39ff14", accent2:"#ffb800", ok:"#39ff14", err:"#ff3c3c", headerBg:"linear-gradient(135deg,#060f06 0%,#020c02 100%)", iconBg:"transparent", iconColor:"#39ff14" },
+        ocean:    { bg:"#020d1a", bg2:"#0a1628", border:"#1a3a5c", text:"#e0f2fe", textDim:"#38bdf8", accent:"#06b6d4", accent2:"#0ea5e9", ok:"#22d3ee", err:"#f43f5e", headerBg:"linear-gradient(135deg,#0a1628 0%,#020d1a 100%)", iconBg:"#06b6d4", iconColor:"#000" },
+        purple:   { bg:"#0d0a1a", bg2:"#1a1030", border:"#2d1b6e", text:"#f0e6ff", textDim:"#7c3aed", accent:"#c026d3", accent2:"#e879f9", ok:"#a855f7", err:"#f43f5e", headerBg:"linear-gradient(135deg,#1a1030 0%,#0d0a1a 100%)", iconBg:"#c026d3", iconColor:"#fff" },
+        red:      { bg:"#0d0000", bg2:"#1a0000", border:"#5c1a1a", text:"#ffe4e4", textDim:"#dc2626", accent:"#ef4444", accent2:"#f97316", ok:"#22c55e", err:"#ff0000", headerBg:"linear-gradient(135deg,#1a0000 0%,#0d0000 100%)", iconBg:"#ef4444", iconColor:"#fff" },
+      };
+      const T = TEMI[tema] || TEMI.dark;
+      const S = {
+        page:    { minHeight:"100vh", background:T.bg, color:T.text, fontFamily:"'Courier New','Consolas',monospace" },
+        header:  { background:T.headerBg, borderBottom:`2px solid ${T.accent}`, padding:"20px 28px", display:"flex", alignItems:"center", gap:"14px", flexWrap:"wrap" },
+        icon:    { width:"42px", height:"42px", background:T.iconBg, border:`2px solid ${T.accent}`, borderRadius:"8px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0, color:T.iconColor },
+        wrap:    { maxWidth:"980px", margin:"0 auto", padding:"28px 20px" },
+        panel:   { background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"12px" },
+        label:   { fontSize:"9px", letterSpacing:"2px", color:T.textDim, marginBottom:"5px" },
+      };
+
+      const isOk = risultato && (risultato.ok || (risultato.straResult && risultato.straResult.ok));
+
+      return (
+        <div style={S.page}>
+          {/* ── Header ── */}
+          <div style={S.header}>
+            <div style={S.icon}>📦</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:"19px", fontWeight:"bold", letterSpacing:"3px", color:"#f59e0b", textTransform:"uppercase" }}>Organizzazione Turni</div>
+              <div style={{ fontSize:"10px", color:"#555", letterSpacing:"2px" }}></div>
+            </div>
+            <button onClick={copiaPianificazione} style={{
+              background: copiatoMsg ? "rgba(16,185,129,0.15)" : "transparent",
+              border: copiatoMsg ? "1px solid #10b981" : "1px solid #a78bfa",
+              borderRadius:"8px", color: copiatoMsg ? "#10b981" : "#a78bfa",
+              fontFamily:"inherit", fontSize:"12px", letterSpacing:"2px",
+              padding:"8px 16px", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px",
+              transition:"all 0.2s", flexShrink:0,
+            }}>
+              {copiatoMsg ? "✅ COPIATO!" : "📋 COPIA"}
+            </button>
+            <button onClick={salva} style={{
+              background:"transparent", border:"1px solid #10b981", borderRadius:"8px",
+              color:"#10b981", fontFamily:"inherit", fontSize:"12px", letterSpacing:"2px",
+              padding:"8px 16px", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px",
+              transition:"all 0.2s", flexShrink:0,
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background="rgba(16,185,129,0.12)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background="transparent"; }}
+            >💾 SALVA</button>
+            <button onClick={() => { setShowImpostazioni(true); setTurniImp(turni.map(t=>({...t}))); }} style={{
+              background:"transparent", border:"1px solid #a78bfa", borderRadius:"8px",
+              color:"#a78bfa", fontFamily:"inherit", fontSize:"12px", letterSpacing:"2px",
+              padding:"8px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px",
+              transition:"all 0.2s", flexShrink:0,
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background="rgba(167,139,250,0.12)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background="transparent"; }}
+            >⚙ IMPOSTAZIONI</button>
+            <button onClick={reset} title="Cancella tutto e ricomincia da zero" style={{
+              background:"transparent", border:"1px solid #ef4444", borderRadius:"8px",
+              color:"#ef4444", fontFamily:"inherit", fontSize:"12px", letterSpacing:"2px",
+              padding:"8px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px",
+              transition:"all 0.2s", flexShrink:0,
+            }}
+              onMouseEnter={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.12)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background="transparent"; }}
+            >🗑 RESET</button>
+
+            {/* ── Modal IMPOSTAZIONI ── */}
+            {showImpostazioni && (
+              <div style={{
+                position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000,
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }} onClick={(e) => { if(e.target===e.currentTarget) { setShowImpostazioni(false); setNuovaPass(""); setConfPass(""); setPassMsg(""); } }}>
+                <div style={{
+                  background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"16px",
+                  padding:"32px", width:"620px", maxWidth:"95vw", fontFamily:"'Courier New',monospace",
+                  maxHeight:"90vh", overflowY:"auto",
+                }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"28px" }}>
+                    <div style={{ fontSize:"14px", fontWeight:"bold", letterSpacing:"3px", color:T.accent2 }}>⚙ IMPOSTAZIONI</div>
+                    <button onClick={() => { setShowImpostazioni(false); setNuovaPass(""); setConfPass(""); setPassMsg(""); }} style={{
+                      background:"transparent", border:"none", color:T.textDim, fontSize:"20px", cursor:"pointer", lineHeight:1,
+                    }}>×</button>
+                  </div>
+
+                  {/* GESTIONE TURNI */}
+                  <div style={{ marginBottom:"28px" }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:T.accent, marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>🕐 GESTIONE TURNI DI LAVORO</div>
+                    {turniImp && turniImp.map((t, idx) => (
+                      <div key={t.id} style={{ background:T.bg, border:`1px solid ${T.border}`, borderRadius:"8px", padding:"12px", marginBottom:"10px" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                          <div style={{ fontSize:"9px", letterSpacing:"2px", color:T.textDim }}>TURNO {idx+1}</div>
+                          <button onClick={() => delTurnoImp(t.id)} style={{ background:"transparent", border:"none", color:T.err, cursor:"pointer", fontSize:"16px", lineHeight:1 }}>×</button>
+                        </div>
+                        {/* Nome */}
+                        <div style={{ marginBottom:"8px" }}>
+                          <div style={{ fontSize:"8px", color:T.textDim, marginBottom:"3px", letterSpacing:"1px" }}>NOME</div>
+                          <input type="text" value={t.nome} onChange={(e) => updTurnoImp(t.id,"nome",e.target.value)}
+                            style={{ width:"100%", background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"6px", color:T.text, fontFamily:"inherit", fontSize:"13px", padding:"6px 10px", outline:"none" }} />
+                        </div>
+                        {/* Orari */}
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginBottom:"8px" }}>
+                          <div>
+                            <div style={{ fontSize:"8px", color:T.textDim, marginBottom:"3px", letterSpacing:"1px" }}>INIZIO</div>
+                            <input type="time" value={t.inizio} onChange={(e) => updTurnoImp(t.id,"inizio",e.target.value)}
+                              style={{ width:"100%", background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"6px", color:T.accent, fontFamily:"inherit", fontSize:"13px", padding:"6px 8px", outline:"none" }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize:"8px", color:T.textDim, marginBottom:"3px", letterSpacing:"1px" }}>FINE</div>
+                            <input type="time" value={t.fine} onChange={(e) => updTurnoImp(t.id,"fine",e.target.value)}
+                              style={{ width:"100%", background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"6px", color:T.accent, fontFamily:"inherit", fontSize:"13px", padding:"6px 8px", outline:"none" }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize:"8px", color:T.textDim, marginBottom:"3px", letterSpacing:"1px" }}>PAUSA INIZIO</div>
+                            <input type="time" value={t.pausaInizio||""} onChange={(e) => updTurnoImp(t.id,"pausaInizio",e.target.value)}
+                              style={{ width:"100%", background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"6px", color:T.textDim, fontFamily:"inherit", fontSize:"13px", padding:"6px 8px", outline:"none" }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize:"8px", color:T.textDim, marginBottom:"3px", letterSpacing:"1px" }}>PAUSA FINE</div>
+                            <input type="time" value={t.pausaFine||""} onChange={(e) => updTurnoImp(t.id,"pausaFine",e.target.value)}
+                              style={{ width:"100%", background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"6px", color:T.textDim, fontFamily:"inherit", fontSize:"13px", padding:"6px 8px", outline:"none" }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display:"flex", gap:"8px" }}>
+                      <button onClick={aggTurnoImp} style={{
+                        flex:1, padding:"9px", background:"transparent", border:`1px dashed ${T.border}`,
+                        borderRadius:"8px", color:T.textDim, fontFamily:"inherit", fontSize:"11px",
+                        letterSpacing:"2px", cursor:"pointer",
+                      }}>+ AGGIUNGI TURNO</button>
+                      <button onClick={() => { salvaDefaultTurni(); setShowImpostazioni(false); alert('✅ Turni salvati come default!'); }} style={{
+                        flex:1, padding:"9px", background:`rgba(255,255,255,0.06)`, border:`1px solid ${T.ok}`,
+                        borderRadius:"8px", color:T.ok, fontFamily:"inherit", fontSize:"11px",
+                        letterSpacing:"2px", cursor:"pointer", fontWeight:"bold",
+                      }}>💾 SALVA TURNI</button>
+                    </div>
+                  </div>
+
+                  {/* TEMA */}
+                  <div style={{ marginBottom:"28px" }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:T.accent, marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>🎨 TEMA COLORI</div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px" }}>
+                      {[
+                        { id:"dark",   label:"🌑 Midnight", sub:"nero/giallo" },
+                        { id:"light",  label:"☀️ Clean",    sub:"bianco/arancio" },
+                        { id:"crt",    label:"🟢 CRT",       sub:"verde neon" },
+                        { id:"ocean",  label:"🌊 Ocean",     sub:"blu/cyan" },
+                        { id:"purple", label:"🟣 Neon",      sub:"viola/rosa" },
+                        { id:"red",    label:"🔴 Industrial",sub:"nero/rosso" },
+                      ].map(t => (
+                        <button key={t.id} onClick={() => setTema(t.id)} style={{
+                          padding:"8px 4px", borderRadius:"8px",
+                          border:`2px solid ${tema===t.id ? T.accent : T.border}`,
+                          background: tema===t.id ? `rgba(255,255,255,0.08)` : "transparent",
+                          color: tema===t.id ? T.accent : T.textDim,
+                          fontFamily:"inherit", fontSize:"10px", cursor:"pointer",
+                          textAlign:"center", lineHeight:"1.4",
+                        }}>
+                          <div style={{ fontWeight:"bold" }}>{t.label}</div>
+                          <div style={{ fontSize:"8px", opacity:0.7 }}>{t.sub}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SCHERMO INTERO */}
+                  <div style={{ marginBottom:"28px" }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:T.accent, marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>⛶ SCHERMO INTERO</div>
+                    <button onClick={() => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); setShowImpostazioni(false); }} style={{
+                      width:"100%", padding:"10px", background:"transparent", border:`1px solid ${T.border}`,
+                      borderRadius:"8px", color:T.text, fontFamily:"inherit", fontSize:"12px",
+                      letterSpacing:"2px", cursor:"pointer",
+                    }}>
+                      {document.fullscreenElement ? "↙ ESCI DA SCHERMO INTERO" : "↗ ATTIVA SCHERMO INTERO"}
+                    </button>
+                  </div>
+
+                  {/* EMAIL */}
+                  <div style={{ marginBottom:"28px" }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:"#ea4335", marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>✉ EMAIL GMAIL</div>
+                    <div style={{ fontSize:"9px", letterSpacing:"1px", color:T.textDim, marginBottom:"6px" }}>DESTINATARIO</div>
+                    <input type="email" value={emailDest} onChange={(e) => setEmailDest(e.target.value)}
+                      placeholder="email@gmail.com"
+                      style={{ width:"100%", background:T.bg, border:`1px solid ${T.border}`, borderRadius:"8px",
+                        color:T.text, fontFamily:"inherit", fontSize:"14px", padding:"10px 14px",
+                        outline:"none", marginBottom:"10px" }} />
+                    <button onClick={() => { setShowImpostazioni(false); inviaEmail(); }} style={{
+                      width:"100%", padding:"10px", background:"rgba(234,67,53,0.12)", border:"1px solid #ea4335",
+                      borderRadius:"8px", color:"#ea4335", fontFamily:"inherit", fontSize:"12px",
+                      letterSpacing:"2px", cursor:"pointer", fontWeight:"bold",
+                    }}>✉ INVIA EMAIL ORA</button>
+                  </div>
+
+                  {/* STORICO */}
+                  <div style={{ marginBottom:"28px" }}>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:T.accent, marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>📅 STORICO GIORNATE</div>
+                    <button onClick={() => {
+                      const oggi = new Date();
+                      const dd = String(oggi.getDate()).padStart(2,"0");
+                      const mm = String(oggi.getMonth()+1).padStart(2,"0");
+                      const yyyy = oggi.getFullYear();
+                      const entry = {
+                        data: dd+"/"+mm+"/"+yyyy,
+                        colli: Number(colli),
+                        chiusura: risultato?.fineFinale || "—",
+                        presenti: turni.reduce((a,t) => a+Math.max(0,Number(t.persone)-Number(t.assenti||0)),0),
+                        assenti: turni.reduce((a,t) => a+Number(t.assenti||0),0),
+                        anticipo: risultato?.anticipo?.totale || 0,
+                      };
+                      const newStorico = [entry, ...storico.filter(s => s.data !== entry.data)].slice(0,30);
+                      setStorico(newStorico);
+                      try { localStorage.setItem("turni_storico", JSON.stringify(newStorico)); } catch(e) {}
+                      setShowImpostazioni(false);
+                      setShowStorico(true);
+                    }} style={{
+                      width:"100%", padding:"10px", background:"transparent", border:`1px solid ${T.ok}`,
+                      borderRadius:"8px", color:T.ok, fontFamily:"inherit", fontSize:"12px",
+                      letterSpacing:"2px", cursor:"pointer", fontWeight:"bold", marginBottom:"8px",
+                    }}>💾 SALVA GIORNATA DI OGGI</button>
+                    <button onClick={() => { setShowImpostazioni(false); setShowStorico(true); }} style={{
+                      width:"100%", padding:"10px", background:"transparent", border:`1px solid ${T.border}`,
+                      borderRadius:"8px", color:T.textDim, fontFamily:"inherit", fontSize:"12px",
+                      letterSpacing:"2px", cursor:"pointer",
+                    }}>📋 VEDI STORICO</button>
+                  </div>
+
+                  {/* CODICE ACCESSO */}
+                  <div>
+                    <div style={{ fontSize:"10px", letterSpacing:"2px", color:T.accent2, marginBottom:"12px", borderBottom:`1px solid ${T.border}`, paddingBottom:"6px" }}>🔑 CODICE DI ACCESSO</div>
+                    <div style={{ fontSize:"9px", letterSpacing:"1px", color:T.textDim, marginBottom:"6px" }}>NUOVO CODICE</div>
+                    <input type="password" value={nuovaPass} onChange={(e) => setNuovaPass(e.target.value)}
+                      placeholder="nuovo codice"
+                      style={{ width:"100%", background:T.bg, border:`1px solid ${T.border}`, borderRadius:"8px",
+                        color:T.text, fontFamily:"inherit", fontSize:"14px", padding:"10px 14px",
+                        outline:"none", marginBottom:"10px" }} />
+                    <div style={{ fontSize:"9px", letterSpacing:"1px", color:T.textDim, marginBottom:"6px" }}>CONFERMA CODICE</div>
+                    <input type="password" value={confPass} onChange={(e) => setConfPass(e.target.value)}
+                      placeholder="ripeti codice"
+                      style={{ width:"100%", background:T.bg, border:`1px solid ${T.border}`, borderRadius:"8px",
+                        color:T.text, fontFamily:"inherit", fontSize:"14px", padding:"10px 14px",
+                        outline:"none", marginBottom:"12px" }} />
+                    {passMsg && <div style={{ fontSize:"11px", color: passMsg.startsWith("✅") ? T.ok : T.err, marginBottom:"10px", textAlign:"center" }}>{passMsg}</div>}
+                    <button onClick={() => {
+                      if (!nuovaPass) { setPassMsg("✗ Inserisci un codice"); return; }
+                      if (nuovaPass !== confPass) { setPassMsg("✗ I codici non coincidono"); return; }
+                      try { localStorage.setItem("turni_access_code", nuovaPass); } catch(e) {}
+                      setPassMsg("✅ Codice aggiornato!");
+                      setTimeout(() => { setShowImpostazioni(false); setNuovaPass(""); setConfPass(""); setPassMsg(""); }, 1500);
+                    }} style={{
+                      width:"100%", padding:"10px", background:`rgba(167,139,250,0.15)`, border:`1px solid ${T.accent2}`,
+                      borderRadius:"8px", color:T.accent2, fontFamily:"inherit", fontSize:"12px",
+                      fontWeight:"bold", cursor:"pointer", letterSpacing:"2px",
+                    }}>🔑 AGGIORNA CODICE</button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Modal STORICO ── */}
+          {showStorico && (() => {
+            const storicoRev = [...storico].reverse();
+            const maxColli = Math.max(...storicoRev.map(r => r.colli), 1);
+            const W = 560, H = 180, PL = 40, PR = 10, PT = 20, PB = 30;
+            const w = W - PL - PR, h = H - PT - PB;
+            const barW = Math.min(40, (w / Math.max(storicoRev.length, 1)) - 4);
+            const gap = w / Math.max(storicoRev.length, 1);
+            const mToT = m => { const hh=Math.floor(m/60),mm=m%60; return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; };
+            const chiusMin = r => { if(!r.chiusura||r.chiusura==="—") return null; const [hh,mm]=r.chiusura.split(":").map(Number); return hh*60+mm; };
+            return (
+            <div style={{
+              position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000,
+              display:"flex", alignItems:"center", justifyContent:"center",
+            }} onClick={(e) => { if(e.target===e.currentTarget) setShowStorico(false); }}>
+              <div style={{
+                background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"16px",
+                padding:"28px", width:"620px", maxWidth:"95vw", fontFamily:"'Courier New',monospace",
+                maxHeight:"90vh", overflowY:"auto",
+              }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
+                  <div style={{ fontSize:"14px", fontWeight:"bold", letterSpacing:"3px", color:T.accent }}>📅 STORICO GIORNATE</div>
+                  <button onClick={() => setShowStorico(false)} style={{ background:"transparent", border:"none", color:T.textDim, fontSize:"22px", cursor:"pointer" }}>×</button>
+                </div>
+
+                {storico.length === 0 ? (
+                  <div style={{ textAlign:"center", color:T.textDim, padding:"32px", fontSize:"12px", letterSpacing:"2px" }}>
+                    Nessuna giornata salvata.<br/>Usa "Salva giornata di oggi" nelle impostazioni.
+                  </div>
+                ) : (
+                  <div>
+                    {/* ── GRAFICO COLLI ── */}
+                    <div style={{ marginBottom:"6px", fontSize:"9px", letterSpacing:"2px", color:T.textDim }}>COLLI PROCESSATI PER GIORNATA</div>
+                    <div style={{ overflowX:"auto", marginBottom:"20px" }}>
+                      <svg width={Math.max(W, storicoRev.length*50)} height={H} style={{ display:"block" }}>
+                        {/* Grid lines */}
+                        {[0,0.25,0.5,0.75,1].map(p => {
+                          const y = PT + h - h*p;
+                          return (
+                            <g key={p}>
+                              <line x1={PL} y1={y} x2={PL+w} y2={y} stroke={T.border} strokeWidth="1" strokeDasharray="3,3"/>
+                              <text x={PL-4} y={y+4} textAnchor="end" fill={T.textDim} fontSize="8">{Math.round(maxColli*p/1000)}k</text>
+                            </g>
+                          );
+                        })}
+                        {/* Bars */}
+                        {storicoRev.map((r, i) => {
+                          const x = PL + i*gap + gap/2 - barW/2;
+                          const barH = Math.max(4, (r.colli/maxColli)*h);
+                          const y = PT + h - barH;
+                          const cm = chiusMin(r);
+                          const isOk = cm !== null && cm <= 19*60;
+                          const col = isOk ? T.ok : (cm === null ? T.textDim : T.err);
+                          return (
+                            <g key={i}>
+                              <rect x={x} y={y} width={barW} height={barH} fill={col} opacity="0.8" rx="3"/>
+                              <text x={x+barW/2} y={y-5} textAnchor="middle" fill={col} fontSize="9" fontWeight="bold">
+                                {r.colli>=1000 ? (r.colli/1000).toFixed(1)+"k" : r.colli}
+                              </text>
+                              <text x={x+barW/2} y={PT+h+14} textAnchor="middle" fill={T.textDim} fontSize="8">
+                                {r.data.slice(0,5)}
+                              </text>
+                              {r.chiusura && r.chiusura!=="—" && (
+                                <text x={x+barW/2} y={PT+h+24} textAnchor="middle" fill={col} fontSize="7">
+                                  {r.chiusura}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
+                        {/* Axes */}
+                        <line x1={PL} y1={PT} x2={PL} y2={PT+h} stroke={T.border} strokeWidth="1"/>
+                        <line x1={PL} y1={PT+h} x2={PL+w} y2={PT+h} stroke={T.border} strokeWidth="1"/>
+                      </svg>
+                    </div>
+                    {/* Legenda */}
+                    <div style={{ display:"flex", gap:"16px", fontSize:"9px", color:T.textDim, marginBottom:"20px", flexWrap:"wrap" }}>
+                      <span><span style={{color:T.ok}}>■</span> Chiusura in orario</span>
+                      <span><span style={{color:T.err}}>■</span> Chiusura in ritardo</span>
+                      <span><span style={{color:T.textDim}}>■</span> Nessuna chiusura</span>
+                    </div>
+
+                    {/* ── TABELLA ── */}
+                    <div style={{ overflowX:"auto" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+                        <thead>
+                          <tr style={{ background:T.bg }}>
+                            {["DATA","COLLI","PRESENTI","ASSENTI","CHIUSURA","ANTICIPO"].map(h => (
+                              <th key={h} style={{ padding:"8px 10px", textAlign:"right", color:T.textDim, fontSize:"9px", letterSpacing:"1px", fontWeight:"normal", whiteSpace:"nowrap" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {storico.map((r, i) => {
+                            const cm = chiusMin(r);
+                            const isOk = cm !== null && cm <= 19*60;
+                            return (
+                            <tr key={i} style={{ borderTop:`1px solid ${T.border}` }}>
+                              <td style={{ padding:"9px 10px", color:T.accent, fontWeight:"bold", whiteSpace:"nowrap" }}>{r.data}</td>
+                              <td style={{ padding:"9px 10px", textAlign:"right", color:T.text }}>{r.colli.toLocaleString("it-IT")}</td>
+                              <td style={{ padding:"9px 10px", textAlign:"right", color:T.ok }}>{r.presenti}</td>
+                              <td style={{ padding:"9px 10px", textAlign:"right", color:T.err }}>{r.assenti > 0 ? r.assenti : "—"}</td>
+                              <td style={{ padding:"9px 10px", textAlign:"right", color: isOk ? T.ok : T.err, fontWeight:"bold" }}>{r.chiusura}</td>
+                              <td style={{ padding:"9px 10px", textAlign:"right", color:T.accent2 }}>{r.anticipo > 0 ? "+"+r.anticipo.toLocaleString("it-IT") : "—"}</td>
+                            </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <button onClick={() => { if(window.confirm("Cancellare tutto lo storico?")) { setStorico([]); try { localStorage.removeItem("turni_storico"); } catch(e) {} } }} style={{
+                      marginTop:"16px", padding:"8px 16px", background:"transparent", border:`1px solid ${T.err}`,
+                      borderRadius:"8px", color:T.err, fontFamily:"inherit", fontSize:"10px",
+                      letterSpacing:"2px", cursor:"pointer",
+                    }}>🗑 CANCELLA STORICO</button>
+                  </div>
+                )}
+              </div>
+            </div>
+            );
+          })()}
+
+          <div style={S.wrap}>
+            {/* ── Colli + Rate ── */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px", marginBottom:"22px" }}>
+              <div style={{ ...S.panel, padding:"20px" }}>
+                <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#f59e0b", marginBottom:"8px" }}>COLLI DA PROCESSARE</div>
+                <input type="number" value={colli} onChange={(e) => setColli(e.target.value)}
+                  style={{ background:"#0f1117", border:"2px solid #f59e0b", borderRadius:"8px", color:"#f59e0b", fontFamily:"inherit", fontSize:"30px", fontWeight:"bold", padding:"10px 14px", width:"100%", outline:"none" }} />
+              </div>
+              <div style={{ ...S.panel, padding:"20px" }}>
+                <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#a78bfa", marginBottom:"8px" }}>COLLI / PERSONA / ORA</div>
+                <div style={{ display:"flex", gap:"8px", alignItems:"stretch" }}>
+                  {[90, 100].map((v) => (
+                    <button key={v} onClick={() => setRate(v)} style={{
+                      flex:1, padding:"10px 6px", borderRadius:"8px",
+                      border:`2px solid ${rate == v ? "#a78bfa" : "#2a2d3a"}`,
+                      background: rate == v ? "rgba(167,139,250,0.15)" : "transparent",
+                      color: rate == v ? "#a78bfa" : "#555", fontFamily:"inherit",
+                      fontWeight:"bold", fontSize:"20px", cursor:"pointer", transition:"all 0.2s",
+                    }}>{v}</button>
+                  ))}
+                  <input type="number" value={rate} onChange={(e) => setRate(e.target.value)} min={1}
+                    style={{ background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"8px", color:"#e8e8e0", fontFamily:"inherit", fontSize:"15px", padding:"8px 10px", width:"76px", textAlign:"center" }} placeholder="?" />
+                </div>
+              </div>
+            </div>
+
+            {/* ── TURNI + STRAORDINARI + colonne rapide sticky ── */}
+            <div style={{ display:"flex", gap:"14px", alignItems:"flex-start" }}>
+
+              {/* Colonna sinistra: turni + straordinari */}
+              <div style={{ flex:1, display:"flex", flexDirection:"column", gap:"0px" }}>
+
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+                  <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#f59e0b" }}>TURNI DI LAVORO</div>
+                  <button onClick={() => {
+                    const myDefault = (() => { try { const d = localStorage.getItem("turni_default_turni"); return d ? JSON.parse(d) : null; } catch(e) { return null; } })();
+                    const base = myDefault || DEFAULT_TURNI;
+                    setTurni(base.map(t => { const cur = turni.find(x => x.id === t.id); return { ...t, persone: cur ? cur.persone : 0, assenti: cur ? cur.assenti||0 : 0 }; }));
+                  }}
+                    style={{ padding:"3px 8px", background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:"5px", color:"#ef4444", fontFamily:"inherit", fontSize:"9px", letterSpacing:"1px", cursor:"pointer", fontWeight:"bold" }}
+                    onMouseEnter={(e) => e.currentTarget.style.background="rgba(239,68,68,0.25)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background="rgba(239,68,68,0.1)"}
+                  >↺ RESET</button>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginBottom:"8px" }}>
+                  {turni.map((t, idx) => (
+                    <TurnoCard key={t.id} t={t} idx={idx} onUpdate={aggiornaTurno} onRemove={rimuoviTurno} onReset={resetTurno} />
+                  ))}
+                </div>
+                <AddBtn onClick={aggiungiTurno} label="+ AGGIUNGI TURNO" color="#f59e0b" />
+
+                {/* ── Straordinari ── */}
+                {straordinari.length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:"10px", marginTop:"10px" }}>
+                    {straordinari.map((s, idx) => (
+                      <TurnoCard key={s.id} t={s} idx={idx} onUpdate={aggiornaStrao} onRemove={rimuoviStrao} isStrao={true} />
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Risultato: CHIUSURA PREVISTA ── */}
+                {risultato && (
+                  <div style={{ animation:"fadeIn 0.4s ease", marginTop:"24px" }}>
+                    <div style={{
+                      background: isOk ? "linear-gradient(135deg,#064e3b,#065f46)" : "linear-gradient(135deg,#450a0a,#7f1d1d)",
+                      border:`2px solid ${isOk ? "#10b981" : "#ef4444"}`,
+                      borderRadius:"14px", padding:"26px", textAlign:"center",
+                    }}>
+                      {isOk ? (
+                        <>
+                          <div style={{ fontSize:"12px", letterSpacing:"3px", color:"#6ee7b7", marginBottom:"6px" }}>
+                            {risultato.ok ? "CHIUSURA PREVISTA" : "CHIUSURA PREVISTA (CON STRAORDINARI)"}
+                          </div>
+                          <div style={{ fontSize:"60px", fontWeight:"bold", color:"#10b981", letterSpacing:"4px" }}>{risultato.fineFinale}</div>
+                          <div style={{ fontSize:"11px", color:"#6ee7b7", marginTop:"6px", letterSpacing:"2px" }}>
+                            {Number(colli).toLocaleString("it-IT")} COLLI ✓
+                            {!risultato.ok && <span style={{ color:"#fbbf24", marginLeft:"8px" }}>⚡ completato con straordinari</span>}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:"12px", letterSpacing:"3px", color:"#fca5a5", marginBottom:"6px" }}>TURNI INSUFFICIENTI</div>
+                          <div style={{ fontSize:"24px", color:"#ef4444", fontWeight:"bold" }}>
+                            Mancano {(Number(colli) - risultato.cumulo - (risultato.straResult ? risultato.straResult.cumulo : 0)).toLocaleString("it-IT")} colli
+                          </div>
+                          <div style={{ fontSize:"12px", color:"#fca5a5", marginTop:"6px" }}>
+                            Prodotti: {(risultato.cumulo + (risultato.straResult ? risultato.straResult.cumulo : 0)).toLocaleString("it-IT")} / {Number(colli).toLocaleString("it-IT")}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Dettaglio fasce orarie ── */}
+                {risultato && <TabellaFasce rows={risultato.rows} colli={Number(colli)} />}
+
+                {/* ── Anticipo giorno successivo ── */}
+                {risultato && risultato.anticipo && risultato.anticipo.totale > 0 && (
+                  <div style={{ background:"linear-gradient(135deg,#0c1a3a,#0f1f4a)", border:"2px solid #3b82f6", borderRadius:"14px", overflow:"hidden", marginTop:"18px" }}>
+                    <div style={{ background:"#1e3a6e", padding:"14px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"10px" }}>
+                      <div>
+                        <div style={{ fontSize:"9px", letterSpacing:"3px", color:"#93c5fd", marginBottom:"3px" }}>⚡ ANTICIPO GIORNO SUCCESSIVO</div>
+                        <div style={{ fontSize:"12px", color:"#bfdbfe" }}>Capacità residua dopo le {risultato.fineFinale}</div>
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:"10px", color:"#93c5fd", letterSpacing:"2px" }}>COLLI ANTICIPABILI</div>
+                        <div style={{ fontSize:"44px", fontWeight:"bold", color:"#3b82f6", lineHeight:1 }}>{risultato.anticipo.totale.toLocaleString("it-IT")}</div>
+                      </div>
+                    </div>
+                    <div style={{ overflowX:"auto" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+                        <thead>
+                          <tr style={{ background:"#0a1628" }}>
+                            {["TURNO","PERSONE","DALLE","ALLE","PAUSA","MIN. LAV.","COLLI"].map(h => (
+                              <th key={h} style={{ padding:"9px 12px", textAlign:"right", color:"#3b5a8a", fontSize:"9px", letterSpacing:"1px", fontWeight:"normal" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {risultato.anticipo.dettaglio.map((r, i) => (
+                            <tr key={i} style={{ borderTop:"1px solid #1e2d4a" }}>
+                              <td style={{ padding:"9px 12px", color:"#93c5fd" }}>{r.nome}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right" }}>{r.persone}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.dalle}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.alle}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color: r.pausaMinuti ? "#ef4444" : "#333", fontSize:"10px" }}>
+                                {r.pausaMinuti ? `${r.pausaDalle}→${r.pausaAlle}` : "—"}
+                              </td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.minutiEffettivi} min</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#3b82f6", fontWeight:"bold" }}>+{r.colli.toLocaleString("it-IT")}</td>
+                            </tr>
+                          ))}
+                          <tr style={{ borderTop:"2px solid #3b82f6", background:"#0a1628" }}>
+                            <td colSpan={6} style={{ padding:"11px 12px", color:"#93c5fd", fontSize:"10px", letterSpacing:"2px" }}>TOTALE ANTICIPO</td>
+                            <td style={{ padding:"11px 12px", textAlign:"right", color:"#3b82f6", fontWeight:"bold", fontSize:"15px" }}>+{risultato.anticipo.totale.toLocaleString("it-IT")}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+
+              </div>
+
+              {/* ── Colonne rapide sticky: PERSONE + COLLI TURNO ── */}
+              <div style={{ display:"flex", gap:"8px", flexShrink:0, position:"sticky", top:"12px", alignSelf:"flex-start" }}>
+
+                {/* Persone */}
+                <div style={{ ...S.panel, padding:"14px", minWidth:"260px" }}>
+                  <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#f59e0b", marginBottom:"4px", textAlign:"center" }}>👥 PERSONE</div>
+                  <button onClick={() => setTurni(turni.map(t => ({ ...t, persone: 0, assenti: 0 })))} style={{
+                    width:"100%", marginBottom:"8px", padding:"3px 4px",
+                    background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:"5px",
+                    color:"#ef4444", fontFamily:"inherit", fontSize:"9px", letterSpacing:"1px",
+                    cursor:"pointer", fontWeight:"bold",
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.25)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.1)"; }}
+                  >↺ RESET</button>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"0px" }}>
+                    {turni.map((t) => (
+                      <div key={t.id} style={{ display:"flex", flexDirection:"column", gap:"3px", minHeight:"90px", justifyContent:"flex-start", paddingBottom:"8px" }}>
+                        <div style={{ fontSize:"8px", letterSpacing:"1px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                          color: /mattina/i.test(t.nome) ? "#fbbf24" : /pomeriggio/i.test(t.nome) ? "#c084fc" : /giornata/i.test(t.nome) ? "#38bdf8" : "#888",
+                          fontWeight:"bold",
+                        }}>{t.nome || "—"}</div>
+                        <div style={{ display:"flex", alignItems:"center", gap:"4px" }}>
+                          <button onClick={() => setPersone(t.id, Number(t.persone) - 1)} style={{
+                            width:"24px", height:"24px", borderRadius:"5px", border:"1px solid #2a2d3a",
+                            background:"#0f1117", color:"#f59e0b", fontFamily:"inherit", fontSize:"16px",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                          }}>−</button>
+                          <input type="number" value={t.persone} onChange={(e) => setPersone(t.id, Number(e.target.value))}
+                            style={{ width:"54px", textAlign:"center", background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"5px", color:"#4ade80", fontFamily:"inherit", fontSize:"13px", fontWeight:"bold", padding:"3px 4px" }} />
+                          <button onClick={() => setPersone(t.id, Number(t.persone) + 1)} style={{
+                            width:"24px", height:"24px", borderRadius:"5px", border:"1px solid #2a2d3a",
+                            background:"#0f1117", color:"#f59e0b", fontFamily:"inherit", fontSize:"16px",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                          }}>+</button>
+                        </div>
+                        {/* ASSENTI */}
+                        <div style={{ display:"flex", alignItems:"center", gap:"4px", marginTop:"4px", justifyContent:"flex-end" }}>
+                          <div style={{ fontSize:"8px", letterSpacing:"1px", color:(t.assenti||0)>0?"#ef4444":"#e8e8e0", fontWeight:"bold" }}>ASSENTI</div>
+                          <div style={{ display:"flex", alignItems:"center", gap:"4px" }}>
+                          <button onClick={() => setAssenti(t.id, Number(t.assenti||0) - 1)} style={{
+                            width:"20px", height:"20px", borderRadius:"4px", border:"1px solid #2a2d3a",
+                            background:"#0f1117", color:(t.assenti||0)>0?"#ef4444":"#e8e8e0", fontFamily:"inherit", fontSize:"14px",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                          }}>−</button>
+                          <input type="number" value={t.assenti||0} onChange={(e) => setAssenti(t.id, Number(e.target.value))}
+                            style={{ width:"36px", textAlign:"center", background:"#0f1117", border:(t.assenti||0)>0?"1px solid #ef4444":"1px solid #2a2d3a", borderRadius:"5px", color:(t.assenti||0)>0?"#ef4444":"#e8e8e0", fontFamily:"inherit", fontSize:"12px", fontWeight:"bold", padding:"2px 4px" }} />
+                          <button onClick={() => setAssenti(t.id, Number(t.assenti||0) + 1)} style={{
+                            width:"20px", height:"20px", borderRadius:"4px", border:"1px solid #2a2d3a",
+                            background:"#0f1117", color:(t.assenti||0)>0?"#ef4444":"#e8e8e0", fontFamily:"inherit", fontSize:"14px",
+                            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                          }}>+</button>
+                          {(t.assenti||0) > 0 && <div style={{ fontSize:"10px", color:"#10b981", fontWeight:"bold" }}>={Number(t.persone)-Number(t.assenti||0)}</div>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Totali persone */}
+                  <div style={{ borderTop:"1px solid #2a2d3a", marginTop:"6px", paddingTop:"8px", display:"flex", flexDirection:"column", gap:"5px" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:"8px", letterSpacing:"1px", color:"#555", fontWeight:"bold" }}>TOT. PRESENTI</div>
+                      <div style={{ color:"#4ade80", fontWeight:"bold", fontSize:"15px" }}>
+                        {turni.reduce((acc, t) => acc + Math.max(0, Number(t.persone) - Number(t.assenti||0)), 0)}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:"8px", letterSpacing:"1px", color:"#ef4444", fontWeight:"bold" }}>TOT. ASSENTI</div>
+                      <div style={{ color:"#ef4444", fontWeight:"bold", fontSize:"15px" }}>
+                        {turni.reduce((acc, t) => acc + Number(t.assenti||0), 0)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Straordinario inline ── */}
+                <div style={{ ...S.panel, padding:"14px", minWidth:"230px" }}>
+                  <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#f97316", marginBottom:"4px", textAlign:"center" }}>⚡ STRAORDINARIO</div>
+                  <button onClick={() => setStraPersone(DEFAULT_STRAPERSONE.map(s => ({ ...s })))} style={{
+                    width:"100%", marginBottom:"8px", padding:"3px 4px",
+                    background:"rgba(239,68,68,0.1)", border:"1px solid #ef4444", borderRadius:"5px",
+                    color:"#ef4444", fontFamily:"inherit", fontSize:"9px", letterSpacing:"1px",
+                    cursor:"pointer", fontWeight:"bold",
+                  }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.25)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background="rgba(239,68,68,0.1)"; }}
+                  >↺ RESET</button>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"0px" }}>
+                    {turni.map((t) => {
+                      const s = straPersone.find(x => x.id === t.id) || { inizio:"", fine:"", persone:0, rate:90 };
+                      const colli_s = colliStraTurno(s, Number(rate));
+                      return (
+                        <div key={t.id} style={{ display:"flex", flexDirection:"column", gap:"3px", minHeight:"90px", justifyContent:"flex-start", paddingBottom:"8px", borderBottom:"1px solid #1e2130" }}>
+                          <div style={{ fontSize:"8px", letterSpacing:"1px", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
+                            color: /mattina/i.test(t.nome) ? "#fbbf24" : /pomeriggio/i.test(t.nome) ? "#c084fc" : /giornata/i.test(t.nome) ? "#38bdf8" : "#888",
+                            fontWeight:"bold",
+                          }}>{t.nome || "—"}</div>
+                          {/* Orario straordinario */}
+                          <div style={{ display:"flex", gap:"3px", alignItems:"center" }}>
+                            <input type="time" value={s.inizio || ""} onChange={(e) => aggiornaStraTurno(t.id, "inizio", e.target.value)}
+                              style={{ flex:1, background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"4px", color:"#f97316", fontFamily:"inherit", fontSize:"10px", padding:"3px 4px", minWidth:0 }} />
+                            <span style={{ color:"#555", fontSize:"9px" }}>→</span>
+                            <input type="time" value={s.fine || ""} onChange={(e) => aggiornaStraTurno(t.id, "fine", e.target.value)}
+                              style={{ flex:1, background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"4px", color:"#f97316", fontFamily:"inherit", fontSize:"10px", padding:"3px 4px", minWidth:0 }} />
+                          </div>
+                          {/* Persone */}
+                          <div style={{ display:"flex", gap:"4px", alignItems:"center", justifyContent:"flex-end" }}>
+                            <div style={{ fontSize:"8px", letterSpacing:"1px", color:"#f97316", fontWeight:"bold" }}>PERS.</div>
+                            <button onClick={() => aggiornaStraTurno(t.id, "persone", Math.max(0, Number(s.persone) - 1))} style={{
+                              width:"24px", height:"24px", borderRadius:"5px", border:"1px solid #2a2d3a",
+                              background:"#0f1117", color:"#f97316", fontFamily:"inherit", fontSize:"16px",
+                              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                            }}>−</button>
+                            <input type="number" value={s.persone} onChange={(e) => aggiornaStraTurno(t.id, "persone", Math.max(0, Number(e.target.value)))}
+                              style={{ width:"44px", textAlign:"center", background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"5px", color:"#4ade80", fontFamily:"inherit", fontSize:"13px", fontWeight:"bold", padding:"3px 4px" }} />
+                            <button onClick={() => aggiornaStraTurno(t.id, "persone", Number(s.persone) + 1)} style={{
+                              width:"24px", height:"24px", borderRadius:"5px", border:"1px solid #2a2d3a",
+                              background:"#0f1117", color:"#f97316", fontFamily:"inherit", fontSize:"16px",
+                              cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", lineHeight:1, flexShrink:0,
+                            }}>+</button>
+                          </div>
+                          {/* Colli risultante */}
+                          <div style={{ textAlign:"right", fontSize:"11px", fontWeight:"bold", color: colli_s > 0 ? "#f97316" : "#333", paddingRight:"2px" }}>
+                            {colli_s > 0 ? `+${colli_s.toLocaleString("it-IT")}` : "—"}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Totale straordinari inline */}
+                  <div style={{ borderTop:"1px solid #2a2d3a", marginTop:"6px", paddingTop:"6px", display:"flex", flexDirection:"column", gap:"5px" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:"8px", color:"#555", fontWeight:"bold" }}>TOT. COLLI</div>
+                      <div style={{ color:"#f97316", fontWeight:"bold", fontSize:"13px" }}>
+                        {(() => {
+                          const tot = turni.reduce((acc, t) => {
+                            const s = straPersone.find(x => x.id === t.id);
+                            return acc + (s ? colliStraTurno(s, Number(rate)) : 0);
+                          }, 0);
+                          return tot > 0 ? `+${tot.toLocaleString("it-IT")}` : "—";
+                        })()}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div style={{ fontSize:"8px", color:"#555", fontWeight:"bold" }}>TOT. ORE STRAO</div>
+                      <div style={{ color:"#f97316", fontWeight:"bold", fontSize:"13px" }}>
+                        {(() => {
+                          let totMin = 0;
+                          turni.forEach(t => {
+                            const s = straPersone.find(x => x.id === t.id);
+                            if (s && s.inizio && s.fine && Number(s.persone) > 0) {
+                              const min = timeToMin(s.fine) - timeToMin(s.inizio);
+                              if (min > 0) totMin += min * Number(s.persone);
+                            }
+                          });
+                          if (totMin === 0) return "—";
+                          const h = Math.floor(totMin / 60);
+                          const m = totMin % 60;
+                          return m > 0 ? `${h}h ${m}m` : `${h}h`;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Colli per turno */}
+                <div style={{ ...S.panel, padding:"14px", minWidth:"95px" }}>
+                  <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#10b981", marginBottom:"4px", textAlign:"center" }}>📦 COLLI/TURNO</div>
+                  <div style={{ height:"32px", marginBottom:"8px" }}></div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:"0px" }}>
+                    {turni.map((t) => {
+                      const s = straPersone.find(x => x.id === t.id);
+                      const personeEff = Math.max(0, Number(t.persone) - Number(t.assenti||0));
+                      const tot = colliPerTurno({ ...t, persone: personeEff }, Number(rate));
+                      const strao = s ? colliStraTurno(s, Number(rate)) : 0;
+                      const totale = tot + strao;
+                      return (
+                        <div key={t.id} style={{ display:"flex", flexDirection:"column", gap:"3px", minHeight:"90px", justifyContent:"flex-start", paddingBottom:"8px", borderBottom:"1px solid #1e2130" }}>
+                          <div style={{ fontSize:"9px", letterSpacing:"0.5px", whiteSpace:"normal", wordBreak:"break-word",
+                            color: /mattina/i.test(t.nome) ? "#fbbf24" : /pomeriggio/i.test(t.nome) ? "#c084fc" : /giornata/i.test(t.nome) ? "#38bdf8" : "#888",
+                            fontWeight:"bold", lineHeight:"1.2",
+                          }}>{t.nome || "—"}</div>
+                          <div style={{
+                            display:"flex", flexDirection:"column", alignItems:"flex-end", paddingRight:"4px", gap:"1px",
+                          }}>
+                            {(() => {
+                              const minuti = (t.inizio && t.fine) ? (timeToMin(t.fine) - timeToMin(t.inizio) - (t.pausaInizio && t.pausaFine ? timeToMin(t.pausaFine) - timeToMin(t.pausaInizio) : 0)) : 0;
+                              const ore = minuti > 0 ? minuti / 60 : 0;
+                              const oreLabel = ore > 0 ? (ore % 1 === 0 ? String(ore) : ore.toFixed(1)) + "h" : null;
+                              return personeEff > 0 && oreLabel ? (
+                                <div style={{ fontSize:"9px", color:"#555", textAlign:"right", marginBottom:"1px" }}>
+                                  {personeEff}p × {oreLabel} × {rate}
+                                </div>
+                              ) : null;
+                            })()}
+                            <div style={{
+                              color: tot > 0 ? "#10b981" : "#333",
+                              fontSize: tot >= 10000 ? "11px" : "13px",
+                              fontWeight:"bold", letterSpacing:"0.5px",
+                            }}>
+                              {tot > 0 ? tot.toLocaleString("it-IT") : "—"}
+                            </div>
+                            {strao > 0 && (
+                              <div style={{ fontSize:"10px", color:"#f97316", fontWeight:"bold" }}>
+                                +{strao.toLocaleString("it-IT")}
+                              </div>
+                            )}
+                            {strao > 0 && (
+                              <div style={{ fontSize:"12px", color:"#fbbf24", fontWeight:"bold", borderTop:"1px solid #2a2d3a", paddingTop:"2px", marginTop:"1px" }}>
+                                ={totale.toLocaleString("it-IT")}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Totale */}
+                  <div style={{ borderTop:"1px solid #2a2d3a", marginTop:"8px", paddingTop:"8px" }}>
+                    <div style={{ fontSize:"8px", color:"#555", marginBottom:"3px" }}>TOTALE</div>
+                    <div style={{ color:"#f59e0b", fontWeight:"bold", fontSize:"13px", textAlign:"right" }}>
+                      {(turni.reduce((acc, t) => {
+                        const s = straPersone.find(x => x.id === t.id);
+                        return acc + colliPerTurno({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) }, Number(rate)) + (s ? colliStraTurno(s, Number(rate)) : 0);
+                      }, 0)).toLocaleString("it-IT")}
+                    </div>
+                  </div>
+
+                  {/* Chiusura prevista — unica riga */}
+                  <div style={{ borderTop:"1px solid #2a2d3a", marginTop:"8px", paddingTop:"8px" }}>
+                    <div style={{ fontSize:"8px", color:"#555", marginBottom:"3px", letterSpacing:"1px" }}>CHIUSURA PREVISTA</div>
+                    <div style={{
+                      color: risultato && (risultato.ok || (risultato.straResult && risultato.straResult.ok)) ? "#10b981" : "#333",
+                      fontWeight:"bold", fontSize:"20px", textAlign:"right", letterSpacing:"1px",
+                    }}>
+                      {risultato && risultato.fineFinale ? risultato.fineFinale : "—"}
+                    </div>
+                  </div>
+
+                  {/* Anticipo */}
+                  {risultato && risultato.anticipo && risultato.anticipo.totale > 0 && (
+                    <div style={{ borderTop:"1px solid #2a2d3a", marginTop:"8px", paddingTop:"8px" }}>
+                      <div style={{ fontSize:"8px", color:"#3b5a8a", marginBottom:"3px", letterSpacing:"1px" }}>ANTICIPO</div>
+                      <div style={{ color:"#3b82f6", fontWeight:"bold", fontSize:"15px", textAlign:"right" }}>
+                        +{risultato.anticipo.totale.toLocaleString("it-IT")}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+              </div>
+            </div>
+
+            {/* ── PUNTO SITUAZIONE ── */}
+            <div style={{ marginTop:"28px" }}>
+              <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#38bdf8", marginBottom:"6px" }}>📍 PUNTO SITUAZIONE</div>
+              <div style={{ fontSize:"10px", color:"#444", marginBottom:"12px" }}>Inserisci l'ora attuale e i colli della giornata</div>
+              <div style={{ display:"flex", gap:"12px", alignItems:"flex-end", marginBottom:"12px", flexWrap:"wrap" }}>
+                <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"10px", padding:"14px 18px" }}>
+                  <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#38bdf8", marginBottom:"6px" }}>ORA ATTUALE</div>
+                  <input type="time" value={puntoOra} onChange={(e) => setPuntoOra(e.target.value)}
+                    style={{ background:"#0f1117", border:"2px solid #38bdf8", borderRadius:"8px", color:"#38bdf8", fontFamily:"inherit", fontSize:"26px", fontWeight:"bold", padding:"8px 14px", outline:"none" }} />
+                </div>
+                <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"10px", padding:"14px 18px" }}>
+                  <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#38bdf8", marginBottom:"6px" }}>COLLI RIMANENTI</div>
+                  <input type="number" value={puntoRimanenti} onChange={(e) => setPuntoRimanenti(e.target.value)} placeholder="es. 8000"
+                    style={{ background:"#0f1117", border:"2px solid #38bdf8", borderRadius:"8px", color:"#38bdf8", fontFamily:"inherit", fontSize:"26px", fontWeight:"bold", padding:"8px 14px", outline:"none", width:"160px" }} />
+                </div>
+                <button onClick={calcolaPunto} style={{
+                  background:"linear-gradient(135deg,#0284c7,#0369a1)", border:"none", borderRadius:"10px",
+                  color:"#fff", fontFamily:"inherit", fontWeight:"bold", fontSize:"13px",
+                  letterSpacing:"2px", padding:"14px 28px", cursor:"pointer", transition:"transform 0.15s",
+                }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform="scale(1.03)"}
+                  onMouseLeave={(e) => e.currentTarget.style.transform="scale(1)"}
+                >📍 CALCOLA</button>
+              </div>
+
+              {puntoResult && (
+                <div style={{ animation:"fadeIn 0.4s ease", marginBottom:"10px" }}>
+                  {/* Banner principale */}
+                  <div style={{
+                    background: puntoResult.ok ? "linear-gradient(135deg,#064e3b,#065f46)" : "linear-gradient(135deg,#450a0a,#7f1d1d)",
+                    border: `2px solid ${puntoResult.ok ? "#10b981" : "#ef4444"}`,
+                    borderRadius:"14px", padding:"24px 28px", marginBottom:"12px",
+                    display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"16px",
+                  }}>
+                    <div>
+                      <div style={{ fontSize:"10px", letterSpacing:"3px", marginBottom:"8px",
+                        color: puntoResult.ok ? "#6ee7b7" : "#fca5a5" }}>
+                        {puntoResult.ok ? "✅ CE LA FACCIAMO" : "🔴 NON CE LA FACCIAMO"}
+                      </div>
+                      <div style={{ fontSize:"13px", color:"#ccc", lineHeight:"1.8" }}>
+                        {puntoResult.ok ? (
+                          <span>
+                            Chiusura alle <b style={{color:"#10b981"}}>{puntoResult.fineStimata || "—"}</b>
+                            {puntoResult.anticipo && puntoResult.anticipo.totale > 0 && <span><br/>Anticipo domani: <b style={{color:"#fbbf24"}}>+{puntoResult.anticipo.totale.toLocaleString("it-IT")} colli</b></span>}
+                          </span>
+                        ) : (
+                          <span>
+                            Mancano ancora <b style={{color:"#ef4444"}}>{puntoResult.mancaDelta.toLocaleString("it-IT")} colli</b> alla chiusura
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#888", marginBottom:"4px" }}>
+                        {puntoResult.ok ? "CHIUSURA" : "COLLI MANCANTI"}
+                      </div>
+                      <div style={{ fontSize:"48px", fontWeight:"bold", letterSpacing:"3px", lineHeight:1,
+                        color: puntoResult.ok ? "#10b981" : "#ef4444" }}>
+                        {puntoResult.ok ? (puntoResult.fineStimata || "—") : `−${puntoResult.mancaDelta.toLocaleString("it-IT")}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dettaglio turni rimanenti */}
+                  <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"12px", overflow:"hidden", marginBottom:"12px" }}>
+                    <div style={{ padding:"12px 18px", borderBottom:"1px solid #2a2d3a", fontSize:"10px", letterSpacing:"2px", color:"#38bdf8" }}>CAPACITÀ RIMANENTE PER TURNO</div>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+                      <thead>
+                        <tr style={{ background:"#0f1117" }}>
+                          {["TURNO","DALLE","ALLE","PERSONE","COLLI"].map(h => (
+                            <th key={h} style={{ padding:"8px 14px", textAlign:"right", color:"#555", fontSize:"9px", letterSpacing:"1px", fontWeight:"normal" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {puntoResult.dettaglio.map((d, i) => (
+                          <tr key={i} style={{ borderTop:"1px solid #1e2130" }}>
+                            <td style={{ padding:"8px 14px", color:"#e8e8e0" }}>{d.nome}</td>
+                            <td style={{ padding:"8px 14px", textAlign:"right", color:"#888" }}>{d.dalle}</td>
+                            <td style={{ padding:"8px 14px", textAlign:"right", color:"#888" }}>{d.alle}</td>
+                            <td style={{ padding:"8px 14px", textAlign:"right", color:"#e8e8e0" }}>{d.persone}</td>
+                            <td style={{ padding:"8px 14px", textAlign:"right", color:"#10b981", fontWeight:"bold" }}>{d.colli.toLocaleString("it-IT")}</td>
+                          </tr>
+                        ))}
+                        <tr style={{ borderTop:"2px solid #2a2d3a", background:"#0f1117" }}>
+                          <td colSpan={4} style={{ padding:"8px 14px", color:"#555", fontSize:"10px" }}>TOTALE CAPACITÀ</td>
+                          <td style={{ padding:"8px 14px", textAlign:"right", color: puntoResult.ok ? "#10b981" : "#ef4444", fontWeight:"bold", fontSize:"14px" }}>
+                            {puntoResult.capRimanente.toLocaleString("it-IT")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* ── Anticipo: colli prodotti dopo la fine ── */}
+                  {puntoResult.ok && puntoResult.anticipo && puntoResult.anticipo.totale > 0 && (
+                    <div style={{ background:"#1a1d27", border:"1px solid #ca8a04", borderRadius:"12px", overflow:"hidden" }}>
+                      <div style={{ padding:"12px 18px", borderBottom:"1px solid #ca8a04", fontSize:"10px", letterSpacing:"2px", color:"#fbbf24", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                        <span>⚡ COLLI IN ANTICIPO (dopo la fine stimata)</span>
+                        <span style={{ fontSize:"16px", fontWeight:"bold", color:"#fbbf24" }}>
+                          +{puntoResult.anticipo.totale.toLocaleString("it-IT")}
+                        </span>
+                      </div>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+                        <thead>
+                          <tr style={{ background:"#0f1117" }}>
+                            {["TURNO","DALLE","ALLE","PERSONE","COLLI"].map(h => (
+                              <th key={h} style={{ padding:"8px 14px", textAlign:"right", color:"#555", fontSize:"9px", letterSpacing:"1px", fontWeight:"normal" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {puntoResult.anticipo.dettaglio.map((d, i) => (
+                            <tr key={i} style={{ borderTop:"1px solid #1e2130" }}>
+                              <td style={{ padding:"8px 14px", color:"#e8e8e0" }}>{d.nome}</td>
+                              <td style={{ padding:"8px 14px", textAlign:"right", color:"#888" }}>{d.dalle}</td>
+                              <td style={{ padding:"8px 14px", textAlign:"right", color:"#888" }}>{d.alle}</td>
+                              <td style={{ padding:"8px 14px", textAlign:"right", color:"#e8e8e0" }}>{d.persone}</td>
+                              <td style={{ padding:"8px 14px", textAlign:"right", color:"#fbbf24", fontWeight:"bold" }}>+{d.colli.toLocaleString("it-IT")}</td>
+                            </tr>
+                          ))}
+                          <tr style={{ borderTop:"2px solid #2a2d3a", background:"#0f1117" }}>
+                            <td colSpan={4} style={{ padding:"8px 14px", color:"#555", fontSize:"10px" }}>TOTALE ANTICIPO</td>
+                            <td style={{ padding:"8px 14px", textAlign:"right", color:"#fbbf24", fontWeight:"bold", fontSize:"14px" }}>
+                              +{puntoResult.anticipo.totale.toLocaleString("it-IT")}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* ── Confronto Pianificato vs Reale ── */}
+                  {puntoResult.confronto && (
+                    <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"12px", padding:"16px 20px", marginTop:"12px" }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"2px", color:"#888", marginBottom:"12px" }}>📊 PIANIFICATO VS REALE</div>
+                      <div style={{ display:"flex", gap:"16px", flexWrap:"wrap" }}>
+                        <div style={{ flex:1, textAlign:"center", background:"#0f1117", borderRadius:"8px", padding:"12px" }}>
+                          <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>PIANIFICATI</div>
+                          <div style={{ fontSize:"24px", fontWeight:"bold", color:"#888" }}>{puntoResult.confronto.pianificati.toLocaleString("it-IT")}</div>
+                        </div>
+                        <div style={{ flex:1, textAlign:"center", background:"#0f1117", borderRadius:"8px", padding:"12px" }}>
+                          <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>FATTI</div>
+                          <div style={{ fontSize:"24px", fontWeight:"bold", color:"#e8e8e0" }}>{puntoResult.confronto.fatti.toLocaleString("it-IT")}</div>
+                        </div>
+                        <div style={{ flex:1, textAlign:"center", background:"#0f1117", borderRadius:"8px", padding:"12px" }}>
+                          <div style={{ fontSize:"9px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>DIFFERENZA</div>
+                          <div style={{ fontSize:"24px", fontWeight:"bold", color: puntoResult.confronto.delta >= 0 ? "#10b981" : "#ef4444" }}>
+                            {puntoResult.confronto.delta >= 0 ? "+" : ""}{puntoResult.confronto.delta.toLocaleString("it-IT")}
+                          </div>
+                          <div style={{ fontSize:"9px", color:"#555", marginTop:"4px" }}>
+                            {puntoResult.confronto.delta >= 0 ? "✅ In anticipo" : "⚠️ In ritardo"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── OBIETTIVO INVERSO ── */}
+            <div style={{ marginTop:"28px" }}>
+              <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#a78bfa", marginBottom:"6px" }}>🎯 OBIETTIVO INVERSO</div>
+              <div style={{ fontSize:"10px", color:"#444", marginBottom:"12px" }}>Inserisci l'ora di chiusura desiderata — calcola come distribuire le persone</div>
+              <div style={{ display:"flex", gap:"12px", alignItems:"flex-end", marginBottom:"12px", flexWrap:"wrap" }}>
+                <div>
+                  <div style={{ fontSize:"9px", color:"#555", marginBottom:"4px", letterSpacing:"1px" }}>CHIUSURA DESIDERATA</div>
+                  <input type="time" value={oraTarget} onChange={(e) => { setOraTarget(e.target.value); setInvResult(null); }}
+                    style={{ background:"#0f1117", border:"2px solid #a78bfa", borderRadius:"8px", color:"#a78bfa", fontFamily:"inherit", fontSize:"22px", fontWeight:"bold", padding:"8px 12px", outline:"none" }} />
+                </div>
+                <button onClick={calcolaInverso} style={{
+                  padding:"12px 24px", background:"linear-gradient(135deg,#4c1d95,#6d28d9)", border:"none", borderRadius:"10px",
+                  color:"white", fontFamily:"inherit", fontSize:"11px", letterSpacing:"2px", cursor:"pointer", fontWeight:"bold",
+                }}>🎯 CALCOLA</button>
+              </div>
+
+              {invResult && (
+                <div style={{ animation:"fadeIn 0.4s ease" }}>
+
+                  {invResult.tipo === 'ok' && (
+                    <div style={{ background:"linear-gradient(135deg,#064e3b,#065f46)", border:"2px solid #10b981", borderRadius:"14px", padding:"20px 24px", marginBottom:"10px" }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"3px", color:"#6ee7b7", marginBottom:"6px" }}>✅ GIÀ OK</div>
+                      <div style={{ fontSize:"13px", color:"#ccc", marginBottom:"8px" }}>La configurazione attuale chiude già entro ±20 min dall'obiettivo.</div>
+                      <div style={{ fontSize:"42px", fontWeight:"bold", color:"#10b981" }}>{invResult.fineAttuale}</div>
+                    </div>
+                  )}
+
+                  {invResult.tipo === 'impossibile' && (
+                    <div style={{ background:"linear-gradient(135deg,#450a0a,#7f1d1d)", border:"2px solid #ef4444", borderRadius:"14px", padding:"20px 24px", marginBottom:"10px" }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"3px", color:"#fca5a5", marginBottom:"6px" }}>🔴 IMPOSSIBILE</div>
+                      <div style={{ fontSize:"13px", color:"#fca5a5" }}>{invResult.messaggio}</div>
+                      {invResult.fineAttuale && <div style={{ fontSize:"12px", color:"#555", marginTop:"8px" }}>Chiusura attuale: {invResult.fineAttuale}</div>}
+                    </div>
+                  )}
+
+                  {(invResult.tipo === 'sposta' || invResult.tipo === 'combinato') && invResult.spostamento && (
+                    <div style={{ background:"linear-gradient(135deg,#13103a,#1a1052)", border:"2px solid #a78bfa", borderRadius:"14px", padding:"20px 24px", marginBottom:"10px" }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"3px", color:"#c4b5fd", marginBottom:"10px" }}>🔀 SPOSTA PERSONE</div>
+                      <div style={{ display:"flex", gap:"12px", alignItems:"center", flexWrap:"wrap", marginBottom:"12px" }}>
+                        <div style={{ background:"#0f0d2a", borderRadius:"10px", padding:"10px 16px", textAlign:"center" }}>
+                          <div style={{ fontSize:"9px", color:"#555", marginBottom:"3px" }}>DA</div>
+                          <div style={{ fontSize:"12px", color:"#c4b5fd", fontWeight:"bold" }}>{invResult.spostamento.da}</div>
+                        </div>
+                        <div style={{ fontSize:"24px", color:"#a78bfa" }}>→</div>
+                        <div style={{ background:"#0f0d2a", borderRadius:"10px", padding:"10px 16px", textAlign:"center" }}>
+                          <div style={{ fontSize:"9px", color:"#555", marginBottom:"3px" }}>A</div>
+                          <div style={{ fontSize:"12px", color:"#c4b5fd", fontWeight:"bold" }}>{invResult.spostamento.a}</div>
+                        </div>
+                        <div style={{ background:"#0f0d2a", borderRadius:"10px", padding:"10px 16px", textAlign:"center" }}>
+                          <div style={{ fontSize:"9px", color:"#555", marginBottom:"3px" }}>QUANTE</div>
+                          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#a78bfa", lineHeight:1 }}>{invResult.spostamento.quante}</div>
+                        </div>
+                        <div style={{ background:"#0f0d2a", borderRadius:"10px", padding:"10px 16px", textAlign:"center" }}>
+                          <div style={{ fontSize:"9px", color:"#555", marginBottom:"3px" }}>CHIUSURA</div>
+                          <div style={{ fontSize:"28px", fontWeight:"bold", color:"#10b981", lineHeight:1 }}>{invResult.fineNuova}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize:"12px", color:"#555", display:"flex", gap:"16px", flexWrap:"wrap" }}>
+                        <span style={{color:"#888"}}>Mattina → <b style={{color:"#e8e8e0"}}>{invResult.spostamento.mattinaNew} pers</b></span>
+                        <span style={{color:"#888"}}>Pomeriggio → <b style={{color:"#e8e8e0"}}>{invResult.spostamento.pomeriggioNew} pers</b></span>
+                        <span style={{color:"#555"}}>Attuale: {invResult.fineAttuale}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {(invResult.tipo === 'straordinario' || invResult.tipo === 'combinato') && invResult.straordinari && (
+                    <div style={{ background:"linear-gradient(135deg,#1a0f00,#2d1a00)", border:"2px solid #f97316", borderRadius:"14px", padding:"20px 24px", marginBottom:"10px" }}>
+                      <div style={{ fontSize:"10px", letterSpacing:"3px", color:"#fdba74", marginBottom:"10px" }}>⚡ STRAORDINARIO NECESSARIO</div>
+                      {invResult.straordinari.map((s, i) => (
+                        <div key={i} style={{ display:"flex", gap:"12px", alignItems:"center", marginBottom:"10px", flexWrap:"wrap" }}>
+                          <div style={{ background:"#2d1a00", borderRadius:"8px", padding:"8px 14px" }}>
+                            <div style={{ fontSize:"9px", color:"#7c4a00", marginBottom:"2px" }}>{s.nome}</div>
+                            <div style={{ fontSize:"14px", color:"#fed7aa", fontWeight:"bold" }}>{s.inizio} → {s.fine}</div>
+                          </div>
+                          <div style={{ fontSize:"22px" }}>👥</div>
+                          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#f97316", lineHeight:1 }}>{s.persone}</div>
+                          <div style={{ fontSize:"12px", color:"#888" }}>persone</div>
+                        </div>
+                      ))}
+                      <div style={{ fontSize:"12px", color:"#888", marginTop:"4px" }}>
+                        Chiusura stimata: <b style={{color:"#10b981", fontSize:"16px"}}>{invResult.fineNuova}</b>
+                        <span style={{color:"#555", marginLeft:"12px"}}>Attuale: {invResult.fineAttuale}</span>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </div>
+
+            {/* ── Risultati ── */}
+            {risultato && (
+              <div style={{ animation:"fadeIn 0.4s ease" }}>
+
+                {/* Straordinari result */}
+                {risultato.straResult && (
+                  <div style={{ marginBottom:"18px", background:"linear-gradient(135deg,#1a0f00,#2d1a00)", border:`2px solid ${risultato.straResult.ok ? "#f97316" : "#dc2626"}`, borderRadius:"14px", overflow:"hidden" }}>
+                    <div style={{ background:"#3d2000", padding:"14px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:"10px" }}>
+                      <div>
+                        <div style={{ fontSize:"9px", letterSpacing:"3px", color:"#fdba74", marginBottom:"3px" }}>🕐 STRAORDINARI</div>
+                        <div style={{ fontSize:"12px", color:"#fed7aa" }}>
+                          {risultato.straResult.ok ? "Completato con gli straordinari!" : `Ancora insufficienti — mancano ${(Number(colli)-risultato.cumulo-risultato.straResult.cumulo).toLocaleString("it-IT")} colli`}
+                        </div>
+                      </div>
+                      {risultato.straResult.ok && (
+                        <div style={{ textAlign:"right" }}>
+                          <div style={{ fontSize:"10px", color:"#fdba74", letterSpacing:"2px" }}>CHIUSURA CON STRAORD.</div>
+                          <div style={{ fontSize:"38px", fontWeight:"bold", color:"#f97316", lineHeight:1 }}>{risultato.straResult.fineEsatta}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ overflowX:"auto" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+                        <thead>
+                          <tr style={{ background:"#0f0800" }}>
+                            {["TURNO","PERSONE","INIZIO","FINE","COLLI/H","COLLI","CUMUL."].map(h => (
+                              <th key={h} style={{ padding:"9px 12px", textAlign:"right", color:"#7c4a00", fontSize:"9px", letterSpacing:"1px", fontWeight:"normal", whiteSpace:"nowrap" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {risultato.straResult.rows.map((r, i) => (
+                            <tr key={i} style={{ background:r.highlight ? "rgba(249,115,22,0.12)" : "transparent", borderTop:"1px solid #2d1a00" }}>
+                              <td style={{ padding:"9px 12px", color:"#fdba74" }}>{r.nome}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right" }}>{r.persone}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.inizio}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:r.highlight ? "#f97316" : "#888", fontWeight:r.highlight ? "bold" : "normal" }}>
+                                {r.highlight ? r.fineEsatta : r.fine}{r.highlight && <span style={{ marginLeft:"5px", fontSize:"9px" }}>◀</span>}
+                              </td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.rate * r.persone}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:r.highlight ? "#f97316" : "#e8e8e0", fontWeight:r.highlight ? "bold" : "normal" }}>+{r.colli.toLocaleString("it-IT")}</td>
+                              <td style={{ padding:"9px 12px", textAlign:"right", color:r.highlight ? "#10b981" : "#e8e8e0", fontWeight:r.highlight ? "bold" : "normal" }}>
+                                {(risultato.cumulo + r.cumulo).toLocaleString("it-IT")}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+
+                {/* ── Grafico ── */}
+                <GraficoProduzioneComponent
+                  turni={turni}
+                  straPersone={straPersone}
+                  straordinari={straordinari}
+                  colli={Number(colli)}
+                  rate={Number(rate)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+      function GraficoProduzioneComponent({ turni, straPersone, straordinari, colli, rate }) {
+        const W = 600, H = 220, PL = 50, PR = 20, PT = 20, PB = 40;
+        const w = W - PL - PR, h = H - PT - PB;
+
+        function tMin(t) {
+          if (!t) return 0;
+          const [hh, mm] = t.split(':').map(Number);
+          return hh * 60 + mm;
+        }
+        function mToT(m) {
+          return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+        }
+
+        const r = Number(rate) || 90;
+        const colliN = Number(colli) || 0;
+
+        // Build all segments
+        const allT = [
+          ...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) })),
+          ...straPersone.filter(s => s.inizio && s.fine && Number(s.persone) > 0),
+          ...straordinari.filter(s => s.inizio && s.fine && Number(s.persone) > 0),
+        ].filter(t => t.inizio && t.fine);
+
+        if (allT.length === 0 || colliN === 0) return null;
+
+        const evSet = new Set();
+        allT.forEach(t => {
+          evSet.add(tMin(t.inizio)); evSet.add(tMin(t.fine));
+          if (t.pausaInizio && t.pausaFine) { evSet.add(tMin(t.pausaInizio)); evSet.add(tMin(t.pausaFine)); }
+        });
+        const ev = Array.from(evSet).sort((a,b) => a-b);
+
+        const minStart = ev[0], maxEnd = ev[ev.length-1];
+        const timeRange = maxEnd - minStart;
+
+        // Build cumulative production points
+        const points = [{ t: minStart, c: 0 }];
+        let cum = 0;
+        let finita = false;
+        for (let i = 0; i < ev.length - 1; i++) {
+          const frm = ev[i], to = ev[i+1];
+          let pers = 0;
+          allT.forEach(t => {
+            const tIn = tMin(t.inizio), tOut = tMin(t.fine);
+            const pIn = t.pausaInizio ? tMin(t.pausaInizio) : null;
+            const pOut = t.pausaFine ? tMin(t.pausaFine) : null;
+            if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
+              pers += Number(t.persone);
+          });
+          if (pers === 0) { points.push({ t: to, c: cum }); continue; }
+          const prod = pers * r * (to - frm) / 60;
+          if (!finita && cum + prod >= colliN) {
+            const fineT = frm + (colliN - cum) / (pers * r) * 60;
+            cum = colliN;
+            points.push({ t: fineT, c: cum });
+            finita = true;
+          } else {
+            cum = finita ? cum : Math.min(cum + prod, colliN);
+          }
+          points.push({ t: to, c: cum });
+        }
+
+        const maxC = Math.max(colliN, cum);
+
+        // Convert to SVG coords
+        const tx = t => PL + ((t - minStart) / timeRange) * w;
+        const ty = c => PT + h - (c / maxC) * h;
+
+        const pathD = points.map((p, i) => (i === 0 ? 'M' : 'L') + tx(p.t).toFixed(1) + ',' + ty(p.c).toFixed(1)).join(' ');
+        const areaD = pathD + ' L' + tx(points[points.length-1].t).toFixed(1) + ',' + (PT+h) + ' L' + PL + ',' + (PT+h) + ' Z';
+
+        // Target line y
+        const targetY = ty(colliN);
+
+        // Time labels every hour
+        const hourLabels = [];
+        const startH = Math.ceil(minStart / 60);
+        const endH = Math.floor(maxEnd / 60);
+        for (let hh = startH; hh <= endH; hh++) {
+          const m = hh * 60;
+          if (m >= minStart && m <= maxEnd) {
+            hourLabels.push({ m, x: tx(m), label: hh + ':00' });
+          }
+        }
+
+        return (
+          <div style={{ marginTop:"20px", background:"#0a0c14", borderRadius:"14px", padding:"16px", border:"1px solid #1e2130" }}>
+            <div style={{ fontSize:"10px", letterSpacing:"3px", color:"#a78bfa", marginBottom:"12px" }}>📊 ANDAMENTO PRODUZIONE</div>
+            <svg width="100%" viewBox={"0 0 " + W + " " + H} style={{ display:"block" }}>
+              {/* Grid lines */}
+              {[0.25, 0.5, 0.75, 1].map(f => (
+                <g key={f}>
+                  <line x1={PL} y1={ty(maxC*f)} x2={PL+w} y2={ty(maxC*f)} stroke="#1e2130" strokeWidth="1"/>
+                  <text x={PL-6} y={ty(maxC*f)+4} textAnchor="end" fill="#444" fontSize="9">
+                    {Math.round(maxC*f/100)*100}
+                  </text>
+                </g>
+              ))}
+              {/* Target line */}
+              <line x1={PL} y1={targetY} x2={PL+w} y2={targetY} stroke="#f59e0b" strokeWidth="1" strokeDasharray="4,3"/>
+              <text x={PL+w+4} y={targetY+4} fill="#f59e0b" fontSize="9">{colliN}</text>
+              {/* Area */}
+              <path d={areaD} fill="rgba(167,139,250,0.12)"/>
+              {/* Line */}
+              <path d={pathD} fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinejoin="round"/>
+              {/* Hour labels */}
+              {hourLabels.map(l => (
+                <g key={l.m}>
+                  <line x1={l.x} y1={PT} x2={l.x} y2={PT+h} stroke="#1a1d2e" strokeWidth="1"/>
+                  <text x={l.x} y={PT+h+14} textAnchor="middle" fill="#444" fontSize="9">{l.label}</text>
+                </g>
+              ))}
+              {/* Points at key events */}
+              {points.filter(p => p.c >= colliN).slice(0,1).map((p, i) => (
+                <g key={i}>
+                  <circle cx={tx(p.t)} cy={ty(p.c)} r="4" fill="#10b981"/>
+                  <text x={tx(p.t)} y={ty(p.c)-8} textAnchor="middle" fill="#10b981" fontSize="9" fontWeight="bold">{mToT(p.t)}</text>
+                </g>
+              ))}
+              {/* Axes */}
+              <line x1={PL} y1={PT} x2={PL} y2={PT+h} stroke="#2a2d3a" strokeWidth="1"/>
+              <line x1={PL} y1={PT+h} x2={PL+w} y2={PT+h} stroke="#2a2d3a" strokeWidth="1"/>
+            </svg>
+            <div style={{ display:"flex", gap:"16px", fontSize:"9px", color:"#555", marginTop:"4px", flexWrap:"wrap" }}>
+              <span><span style={{color:"#a78bfa"}}>━━</span> Produzione cumulativa</span>
+              <span><span style={{color:"#f59e0b"}}>- - -</span> Obiettivo ({colliN.toLocaleString("it-IT")} colli)</span>
+              {finita && <span><span style={{color:"#10b981"}}>●</span> Chiusura stimata</span>}
+            </div>
+          </div>
+        );
+      }
+
+      
+    /* ── TurnoCard: layout con pausa staccata su due righe ── */
+    function TurnoCard({ t, idx, onUpdate, onRemove, onReset, isStrao = false }) {
+      const accent = isStrao ? "#f97316" : "#f59e0b";
+      const label  = isStrao ? "STRAORDINARIO" : "TURNO";
+      const inp = (lbl, field, type="text", placeholder="") => (
+        <div>
+          <div style={{ fontSize:"8px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>{lbl}</div>
+          <input type={type} value={t[field] || ""} placeholder={placeholder}
+            onChange={(e) => onUpdate(t.id, field, e.target.value)}
+            style={{ background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"6px", color:"#e8e8e0", fontFamily:"'Courier New',monospace", fontSize:"13px", padding:"7px 10px", width:"100%" }} />
+        </div>
+      );
+
+      return (
+        <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"12px", padding:"16px 16px 14px", position:"relative" }}>
+          <div style={{ position:"absolute", top:"10px", left:"16px", fontSize:"9px", letterSpacing:"2px", color:"#444" }}>{label} {idx + 1}</div>
+          <button onClick={() => onRemove(t.id)} style={{ position:"absolute", top:"8px", right:"12px", background:"transparent", border:"none", color:"#ef4444", cursor:"pointer", fontSize:"18px", lineHeight:1 }}>×</button>
+
+
+          {/* Main row: NOME | INIZIO | FINE | PAUSA (stacked) | COLLI/ORA (strao only) */}
+          <div style={{ display:"grid", gridTemplateColumns: isStrao ? "1.4fr 1fr 1fr 1fr 1fr" : "1.4fr 1fr 1fr 1fr", gap:"10px", marginTop:"22px" }}>
+            {/* NOME */}
+            {inp("NOME", "nome", "text", "es. Mattina")}
+
+            {/* INIZIO */}
+            {inp("INIZIO", "inizio", "time")}
+
+            {/* FINE */}
+            {inp("FINE", "fine", "time")}
+
+            {/* PAUSA staccata su due righe */}
+            <div>
+              <div style={{ fontSize:"8px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>PAUSA</div>
+              <input type="time" value={t.pausaInizio || ""} onChange={(e) => onUpdate(t.id, "pausaInizio", e.target.value)}
+                style={{ background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"6px", color:"#e8e8e0", fontFamily:"'Courier New',monospace", fontSize:"13px", padding:"7px 10px", width:"100%", marginBottom:"5px" }} />
+              <input type="time" value={t.pausaFine || ""} onChange={(e) => onUpdate(t.id, "pausaFine", e.target.value)}
+                style={{ background:"#0f1117", border:"1px solid #2a2d3a", borderRadius:"6px", color:"#888", fontFamily:"'Courier New',monospace", fontSize:"13px", padding:"7px 10px", width:"100%" }} />
+            </div>
+
+            {/* COLLI/ORA solo per straordinari */}
+            {isStrao && (
+              <div>
+                <div style={{ fontSize:"8px", letterSpacing:"2px", color:"#555", marginBottom:"4px" }}>COLLI/ORA</div>
+                <div style={{ display:"flex", gap:"5px" }}>
+                  {[90, 100].map((v) => (
+                    <button key={v} onClick={() => onUpdate(t.id, "rate", v)} style={{
+                      flex:1, padding:"7px 3px", borderRadius:"5px",
+                      border:`1px solid ${t.rate == v ? accent : "#2a2d3a"}`,
+                      background: t.rate == v ? "rgba(249,115,22,0.15)" : "transparent",
+                      color: t.rate == v ? accent : "#555",
+                      fontFamily:"inherit", fontSize:"12px", cursor:"pointer", fontWeight:"bold",
+                    }}>{v}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function TabellaFasce({ rows, colli }) {
+      return (
+        <div style={{ background:"#1a1d27", border:"1px solid #2a2d3a", borderRadius:"12px", overflow:"hidden", marginBottom:"18px" }}>
+          <div style={{ padding:"14px 18px", borderBottom:"1px solid #2a2d3a", fontSize:"10px", letterSpacing:"2px", color:"#f59e0b" }}>DETTAGLIO FASCE ORARIE</div>
+          <div style={{ overflowX:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
+              <thead>
+                <tr style={{ background:"#0f1117" }}>
+                  {["FASCIA","PERSONE","COLLI/H","DURATA","PRODUZIONE","CUMULATIVO","RIMANENTI"].map(h => (
+                    <th key={h} style={{ padding:"9px 12px", textAlign:"right", color:"#555", fontSize:"9px", letterSpacing:"1px", fontWeight:"normal", whiteSpace:"nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} style={{ background:r.highlight ? "rgba(245,158,11,0.12)" : "transparent", borderTop:"1px solid #1e2130" }}>
+                    <td style={{ padding:"9px 12px", color:r.highlight ? "#f59e0b" : "#e8e8e0", whiteSpace:"nowrap", fontWeight:r.highlight ? "bold" : "normal" }}>
+                      {r.from} → {r.highlight ? r.fineEsatta : r.to}
+                      {r.highlight && <span style={{ marginLeft:"6px", fontSize:"9px", color:"#f59e0b" }}>◀ FINE</span>}
+                    </td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", color:r.persone === 0 ? "#ef4444" : "#e8e8e0" }}>{r.persone === 0 ? "PAUSA" : r.persone}</td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.persone > 0 ? r.colliH : "—"}</td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", color:"#888" }}>{r.durata}</td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", color:r.highlight ? "#f59e0b" : "#e8e8e0", fontWeight:r.highlight ? "bold" : "normal" }}>
+                      {r.produzione > 0 ? `+${r.produzione.toLocaleString("it-IT")}` : "—"}
+                    </td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", color:r.highlight ? "#10b981" : "#e8e8e0", fontWeight:r.highlight ? "bold" : "normal" }}>
+                      {r.cumulo.toLocaleString("it-IT")}
+                    </td>
+                    <td style={{ padding:"9px 12px", textAlign:"right", fontWeight:r.highlight ? "bold" : "normal",
+                      color: r.highlight ? "#f59e0b" : (Number(colli) - r.cumulo <= 0 ? "#10b981" : "#ef4444") }}>
+                      {Math.max(0, Number(colli) - r.cumulo).toLocaleString("it-IT")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function AddBtn({ onClick, label, color = "#f59e0b" }) {
+      return (
+        <button onClick={onClick} style={{
+          marginBottom:"4px", background:"transparent", border:"1px dashed #2a2d3a",
+          borderRadius:"10px", color:"#555", padding:"13px", width:"100%",
+          cursor:"pointer", fontFamily:"inherit", fontSize:"12px", letterSpacing:"2px", transition:"all 0.2s",
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor=color; e.currentTarget.style.color=color; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor="#2a2d3a"; e.currentTarget.style.color="#555"; }}
+        >{label}</button>
+      );
+    }
+
+    function Root() {
+      const [loggedIn, setLoggedIn] = React.useState(() => {
+        try { return sessionStorage.getItem("turni_auth") === "1"; } catch(e) { return false; }
+      });
+      const handleLogin = () => {
+        try { sessionStorage.setItem("turni_auth", "1"); } catch(e) {}
+        setLoggedIn(true);
+      };
+      return loggedIn ? <App /> : <LoginScreen onLogin={handleLogin} />;
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
+  
+
+
+
+
+</script>
+</body>
+</html>
