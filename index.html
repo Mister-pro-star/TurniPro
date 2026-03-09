@@ -15,7 +15,35 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f1117; }
     ::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 3px; }
-  </style>
+
+    /* ── RESPONSIVE MOBILE ── */
+    @media (max-width: 700px) {
+      /* Wrap padding ridotto */
+      .wrap { padding: 12px 8px !important; }
+
+      /* Header compatto */
+      .header { padding: 10px 12px !important; }
+
+      /* Colli + Rate: impilati */
+      .colli-rate-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
+
+      /* Colonne principali: impilate verticalmente */
+      .main-columns { flex-direction: column !important; }
+
+      /* Colonne sticky: affiancate in riga */
+      .sticky-cols { 
+        position: static !important; 
+        flex-direction: row !important; 
+        flex-wrap: wrap !important;
+        width: 100% !important;
+        gap: 8px !important;
+      }
+      .sticky-cols > div { flex: 1 !important; min-width: 140px !important; }
+
+      /* Testo più piccolo su mobile */
+      input[type="number"] { font-size: 22px !important; }
+    }
+    </style>
 </head>
 <body>
   <div id="root"></div>
@@ -858,10 +886,10 @@
       };
       const T = TEMI[tema] || TEMI.dark;
       const S = {
-        page:    { minHeight:"100vh", background:T.bg, color:T.text, fontFamily:"'Courier New','Consolas',monospace" },
+        page:    { minHeight:"100vh", background:T.bg, color:T.text, fontFamily:"'Courier New','Consolas',monospace", overflowX:"hidden" },
         header:  { background:T.headerBg, borderBottom:`2px solid ${T.accent}`, padding:"20px 28px", display:"flex", alignItems:"center", gap:"14px", flexWrap:"wrap" },
         icon:    { width:"42px", height:"42px", background:T.iconBg, border:`2px solid ${T.accent}`, borderRadius:"8px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0, color:T.iconColor },
-        wrap:    { maxWidth:"980px", margin:"0 auto", padding:"28px 20px" },
+        wrap:    { maxWidth:"980px", margin:"0 auto", padding:"28px 16px" },
         panel:   { background:T.bg2, border:`1px solid ${T.border}`, borderRadius:"12px" },
         label:   { fontSize:"9px", letterSpacing:"2px", color:T.textDim, marginBottom:"5px" },
       };
@@ -1234,7 +1262,7 @@
 
           <div style={S.wrap}>
             {/* ── Colli + Rate ── */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"14px", marginBottom:"22px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))", gap:"14px", marginBottom:"22px" }}>
               <div style={{ ...S.panel, padding:"20px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"2px", color:"#f59e0b", marginBottom:"8px" }}>COLLI DA PROCESSARE</div>
                 <input type="number" value={colli} onChange={(e) => setColli(e.target.value)}
@@ -1259,7 +1287,7 @@
             </div>
 
             {/* ── TURNI + STRAORDINARI + colonne rapide sticky ── */}
-            <div style={{ display:"flex", gap:"14px", alignItems:"flex-start" }}>
+            <div className="main-columns" style={{ display:"flex", gap:"14px", alignItems:"flex-start", flexWrap:"wrap" }}>
 
               {/* Colonna sinistra: turni + straordinari */}
               <div style={{ flex:1, display:"flex", flexDirection:"column", gap:"0px" }}>
@@ -1379,7 +1407,7 @@
               </div>
 
               {/* ── Colonne rapide sticky: PERSONE + COLLI TURNO ── */}
-              <div style={{ display:"flex", gap:"8px", flexShrink:0, position:"sticky", top:"12px", alignSelf:"flex-start" }}>
+              <div style={{ display:"flex", gap:"8px", flexShrink:0, position:"sticky", top:"12px", alignSelf:"flex-start", flexWrap:"wrap" }}>
 
                 {/* Persone */}
                 <div style={{ ...S.panel, padding:"14px", minWidth:"260px" }}>
