@@ -4,784 +4,990 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Turni Magazzino</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; background: #0a0c12; overflow: hidden; }
-    #root { height: 100%; }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%;background:#0a0c12;overflow:hidden;font-family:'Courier New',Consolas,monospace}
+    #root{height:100%}
     input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-    input, button { -webkit-appearance: none; border-radius: 0; }
-    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    .page-enter { animation: fadeUp 0.25s ease; }
-    ::-webkit-scrollbar { width: 0; }
+    input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+    input,button,select{-webkit-appearance:none}
+    ::-webkit-scrollbar{width:0}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    .fadeup{animation:fadeUp 0.3s ease}
+    .spin{animation:spin 1s linear infinite;display:inline-block}
   </style>
 </head>
-<body>
-<div id="root"></div>
+<body><div id="root"></div>
 <script type="text/babel">
-const { useState, useCallback, useEffect, useRef, useMemo } = React;
+const {useState,useCallback,useEffect,useRef,useMemo} = React;
 
-// ── Constants ──
-const LS = {
-  auth: 'tm_auth',
-  pwd: 'tm_pwd',
-  turni: 'tm_turni',
-  squadra: 'tm_squadra',
-  storico: 'tm_storico',
-  settings: 'tm_settings',
+// ── THEME ──
+const C = {
+  bg:'#0a0c12',bg2:'#12141e',bg3:'#1a1d2a',
+  border:'#1e2235',border2:'#2a2d3f',
+  accent:'#f59e0b',accent2:'#fbbf24',
+  purple:'#a78bfa',purple2:'#c4b5fd',
+  green:'#10b981',green2:'#34d399',
+  red:'#ef4444',red2:'#fca5a5',
+  orange:'#f97316',
+  blue:'#38bdf8',
+  text:'#e8e8e0',dim:'#555',mid:'#888',
+  F:"'Courier New',Consolas,monospace",
 };
 
+// ── STORAGE KEYS ──
+const LS = {pwd:'tm_pwd',auth:'tm_auth',turni:'tm_turni',strao:'tm_strao',straPers:'tm_straPers',colli:'tm_colli',rate:'tm_rate',storico:'tm_storico',squadra:'tm_squadra',firebase:'tm_firebase'};
 const DEFAULT_PWD = 'Vaniusa1987.';
 
 const DEFAULT_TURNI = [
-  { id:1, nome:'Mattina 06:00',    inizio:'06:00', fine:'12:20', pausaInizio:'10:00', pausaFine:'10:20', persone:0, assenti:0 },
-  { id:5, nome:'Giornata 08:00',   inizio:'08:00', fine:'14:20', pausaInizio:'12:00', pausaFine:'12:20', persone:0, assenti:0 },
-  { id:2, nome:'Giornata 10:00',   inizio:'10:00', fine:'16:20', pausaInizio:'14:00', pausaFine:'14:20', persone:0, assenti:0 },
-  { id:3, nome:'Pomeriggio 13:00', inizio:'13:00', fine:'19:20', pausaInizio:'17:00', pausaFine:'17:20', persone:0, assenti:0 },
+  {id:1,nome:'Mattina 06:00',inizio:'06:00',fine:'12:20',pausaInizio:'10:00',pausaFine:'10:20',persone:0,assenti:0},
+  {id:5,nome:'Giornata 08:00',inizio:'08:00',fine:'14:20',pausaInizio:'12:00',pausaFine:'12:20',persone:0,assenti:0},
+  {id:2,nome:'Giornata 10:00',inizio:'10:00',fine:'16:20',pausaInizio:'14:00',pausaFine:'14:20',persone:0,assenti:0},
+  {id:3,nome:'Pomeriggio 13:00',inizio:'13:00',fine:'19:20',pausaInizio:'17:00',pausaFine:'17:20',persone:0,assenti:0},
+];
+const DEFAULT_STRAPERSONE = [
+  {id:1,inizio:'12:20',fine:'13:20',persone:0},
+  {id:5,inizio:'',fine:'',persone:0},
+  {id:2,inizio:'',fine:'',persone:0},
+  {id:3,inizio:'12:00',fine:'13:00',persone:0},
 ];
 
-const DEFAULT_STRAO = [
-  { id:1, nome:'Strao Mattina',    inizio:'12:20', fine:'13:20', persone:0 },
-  { id:3, nome:'Strao Pomeriggio', inizio:'12:00', fine:'13:00', persone:0 },
-];
+// ── UTILS ──
+function lsg(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}}
+function lss(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+function timeToMin(t){if(!t||!t.includes(':'))return 0;const[h,m]=t.split(':').map(Number);return h*60+m}
+function minToTime(m){let h=Math.floor(m/60);let mn=Math.round(m%60);if(mn===60){h++;mn=0}return`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`}
+function oggi(){const d=new Date();return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
+function turnoColore(nome){if(/mattina/i.test(nome))return C.accent;if(/pomeriggio/i.test(nome))return C.purple;return C.blue}
 
-const T = {
-  bg: '#0a0c12', bg2: '#12141e', bg3: '#1a1d2a',
-  border: '#1e2235', border2: '#2a2d3f',
-  accent: '#f59e0b', accent2: '#fbbf24',
-  purple: '#a78bfa', purple2: '#c4b5fd',
-  green: '#10b981', green2: '#34d399',
-  red: '#ef4444', red2: '#fca5a5',
-  orange: '#f97316',
-  text: '#e8e8e0', textDim: '#555', textMid: '#888',
-  font: "'Courier New','Consolas',monospace",
-};
-
-// ── Utils ──
-function tMin(t) {
-  if (!t || !t.includes(':')) return 0;
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-function minToT(m) {
-  return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(Math.round(m)%60).padStart(2,'0');
-}
-function ls(key, def) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
-}
-function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
-}
-function oggi() {
-  const d = new Date();
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-}
-
-// ── Calcolo ──
-function calcFine(allT, colliN, r) {
-  const evSet = new Set();
-  allT.forEach(t => {
-    evSet.add(tMin(t.inizio)); evSet.add(tMin(t.fine));
-    if (t.pausaInizio && t.pausaFine) { evSet.add(tMin(t.pausaInizio)); evSet.add(tMin(t.pausaFine)); }
+// ── CALC ENGINE ──
+function calcola(colliN, tuttiTurni, rate) {
+  const events = new Set();
+  tuttiTurni.forEach(t=>{
+    events.add(timeToMin(t.inizio));events.add(timeToMin(t.fine));
+    if(t.pausaInizio&&t.pausaFine){events.add(timeToMin(t.pausaInizio));events.add(timeToMin(t.pausaFine))}
   });
-  const ev = Array.from(evSet).sort((a,b) => a-b);
-  let cum = 0;
-  const rows = [];
-  for (let i = 0; i < ev.length-1; i++) {
-    const frm = ev[i], to = ev[i+1];
-    let pers = 0;
-    allT.forEach(t => {
-      const tIn = tMin(t.inizio), tOut = tMin(t.fine);
-      const pIn = t.pausaInizio ? tMin(t.pausaInizio) : null;
-      const pOut = t.pausaFine ? tMin(t.pausaFine) : null;
-      if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
-        pers += Number(t.persone);
+  const sorted=Array.from(events).sort((a,b)=>a-b);
+  let cumulo=0;const rows=[];
+  for(let i=0;i<sorted.length-1;i++){
+    const from=sorted[i],to=sorted[i+1];
+    let pers=0;
+    tuttiTurni.forEach(t=>{
+      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+      const r=Number(t._rate||rate);
+      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
+        pers+=Number(t.persone)||0;
     });
-    if (pers === 0) { rows.push({ frm, to, pers:0, prod:0, cum }); continue; }
-    const prod = pers * r * (to - frm) / 60;
-    if (cum + prod >= colliN) {
-      const fineMin = frm + (colliN - cum) / (pers * r) * 60;
-      rows.push({ frm, to, pers, prod: colliN-cum, cum: colliN, highlight: true, fine: minToT(fineMin) });
-      return { ok: true, fineEsatta: minToT(fineMin), rows, cumulo: colliN };
+    let r2=rate;
+    tuttiTurni.forEach(t=>{const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;const pOut=t.pausaFine?timeToMin(t.pausaFine):null;if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut)&&t._rate)r2=Number(t._rate)});
+    const prod=pers*(Number(tuttiTurni[0]?._rate||rate))*(to-from)/60;
+    // recalc with proper rates
+    let prodPreciso=0;
+    tuttiTurni.forEach(t=>{
+      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+      const r=Number(t._rate||rate);
+      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
+        prodPreciso+=(Number(t.persone)||0)*r*(to-from)/60;
+    });
+    if(pers===0){rows.push({from,to,pers:0,prod:0,cumulo,nome:'PAUSA'});continue}
+    if(cumulo+prodPreciso>=colliN){
+      const fineMin=from+(colliN-cumulo)/pers/rate*60;
+      // better: find exact with rate
+      let c2=cumulo,fineEx=from;
+      let persR=0,rateR=rate;
+      tuttiTurni.forEach(t=>{
+        const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+        const r=Number(t._rate||rate);
+        if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut)){
+          persR+=Number(t.persone)||0;
+        }
+      });
+      let totalRate=0;
+      tuttiTurni.forEach(t=>{
+        const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+        const r=Number(t._rate||rate);
+        if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
+          totalRate+=(Number(t.persone)||0)*r;
+      });
+      const fineEsatta=totalRate>0?minToTime(from+(colliN-cumulo)/totalRate*60):minToTime(fineMin);
+      rows.push({from,to,pers,prod:colliN-cumulo,cumulo:colliN,highlight:true,fineEsatta});
+      return{ok:true,fineEsatta,rows,cumulo:colliN};
     }
-    cum += prod;
-    rows.push({ frm, to, pers, prod, cum });
+    cumulo+=prodPreciso;
+    rows.push({from,to,pers,prod:Math.round(prodPreciso),cumulo:Math.round(cumulo)});
   }
-  return { ok: false, fineEsatta: null, rows, cumulo: Math.round(cum) };
+  return{ok:false,fineEsatta:null,rows,cumulo:Math.round(cumulo)};
 }
 
-function calcAnticipo(allT, fineStr, r) {
-  if (!fineStr) return 0;
-  const fineMin = tMin(fineStr);
-  let tot = 0;
-  const evSet = new Set();
-  allT.forEach(t => {
-    evSet.add(tMin(t.inizio)); evSet.add(tMin(t.fine));
-    if (t.pausaInizio && t.pausaFine) { evSet.add(tMin(t.pausaInizio)); evSet.add(tMin(t.pausaFine)); }
+function calcolaAnticipo(tuttiTurni,fineStr,rate){
+  if(!fineStr)return{totale:0,dettaglio:[]};
+  const fineMin=timeToMin(fineStr);
+  let totale=0;const dettaglio=[];
+  const events=new Set([fineMin]);
+  tuttiTurni.forEach(t=>{
+    events.add(timeToMin(t.inizio));events.add(timeToMin(t.fine));
+    if(t.pausaInizio&&t.pausaFine){events.add(timeToMin(t.pausaInizio));events.add(timeToMin(t.pausaFine))}
   });
-  const ev = Array.from(evSet).sort((a,b) => a-b);
-  for (let i = 0; i < ev.length-1; i++) {
-    const frm = ev[i], to = ev[i+1];
-    if (to <= fineMin) continue;
-    const start = Math.max(frm, fineMin);
-    let pers = 0;
-    allT.forEach(t => {
-      const tIn = tMin(t.inizio), tOut = tMin(t.fine);
-      const pIn = t.pausaInizio ? tMin(t.pausaInizio) : null;
-      const pOut = t.pausaFine ? tMin(t.pausaFine) : null;
-      if (start >= tIn && to <= tOut && !(pIn !== null && start >= pIn && to <= pOut))
-        pers += Number(t.persone);
+  const sorted=Array.from(events).filter(e=>e>=fineMin).sort((a,b)=>a-b);
+  for(let i=0;i<sorted.length-1;i++){
+    const from=sorted[i],to=sorted[i+1];
+    let prodPreciso=0;
+    tuttiTurni.forEach(t=>{
+      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+      const r=Number(t._rate||rate);
+      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
+        prodPreciso+=(Number(t.persone)||0)*r*(to-from)/60;
     });
-    if (pers > 0) tot += pers * r * (to - start) / 60;
+    totale+=prodPreciso;
   }
-  return Math.round(tot);
+  return{totale:Math.round(totale),dettaglio};
 }
+
+// ── FIREBASE SYNC ──
+async function fbSync(fbConfig, data) {
+  if(!fbConfig?.url)return{ok:false,err:'Nessun URL Firebase configurato'};
+  try{
+    const url=fbConfig.url.replace(/\/$/,'')+'/turni_data.json';
+    const res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    return{ok:true};
+  }catch(e){return{ok:false,err:e.message}}
+}
+async function fbLoad(fbConfig) {
+  if(!fbConfig?.url)return{ok:false,err:'Nessun URL Firebase configurato'};
+  try{
+    const url=fbConfig.url.replace(/\/$/,'')+'/turni_data.json';
+    const res=await fetch(url);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    return{ok:true,data};
+  }catch(e){return{ok:false,err:e.message}}
+}
+
+// ── SHARED UI ──
+function Btn({onClick,children,color=C.accent,bg='transparent',full=false,small=false,style={}}){
+  return <button onClick={onClick} style={{width:full?'100%':'auto',padding:small?'8px 12px':'13px 16px',background:bg||`rgba(${color==='#f59e0b'?'245,158,11':'167,139,250'},0.1)`,border:`1px solid ${color}`,borderRadius:'10px',color,fontFamily:C.F,fontSize:small?'9px':'10px',fontWeight:'bold',letterSpacing:'2px',cursor:'pointer',...style}}>{children}</button>
+}
+function NumInput({value,onChange,color=C.green}){
+  return(
+    <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
+      <button onClick={()=>onChange(Math.max(0,Number(value)-1))} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${C.border2}`,background:C.bg3,color,fontFamily:C.F,fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
+      <input type="number" value={value} onChange={e=>onChange(Number(e.target.value))}
+        style={{width:'42px',textAlign:'center',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color,fontFamily:C.F,fontSize:'15px',fontWeight:'bold',padding:'4px 2px',outline:'none'}}/>
+      <button onClick={()=>onChange(Number(value)+1)} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${C.border2}`,background:C.bg3,color,fontFamily:C.F,fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+    </div>
+  );
+}
+function Panel({children,style={}}){return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:'12px',padding:'12px 14px',...style}}>{children}</div>}
+function SectionLabel({children,color=C.dim}){return <div style={{fontSize:'9px',letterSpacing:'2px',color,marginBottom:'6px'}}>{children}</div>}
 
 // ── LOGIN ──
-function Login({ onLogin }) {
-  const [code, setCode] = useState('');
-  const [err, setErr] = useState(false);
-  const [shake, setShake] = useState(false);
-  const inp = useRef(null);
-
-  useEffect(() => { setTimeout(() => inp.current?.focus(), 300); }, []);
-
-  const tryLogin = () => {
-    const pwd = ls(LS.pwd, DEFAULT_PWD);
-    if (code === pwd) { lsSet(LS.auth, Date.now()); onLogin(); }
-    else {
-      setErr(true); setShake(true); setCode('');
-      setTimeout(() => setShake(false), 500);
-      setTimeout(() => setErr(false), 2000);
-    }
+function Login({onLogin}){
+  const[code,setCode]=useState('');
+  const[err,setErr]=useState(false);
+  const[shake,setShake]=useState(false);
+  const inp=useRef(null);
+  useEffect(()=>{setTimeout(()=>inp.current?.focus(),400)},[]);
+  const tryLogin=()=>{
+    const pwd=lsg(LS.pwd,DEFAULT_PWD);
+    if(code===pwd){try{sessionStorage.setItem(LS.auth,'1')}catch{}onLogin()}
+    else{setErr(true);setShake(true);setCode('');setTimeout(()=>setShake(false),500);setTimeout(()=>setErr(false),2000)}
   };
-
-  return (
-    <div style={{ minHeight:'100vh', minHeight:'100dvh', background:T.bg, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:T.font, padding:'20px' }}>
-      <div style={{ width:'100%', maxWidth:'320px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.4s ease' }}>
-        <div style={{ textAlign:'center', marginBottom:'40px' }}>
-          <div style={{ fontSize:'52px', marginBottom:'12px' }}>📦</div>
-          <div style={{ fontSize:'16px', fontWeight:'bold', letterSpacing:'4px', color:T.accent }}>TURNI MAGAZZINO</div>
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'3px', marginTop:'4px' }}>ACCESSO RISERVATO</div>
+  return(
+    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:C.F,padding:'20px'}}>
+      <div style={{width:'100%',maxWidth:'320px',animation:shake?'shake 0.4s ease':'fadeIn 0.4s ease'}}>
+        <div style={{textAlign:'center',marginBottom:'36px'}}>
+          <div style={{fontSize:'56px',marginBottom:'10px'}}>📦</div>
+          <div style={{fontSize:'15px',fontWeight:'bold',letterSpacing:'4px',color:C.accent}}>TURNI MAGAZZINO</div>
+          <div style={{fontSize:'9px',color:C.dim,letterSpacing:'3px',marginTop:'4px'}}>ACCESSO RISERVATO</div>
         </div>
-        <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'16px', padding:'28px 24px' }}>
-          <div style={{ fontSize:'9px', letterSpacing:'2px', color:T.textDim, marginBottom:'8px' }}>CODICE DI ACCESSO</div>
-          <input ref={inp} type="password" value={code}
-            onChange={e => setCode(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && tryLogin()}
-            placeholder="••••••••"
-            style={{ width:'100%', background:T.bg, border:`2px solid ${err ? T.red : T.border2}`, borderRadius:'10px', color:T.text, fontFamily:T.font, fontSize:'20px', padding:'14px 16px', textAlign:'center', letterSpacing:'6px', outline:'none', transition:'border-color 0.2s', marginBottom:'8px' }}
-          />
-          {err && <div style={{ color:T.red, fontSize:'10px', letterSpacing:'2px', textAlign:'center', marginBottom:'8px' }}>✗ CODICE ERRATO</div>}
-          <button onClick={tryLogin} style={{ width:'100%', padding:'16px', background:`linear-gradient(135deg,${T.accent},${T.accent2})`, border:'none', borderRadius:'10px', color:'#000', fontFamily:T.font, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', marginTop:'8px' }}>
-            ENTRA →
-          </button>
-        </div>
+        <Panel>
+          <SectionLabel>CODICE DI ACCESSO</SectionLabel>
+          <input ref={inp} type="password" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryLogin()} placeholder="••••••••"
+            style={{width:'100%',background:C.bg,border:`2px solid ${err?C.red:C.border2}`,borderRadius:'10px',color:C.text,fontFamily:C.F,fontSize:'22px',padding:'13px 16px',textAlign:'center',letterSpacing:'6px',outline:'none',transition:'border-color 0.2s',marginBottom:'8px'}}/>
+          {err&&<div style={{color:C.red,fontSize:'10px',letterSpacing:'2px',textAlign:'center',marginBottom:'8px'}}>✗ CODICE ERRATO</div>}
+          <Btn onClick={tryLogin} color="#000" bg={`linear-gradient(135deg,${C.accent},${C.accent2})`} full style={{marginTop:'6px'}}>ENTRA →</Btn>
+        </Panel>
       </div>
     </div>
   );
 }
 
 // ── BOTTOM NAV ──
-function BottomNav({ page, setPage }) {
-  const tabs = [
-    { id:'turni', icon:'📊', label:'TURNI' },
-    { id:'storico', icon:'📋', label:'STORICO' },
-    { id:'squadra', icon:'👥', label:'SQUADRA' },
-    { id:'settings', icon:'⚙️', label:'CONFIG' },
-  ];
-  return (
-    <div style={{ position:'fixed', bottom:0, left:0, right:0, background:T.bg2, borderTop:`1px solid ${T.border}`, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => setPage(t.id)} style={{ flex:1, background:'transparent', border:'none', padding:'10px 4px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px' }}>
-          <div style={{ fontSize:'20px', lineHeight:1 }}>{t.icon}</div>
-          <div style={{ fontSize:'8px', letterSpacing:'1px', fontFamily:T.font, color: page===t.id ? T.accent : T.textDim, fontWeight: page===t.id ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
-          {page===t.id && <div style={{ width:'20px', height:'2px', background:T.accent, borderRadius:'1px' }}/>}
+function Nav({page,setPage}){
+  const tabs=[{id:'turni',icon:'📊',label:'TURNI'},{id:'storico',icon:'📋',label:'STORICO'},{id:'squadra',icon:'👥',label:'SQUADRA'},{id:'settings',icon:'⚙️',label:'CONFIG'}];
+  return(
+    <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.bg2,borderTop:`1px solid ${C.border}`,display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
+      {tabs.map(t=>(
+        <button key={t.id} onClick={()=>setPage(t.id)} style={{flex:1,background:'transparent',border:'none',padding:'10px 4px 8px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}}>
+          <div style={{fontSize:'22px',lineHeight:1}}>{t.icon}</div>
+          <div style={{fontSize:'8px',letterSpacing:'1px',fontFamily:C.F,color:page===t.id?C.accent:C.dim,fontWeight:page===t.id?'bold':'normal',transition:'color 0.2s'}}>{t.label}</div>
+          {page===t.id&&<div style={{width:'20px',height:'2px',background:C.accent,borderRadius:'1px'}}/>}
         </button>
       ))}
     </div>
   );
 }
 
-// ── TURNI PAGE ──
-function PageTurni() {
-  const [colli, setColli] = useState(() => ls('tm_colli', ''));
-  const [rate, setRate] = useState(() => ls('tm_rate', 90));
-  const [turni, setTurni] = useState(() => ls(LS.turni, DEFAULT_TURNI));
-  const [strao, setStrao] = useState(() => ls('tm_strao', DEFAULT_STRAO));
-  const [risultato, setRisultato] = useState(null);
-  const [saved, setSaved] = useState(false);
+// ── GRAFICO ──
+function Grafico({turni,straPers,colli,rate}){
+  const allT=useMemo(()=>[
+    ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:rate})),
+    ...straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:rate})),
+  ],[turni,straPers,rate]);
+  if(!colli||allT.every(t=>!Number(t.persone)))return null;
+  const W=340,H=150,PL=44,PR=8,PT=8,PB=26;
+  const pw=W-PL-PR,ph=H-PT-PB;
+  const evS=new Set();
+  allT.forEach(t=>{evS.add(timeToMin(t.inizio));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){evS.add(timeToMin(t.pausaInizio));evS.add(timeToMin(t.pausaFine))}});
+  const ev=Array.from(evS).sort((a,b)=>a-b);
+  const minS=ev[0],maxE=ev[ev.length-1],tRange=maxE-minS;
+  const pts=[{t:minS,c:0}];
+  let cum=0,done=false;
+  for(let i=0;i<ev.length-1;i++){
+    const frm=ev[i],to=ev[i+1];
+    let prod=0;
+    allT.forEach(t=>{
+      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+      const r=Number(t._rate||rate);
+      if(frm>=tIn&&to<=tOut&&!(pIn!==null&&frm>=pIn&&to<=pOut))
+        prod+=(Number(t.persone)||0)*r*(to-frm)/60;
+    });
+    if(!done&&cum+prod>=colli){const ft=frm+(colli-cum)/(prod/(to-frm))*60;cum=colli;done=true;pts.push({t:ft,c:cum})}
+    else if(!done)cum+=prod;
+    pts.push({t:to,c:done?colli:cum});
+  }
+  const maxC=Math.max(colli,cum)*1.05;
+  const tx=t=>PL+((t-minS)/tRange)*pw;
+  const ty=c=>PT+ph-(c/maxC)*ph;
+  const pathD=pts.map((p,i)=>(i===0?'M':'L')+tx(p.t).toFixed(1)+','+ty(p.c).toFixed(1)).join(' ');
+  const areaD=pathD+` L${tx(pts[pts.length-1].t).toFixed(1)},${PT+ph} L${PL},${PT+ph} Z`;
+  const tY=ty(colli);
+  const startH=Math.ceil(minS/60),endH=Math.floor(maxE/60);
+  const hours=[];for(let h=startH;h<=endH;h++)hours.push(h*60);
+  const closePt=pts.find(p=>p.c>=colli);
+  return(
+    <Panel style={{marginTop:'10px'}}>
+      <SectionLabel color={C.purple}>📊 ANDAMENTO PRODUZIONE</SectionLabel>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}}>
+        {[0.25,0.5,0.75,1].map(f=>(
+          <g key={f}>
+            <line x1={PL} y1={ty(maxC*f)} x2={PL+pw} y2={ty(maxC*f)} stroke={C.border} strokeWidth="1"/>
+            <text x={PL-4} y={ty(maxC*f)+4} textAnchor="end" fill={C.dim} fontSize="8">{Math.round(maxC*f/100)*100}</text>
+          </g>
+        ))}
+        <line x1={PL} y1={tY} x2={PL+pw} y2={tY} stroke={C.accent} strokeWidth="1" strokeDasharray="3,3"/>
+        <path d={areaD} fill="rgba(167,139,250,0.1)"/>
+        <path d={pathD} fill="none" stroke={C.purple} strokeWidth="2" strokeLinejoin="round"/>
+        {hours.map(m=>(
+          <g key={m}>
+            <line x1={tx(m)} y1={PT} x2={tx(m)} y2={PT+ph} stroke={C.border} strokeWidth="1"/>
+            <text x={tx(m)} y={PT+ph+12} textAnchor="middle" fill={C.dim} fontSize="8">{Math.floor(m/60)}:00</text>
+          </g>
+        ))}
+        {closePt&&<g><circle cx={tx(closePt.t)} cy={ty(closePt.c)} r="4" fill={C.green}/><text x={tx(closePt.t)} y={ty(closePt.c)-7} textAnchor="middle" fill={C.green} fontSize="8" fontWeight="bold">{minToTime(closePt.t)}</text></g>}
+        <line x1={PL} y1={PT} x2={PL} y2={PT+ph} stroke={C.border2} strokeWidth="1"/>
+        <line x1={PL} y1={PT+ph} x2={PL+pw} y2={PT+ph} stroke={C.border2} strokeWidth="1"/>
+      </svg>
+    </Panel>
+  );
+}
 
-  // Auto save state
-  useEffect(() => { lsSet('tm_colli', colli); }, [colli]);
-  useEffect(() => { lsSet('tm_rate', rate); }, [rate]);
-  useEffect(() => { lsSet(LS.turni, turni); }, [turni]);
-  useEffect(() => { lsSet('tm_strao', strao); }, [strao]);
+// ── PAGE TURNI ──
+function PageTurni(){
+  const[colli,setColli]=useState(()=>lsg(LS.colli,''));
+  const[rate,setRate]=useState(()=>lsg(LS.rate,90));
+  const[turni,setTurni]=useState(()=>lsg(LS.turni,DEFAULT_TURNI));
+  const[straPers,setStraPers]=useState(()=>lsg(LS.straPers,DEFAULT_STRAPERSONE));
+  const[risultato,setRisultato]=useState(null);
+  const[puntoOra,setPuntoOra]=useState('');
+  const[puntoRim,setPuntoRim]=useState('');
+  const[puntoResult,setPuntoResult]=useState(null);
+  const[oraTarget,setOraTarget]=useState('18:00');
+  const[invResult,setInvResult]=useState(null);
+  const[salvato,setSalvato]=useState(false);
+  const[copiato,setCopiato]=useState(false);
 
-  // Auto calc
-  useEffect(() => {
-    const colliN = Number(colli);
-    if (!colliN || colliN <= 0) { setRisultato(null); return; }
-    const r = Number(rate);
-    const allT = [
-      ...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) })),
-      ...strao.filter(s => s.inizio && s.fine && Number(s.persone) > 0),
+  useEffect(()=>{lss(LS.colli,colli)},[colli]);
+  useEffect(()=>{lss(LS.rate,rate)},[rate]);
+  useEffect(()=>{lss(LS.turni,turni)},[turni]);
+  useEffect(()=>{lss(LS.straPers,straPers)},[straPers]);
+
+  // Sync straPersone when turni change
+  useEffect(()=>{
+    setStraPers(prev=>turni.map(t=>{
+      const ex=prev.find(s=>s.id===t.id);
+      return ex||{id:t.id,inizio:'',fine:'',persone:0};
+    }));
+  },[turni.length]);
+
+  // Auto-calcolo
+  useEffect(()=>{
+    const colliN=Number(colli);
+    if(!colliN||colliN<=0){setRisultato(null);return}
+    const r=Number(rate);
+    const tuttiTurni=[
+      ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r})),
+      ...straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r})),
     ];
-    const res = calcFine(allT, colliN, r);
-    if (res.ok) res.anticipo = calcAnticipo(allT, res.fineEsatta, r);
+    const res=calcola(colliN,tuttiTurni,r);
+    if(res.ok)res.anticipo=calcolaAnticipo(tuttiTurni,res.fineEsatta,r);
     setRisultato(res);
-  }, [colli, rate, turni, strao]);
+  },[colli,rate,turni,straPers]);
 
-  const setP = (id, val) => setTurni(prev => prev.map(t => t.id===id ? { ...t, persone: Math.max(0, Number(val)) } : t));
-  const setA = (id, val) => setTurni(prev => prev.map(t => t.id===id ? { ...t, assenti: Math.max(0, Number(val)) } : t));
-  const setStraoP = (id, val) => setStrao(prev => prev.map(s => s.id===id ? { ...s, persone: Math.max(0, Number(val)) } : s));
+  const setP=(id,v)=>setTurni(prev=>prev.map(t=>t.id===id?{...t,persone:Math.max(0,v)}:t));
+  const setA=(id,v)=>setTurni(prev=>prev.map(t=>t.id===id?{...t,assenti:Math.max(0,v)}:t));
+  const setStrP=(id,field,v)=>setStraPers(prev=>prev.map(s=>s.id===id?{...s,[field]:v}:s));
 
-  const turnoColor = (nome) => {
-    if (/mattina/i.test(nome)) return T.accent;
-    if (/pomeriggio/i.test(nome)) return T.purple;
-    return '#38bdf8';
-  };
+  const calcolaPunto=useCallback(()=>{
+    if(!puntoOra||!puntoRim)return;
+    const r=Number(rate);
+    const oraMin=timeToMin(puntoOra);
+    const rimanenti=Number(puntoRim);
+    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r,nome:(turni.find(t=>t.id===s.id)?.nome||'')+'(strao)'}));
+    const tuttiTurni=[
+      ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r})),
+      ...straV,
+    ];
+    // Capacità rimanente
+    let capRim=0;const dettaglio=[];
+    tuttiTurni.forEach(t=>{
+      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+      const start=Math.max(oraMin,tIn);
+      if(start>=tOut)return;
+      let min=tOut-start;
+      if(pIn!==null&&pOut>start&&pIn<tOut)min-=Math.min(pOut,tOut)-Math.max(pIn,start);
+      if(min<=0)return;
+      const c=Math.round(min/60*r*Number(t.persone));
+      capRim+=c;
+      dettaglio.push({nome:t.nome||'Turno',dalle:minToTime(start),alle:t.fine,persone:Number(t.persone),colli:c});
+    });
+    const ok=capRim>=rimanenti;
+    // Stima fine
+    let fineStimata=null;
+    if(ok){
+      const evS=new Set([oraMin]);
+      tuttiTurni.forEach(t=>{if(timeToMin(t.fine)>oraMin){evS.add(Math.max(oraMin,timeToMin(t.inizio)));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){const pI=timeToMin(t.pausaInizio);const pO=timeToMin(t.pausaFine);if(pI>oraMin)evS.add(pI);if(pO>oraMin)evS.add(pO)}}});
+      const sorted=Array.from(evS).sort((a,b)=>a-b);
+      let cum=0;
+      for(let i=0;i<sorted.length-1;i++){
+        const from=sorted[i],to=sorted[i+1];
+        if(from<oraMin)continue;
+        let prodP=0;
+        tuttiTurni.forEach(t=>{
+          const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+          const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+          const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+          if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
+            prodP+=(Number(t.persone)||0)*r*(to-from)/60;
+        });
+        if(cum+prodP>=rimanenti){
+          let totalRate=0;
+          tuttiTurni.forEach(t=>{const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;const pOut=t.pausaFine?timeToMin(t.pausaFine):null;if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))totalRate+=(Number(t.persone)||0)*r});
+          fineStimata=totalRate>0?minToTime(from+(rimanenti-cum)/totalRate*60):null;
+          break;
+        }
+        cum+=prodP;
+      }
+    }
+    let anticipo=null;
+    if(ok&&fineStimata)anticipo=calcolaAnticipo(tuttiTurni,fineStimata,r);
+    // Confronto
+    let confronto=null;
+    if(colli){
+      const colliFatti=Math.max(0,Number(colli)-rimanenti);
+      let colliPian=0;
+      tuttiTurni.forEach(t=>{
+        const tIn=timeToMin(t.inizio),tOut=Math.min(oraMin,timeToMin(t.fine));
+        if(tIn>=oraMin||tOut<=tIn)return;
+        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+        let min=tOut-tIn;
+        if(pIn!==null&&pOut>tIn&&pIn<tOut)min-=Math.min(pOut,tOut)-Math.max(pIn,tIn);
+        if(min>0)colliPian+=Math.round(min/60*r*Number(t.persone));
+      });
+      confronto={fatti:colliFatti,pianificati:Math.round(colliPian),delta:colliFatti-Math.round(colliPian)};
+    }
+    setPuntoResult({ok,capRim:Math.round(capRim),rimanenti,mancaDelta:Math.abs(rimanenti-capRim),fineStimata,dettaglio,anticipo,confronto});
+  },[puntoOra,puntoRim,turni,straPers,colli,rate]);
 
-  const salvaStorico = () => {
-    const storico = ls(LS.storico, []);
-    const entry = {
-      id: Date.now(),
-      data: oggi(),
-      colli: Number(colli),
-      rate: Number(rate),
-      turni: turni.map(t => ({ nome: t.nome, persone: Number(t.persone), assenti: Number(t.assenti||0) })),
-      chiusura: risultato?.fineEsatta || null,
-      anticipo: risultato?.anticipo || 0,
-      ok: risultato?.ok || false,
+  const calcolaInverso=useCallback(()=>{
+    const target=timeToMin(oraTarget);
+    const colliN=Number(colli);
+    const r=Number(rate);
+    const TOL=20;
+    const calcF=(allT)=>{
+      const evS=new Set();
+      allT.forEach(t=>{evS.add(timeToMin(t.inizio));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){evS.add(timeToMin(t.pausaInizio));evS.add(timeToMin(t.pausaFine))}});
+      const ev=Array.from(evS).sort((a,b)=>a-b);
+      let cum=0;
+      for(let i=0;i<ev.length-1;i++){
+        const frm=ev[i],to=ev[i+1];
+        let totalR=0;
+        allT.forEach(t=>{
+          const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
+          const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
+          const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
+          const rt=Number(t._rate||r);
+          if(frm>=tIn&&to<=tOut&&!(pIn!==null&&frm>=pIn&&to<=pOut))
+            totalR+=(Number(t.persone)||0)*rt;
+        });
+        if(totalR===0)continue;
+        const prod=totalR*(to-frm)/60;
+        if(cum+prod>=colliN)return frm+(colliN-cum)/totalR*60;
+        cum+=prod;
+      }
+      return null;
     };
-    lsSet(LS.storico, [entry, ...storico.slice(0, 29)]);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    const turniEff=turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r}));
+    const mat=turniEff.find(t=>/mattina/i.test(t.nome));
+    const pom=turniEff.find(t=>/pomeriggio/i.test(t.nome));
+    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r}));
+    const fineAtt=calcF([...turniEff,...straV]);
+    const fineAttStr=fineAtt?minToTime(Math.round(fineAtt)):null;
+    const diff=fineAtt?fineAtt-target:null;
+    if(fineAtt&&Math.abs(diff)<=TOL){setInvResult({tipo:'ok',fineAttuale:fineAttStr});return}
+    // Sposta
+    if(mat&&pom&&fineAtt){
+      const verso=diff<0?'mat_pom':'pom_mat';
+      const maxS=verso==='mat_pom'?mat.persone:pom.persone;
+      for(let s=1;s<=maxS;s++){
+        const tm=turniEff.map(t=>{const tc={...t};if(verso==='mat_pom'){if(t.id===mat.id)tc.persone=Math.max(0,mat.persone-s);if(t.id===pom.id)tc.persone=pom.persone+s}else{if(t.id===mat.id)tc.persone=mat.persone+s;if(t.id===pom.id)tc.persone=Math.max(0,pom.persone-s)}return tc});
+        const fm=calcF([...tm,...straV]);
+        if(fm&&Math.abs(fm-target)<=TOL){
+          setInvResult({tipo:'sposta',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:{quante:s,da:verso==='mat_pom'?mat.nome:pom.nome,a:verso==='mat_pom'?pom.nome:mat.nome,mattinaNew:verso==='mat_pom'?mat.persone-s:mat.persone+s,pomeriggioNew:verso==='mat_pom'?pom.persone+s:Math.max(0,pom.persone-s)},straordinari:null});return;
+        }
+      }
+    }
+    // Straordinari
+    const maxM=mat?mat.persone:0,maxP=pom?pom.persone:0;
+    for(let pm=0;pm<=maxP;pm++){
+      for(let sm=0;sm<=maxM;sm++){
+        if(pm===0&&sm===0)continue;
+        const st=[];
+        if(sm>0)st.push({nome:'Strao Mattina',inizio:'12:20',fine:'13:20',persone:sm,pausaInizio:'',pausaFine:'',_rate:r});
+        if(pm>0)st.push({nome:'Strao Pomeriggio',inizio:'12:00',fine:'13:00',persone:pm,pausaInizio:'',pausaFine:'',_rate:r});
+        const fm=calcF([...turniEff,...straV,...st]);
+        if(fm&&Math.abs(fm-target)<=TOL){setInvResult({tipo:'straordinario',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:null,straordinari:st});return}
+      }
+    }
+    // Combinato
+    if(mat&&pom){
+      for(let s=1;s<=Math.min(mat.persone,pom.persone,3);s++){
+        const tm=turniEff.map(t=>{const tc={...t};if(t.id===mat.id)tc.persone=Math.max(0,mat.persone-s);if(t.id===pom.id)tc.persone=pom.persone+s;return tc});
+        for(let pm=0;pm<=Math.min(maxP,4);pm++){
+          for(let sm=0;sm<=Math.min(maxM,4);sm++){
+            if(pm===0&&sm===0)continue;
+            const st=[];
+            if(sm>0)st.push({nome:'Strao Mattina',inizio:'12:20',fine:'13:20',persone:sm,pausaInizio:'',pausaFine:'',_rate:r});
+            if(pm>0)st.push({nome:'Strao Pomeriggio',inizio:'12:00',fine:'13:00',persone:pm,pausaInizio:'',pausaFine:'',_rate:r});
+            const fm=calcF([...tm,...straV,...st]);
+            if(fm&&Math.abs(fm-target)<=TOL){
+              setInvResult({tipo:'combinato',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:{quante:s,da:mat.nome,a:pom.nome,mattinaNew:mat.persone-s,pomeriggioNew:pom.persone+s},straordinari:st});return;
+            }
+          }
+        }
+      }
+    }
+    setInvResult({tipo:'impossibile',fineAttuale:fineAttStr,messaggio:'Nessuna soluzione trovata'});
+  },[oraTarget,colli,rate,turni,straPers]);
+
+  const salvaStorico=()=>{
+    const storico=lsg(LS.storico,[]);
+    const entry={id:Date.now(),data:oggi(),colli:Number(colli),rate:Number(rate),turni:turni.map(t=>({nome:t.nome,persone:Number(t.persone),assenti:Number(t.assenti||0)})),chiusura:risultato?.fineEsatta||null,anticipo:risultato?.anticipo?.totale||risultato?.anticipo||0,ok:risultato?.ok||false};
+    lss(LS.storico,[entry,...storico.slice(0,29)]);
+    setSalvato(true);setTimeout(()=>setSalvato(false),2500);
   };
 
-  const isOk = risultato && risultato.ok;
+  const copiaPianificazione=()=>{
+    const lines=['📦 TURNI MAGAZZINO - '+oggi(),'=====================================','COLLI: '+(colli||0),'COLLI/ORA: '+rate,''];
+    lines.push('TURNI','─────────────────────────');
+    turni.forEach(t=>{const eff=Math.max(0,Number(t.persone)-Number(t.assenti||0));if(eff>0)lines.push(`${t.nome}  ${t.inizio}→${t.fine}  👥${eff}`)});
+    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0);
+    if(straV.length){lines.push('','STRAORDINARI','─────────────────────────');straV.forEach(s=>{const t=turni.find(x=>x.id===s.id);lines.push(`${t?.nome||'Strao'}  ${s.inizio}→${s.fine}  👥${s.persone}`)})}
+    if(risultato){
+      lines.push('','RISULTATO','─────────────────────────');
+      if(risultato.ok){
+        lines.push('🏁 Chiusura: '+risultato.fineEsatta);
+        const ant=risultato.anticipo?.totale||risultato.anticipo||0;
+        if(ant>0)lines.push('⚡ Anticipo: +'+ant.toLocaleString('it-IT')+' colli');
+      }else lines.push('🔴 NON CE LA FACCIAMO','Mancano: '+(Number(colli)-risultato.cumulo).toLocaleString('it-IT')+' colli');
+    }
+    const txt=lines.join('\n');
+    navigator.clipboard.writeText(txt).then(()=>{setCopiato(true);setTimeout(()=>setCopiato(false),2500)}).catch(()=>prompt('Copia:',txt));
+  };
 
-  return (
-    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px' }}>
+  const isOk=risultato&&risultato.ok;
+  const coloreRis=isOk?C.green:C.red;
+
+  return(
+    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px'}}>
       {/* Header */}
-      <div style={{ background:T.bg2, borderBottom:`1px solid ${T.border}`, padding:'14px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:T.accent, fontFamily:T.font }}>📦 TURNI</div>
-        <div style={{ display:'flex', gap:'8px' }}>
-          {risultato && (
-            <button onClick={salvaStorico} style={{ background: saved ? 'rgba(16,185,129,0.15)' : 'rgba(167,139,250,0.1)', border:`1px solid ${saved ? T.green : T.purple}`, borderRadius:'8px', color: saved ? T.green : T.purple, fontFamily:T.font, fontSize:'9px', letterSpacing:'1px', padding:'6px 10px', cursor:'pointer' }}>
-              {saved ? '✅ SALVATO' : '💾 SALVA'}
-            </button>
-          )}
-          <button onClick={() => { setTurni(DEFAULT_TURNI); setStrao(DEFAULT_STRAO); setColli(''); }} style={{ background:'rgba(239,68,68,0.1)', border:`1px solid ${T.red}`, borderRadius:'8px', color:T.red, fontFamily:T.font, fontSize:'9px', letterSpacing:'1px', padding:'6px 10px', cursor:'pointer' }}>
-            ↺ RESET
+      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent,fontFamily:C.F}}>📦 TURNI</div>
+        <div style={{display:'flex',gap:'6px'}}>
+          <button onClick={copiaPianificazione} style={{background:copiato?'rgba(16,185,129,0.15)':'rgba(167,139,250,0.1)',border:`1px solid ${copiato?C.green:C.purple}`,borderRadius:'8px',color:copiato?C.green:C.purple,fontFamily:C.F,fontSize:'9px',letterSpacing:'1px',padding:'6px 8px',cursor:'pointer'}}>
+            {copiato?'✅':'📋'}
           </button>
+          {risultato&&<button onClick={salvaStorico} style={{background:salvato?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.1)',border:`1px solid ${C.green}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'9px',letterSpacing:'1px',padding:'6px 8px',cursor:'pointer'}}>{salvato?'✅':'💾'}</button>}
+          <button onClick={()=>{setTurni(DEFAULT_TURNI);setStraPers(DEFAULT_STRAPERSONE);setColli('')}} style={{background:'rgba(239,68,68,0.1)',border:`1px solid ${C.red}`,borderRadius:'8px',color:C.red,fontFamily:C.F,fontSize:'9px',padding:'6px 8px',cursor:'pointer'}}>↺</button>
         </div>
       </div>
 
-      <div style={{ padding:'14px 14px 0', fontFamily:T.font }}>
-
+      <div style={{padding:'12px',fontFamily:C.F}}>
         {/* Colli + Rate */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'14px' }}>
-          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px' }}>
-            <div style={{ fontSize:'9px', letterSpacing:'2px', color:T.accent, marginBottom:'6px' }}>COLLI</div>
-            <input type="number" value={colli} onChange={e => setColli(e.target.value)} placeholder="0"
-              style={{ width:'100%', background:'transparent', border:'none', color:T.accent, fontFamily:T.font, fontSize:'28px', fontWeight:'bold', outline:'none', padding:0 }} />
-          </div>
-          <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px' }}>
-            <div style={{ fontSize:'9px', letterSpacing:'2px', color:T.purple, marginBottom:'6px' }}>COLLI/ORA</div>
-            <div style={{ display:'flex', gap:'6px' }}>
-              {[90, 100].map(v => (
-                <button key={v} onClick={() => setRate(v)} style={{ flex:1, padding:'8px 4px', borderRadius:'8px', border:`2px solid ${rate==v ? T.purple : T.border2}`, background: rate==v ? 'rgba(167,139,250,0.15)' : 'transparent', color: rate==v ? T.purple : T.textDim, fontFamily:T.font, fontSize:'14px', fontWeight:'bold', cursor:'pointer' }}>{v}</button>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
+          <Panel>
+            <SectionLabel color={C.accent}>COLLI DA PROCESSARE</SectionLabel>
+            <input type="number" value={colli} onChange={e=>setColli(e.target.value)} placeholder="0"
+              style={{width:'100%',background:'transparent',border:'none',color:C.accent,fontFamily:C.F,fontSize:'32px',fontWeight:'bold',outline:'none',padding:0}}/>
+          </Panel>
+          <Panel>
+            <SectionLabel color={C.purple}>COLLI / ORA</SectionLabel>
+            <div style={{display:'flex',gap:'6px'}}>
+              {[90,100].map(v=>(
+                <button key={v} onClick={()=>setRate(v)} style={{flex:1,padding:'8px 4px',borderRadius:'8px',border:`2px solid ${rate==v?C.purple:C.border2}`,background:rate==v?'rgba(167,139,250,0.15)':'transparent',color:rate==v?C.purple:C.dim,fontFamily:C.F,fontSize:'16px',fontWeight:'bold',cursor:'pointer'}}>{v}</button>
               ))}
             </div>
-          </div>
+          </Panel>
         </div>
 
         {/* Turni */}
-        {turni.map(t => {
-          const eff = Math.max(0, Number(t.persone) - Number(t.assenti||0));
-          const c = turnoColor(t.nome);
-          return (
-            <div key={t.id} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'12px 14px', marginBottom:'8px' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+        <SectionLabel color={C.accent}>TURNI DI LAVORO</SectionLabel>
+        {turni.map(t=>{
+          const eff=Math.max(0,Number(t.persone)-Number(t.assenti||0));
+          const cl=turnoColore(t.nome);
+          const sp=straPers.find(s=>s.id===t.id);
+          return(
+            <Panel key={t.id} style={{marginBottom:'8px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
                 <div>
-                  <div style={{ fontSize:'10px', fontWeight:'bold', color:c, letterSpacing:'1px' }}>{t.nome}</div>
-                  <div style={{ fontSize:'9px', color:T.textDim, marginTop:'2px' }}>{t.inizio} → {t.fine}</div>
+                  <div style={{fontSize:'10px',fontWeight:'bold',color:cl,letterSpacing:'1px'}}>{t.nome}</div>
+                  <div style={{fontSize:'9px',color:C.dim,marginTop:'1px'}}>{t.inizio} → {t.fine} · pausa {t.pausaInizio}-{t.pausaFine}</div>
                 </div>
-                <div style={{ fontSize:'9px', color: eff>0 ? T.green : T.textDim, background: eff>0 ? 'rgba(16,185,129,0.1)' : 'transparent', border: eff>0 ? `1px solid ${T.green}` : 'none', borderRadius:'6px', padding:'3px 8px' }}>
-                  {eff > 0 ? `${eff} eff.` : '—'}
+                {eff>0&&<div style={{fontSize:'9px',color:C.green,background:'rgba(16,185,129,0.1)',border:`1px solid ${C.green}`,borderRadius:'6px',padding:'2px 7px'}}>{eff} eff.</div>}
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom: sp?'10px':0}}>
+                <div>
+                  <div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px',marginBottom:'4px'}}>👥 PERSONE</div>
+                  <NumInput value={t.persone} onChange={v=>setP(t.id,v)} color={cl}/>
+                </div>
+                <div>
+                  <div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px',marginBottom:'4px'}}>🚫 ASSENTI</div>
+                  <NumInput value={t.assenti||0} onChange={v=>setA(t.id,v)} color={C.red}/>
                 </div>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-                <div>
-                  <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px', marginBottom:'4px' }}>👥 PERSONE</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    <button onClick={() => setP(t.id, Number(t.persone)-1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:c, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-                    <input type="number" value={t.persone} onChange={e => setP(t.id, e.target.value)}
-                      style={{ width:'44px', textAlign:'center', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:'#4ade80', fontFamily:T.font, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
-                    <button onClick={() => setP(t.id, Number(t.persone)+1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:c, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+              {/* Straordinario per questo turno */}
+              {sp&&(
+                <div style={{borderTop:`1px solid ${C.border}`,paddingTop:'8px',marginTop:'2px'}}>
+                  <div style={{fontSize:'8px',color:C.orange,letterSpacing:'1px',marginBottom:'6px'}}>⚡ STRAORDINARIO</div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',alignItems:'center'}}>
+                    <div>
+                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>DALLE</div>
+                      <input type="time" value={sp.inizio} onChange={e=>setStrP(t.id,'inizio',e.target.value)}
+                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:C.orange,fontFamily:C.F,fontSize:'11px',padding:'4px 6px',outline:'none'}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>ALLE</div>
+                      <input type="time" value={sp.fine} onChange={e=>setStrP(t.id,'fine',e.target.value)}
+                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:C.orange,fontFamily:C.F,fontSize:'11px',padding:'4px 6px',outline:'none'}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>PERSONE</div>
+                      <input type="number" value={sp.persone} onChange={e=>setStrP(t.id,'persone',Math.max(0,Number(e.target.value)))}
+                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:'#4ade80',fontFamily:C.F,fontSize:'14px',fontWeight:'bold',padding:'4px 6px',outline:'none',textAlign:'center'}}/>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px', marginBottom:'4px' }}>🚫 ASSENTI</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    <button onClick={() => setA(t.id, Number(t.assenti||0)-1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:T.red, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-                    <input type="number" value={t.assenti||0} onChange={e => setA(t.id, e.target.value)}
-                      style={{ width:'44px', textAlign:'center', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:T.red, fontFamily:T.font, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
-                    <button onClick={() => setA(t.id, Number(t.assenti||0)+1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:T.red, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              )}
+            </Panel>
           );
         })}
 
-        {/* Straordinari */}
-        <div style={{ fontSize:'9px', letterSpacing:'2px', color:T.orange, marginBottom:'8px', marginTop:'4px' }}>⚡ STRAORDINARI</div>
-        {strao.map(s => (
-          <div key={s.id} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'12px 14px', marginBottom:'8px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'bold', color:T.orange, letterSpacing:'1px' }}>{s.nome}</div>
-              <div style={{ fontSize:'9px', color:T.textDim }}>{s.inizio} → {s.fine}</div>
-            </div>
-            <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-              <button onClick={() => setStraoP(s.id, Number(s.persone)-1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:T.orange, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-              <input type="number" value={s.persone} onChange={e => setStraoP(s.id, e.target.value)}
-                style={{ width:'44px', textAlign:'center', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:'#4ade80', fontFamily:T.font, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
-              <button onClick={() => setStraoP(s.id, Number(s.persone)+1)} style={{ width:'32px', height:'32px', borderRadius:'8px', border:`1px solid ${T.border2}`, background:T.bg3, color:T.orange, fontFamily:T.font, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
-              <div style={{ fontSize:'9px', color:T.textDim, marginLeft:'4px' }}>persone</div>
-            </div>
-          </div>
-        ))}
-
-        {/* Risultato */}
-        {risultato && (
-          <div style={{ marginTop:'14px', animation:'fadeUp 0.3s ease' }}>
-            <div style={{ background: isOk ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:`2px solid ${isOk ? T.green : T.red}`, borderRadius:'14px', padding:'20px', textAlign:'center', marginBottom:'10px' }}>
-              <div style={{ fontSize:'9px', letterSpacing:'3px', color: isOk ? '#6ee7b7' : T.red2, marginBottom:'8px' }}>
-                {isOk ? '✅ CHIUSURA PREVISTA' : '🔴 TURNI INSUFFICIENTI'}
-              </div>
-              {isOk ? (
+        {/* Risultato principale */}
+        {risultato&&(
+          <div className="fadeup" style={{marginTop:'12px'}}>
+            <div style={{background:isOk?'linear-gradient(135deg,#064e3b,#065f46)':'linear-gradient(135deg,#450a0a,#7f1d1d)',border:`2px solid ${coloreRis}`,borderRadius:'14px',padding:'20px',textAlign:'center',marginBottom:'10px'}}>
+              <div style={{fontSize:'9px',letterSpacing:'3px',color:isOk?'#6ee7b7':C.red2,marginBottom:'8px'}}>{isOk?'✅ CHIUSURA PREVISTA':'🔴 TURNI INSUFFICIENTI'}</div>
+              {isOk?(
                 <>
-                  <div style={{ fontSize:'48px', fontWeight:'bold', color:T.green, lineHeight:1, marginBottom:'8px' }}>{risultato.fineEsatta}</div>
-                  {risultato.anticipo > 0 && (
-                    <div style={{ fontSize:'11px', color:'#6ee7b7' }}>⚡ Anticipo per domani: <b style={{color:T.green2}}>+{risultato.anticipo.toLocaleString('it-IT')} colli</b></div>
-                  )}
+                  <div style={{fontSize:'52px',fontWeight:'bold',color:C.green,lineHeight:1,marginBottom:'6px'}}>{risultato.fineEsatta}</div>
+                  {(risultato.anticipo?.totale||risultato.anticipo)>0&&<div style={{fontSize:'11px',color:'#6ee7b7'}}>⚡ Anticipo: <b style={{color:C.green2}}>+{(risultato.anticipo?.totale||risultato.anticipo).toLocaleString('it-IT')} colli</b></div>}
                 </>
-              ) : (
+              ):(
                 <>
-                  <div style={{ fontSize:'28px', fontWeight:'bold', color:T.red, marginBottom:'4px' }}>
-                    {(Number(colli) - risultato.cumulo).toLocaleString('it-IT')}
-                  </div>
-                  <div style={{ fontSize:'10px', color:T.red2 }}>colli mancanti</div>
-                  <div style={{ fontSize:'11px', color:T.textMid, marginTop:'6px' }}>
-                    Prodotti: {risultato.cumulo.toLocaleString('it-IT')} / {Number(colli).toLocaleString('it-IT')}
-                  </div>
+                  <div style={{fontSize:'32px',fontWeight:'bold',color:C.red,marginBottom:'4px'}}>{(Number(colli)-risultato.cumulo).toLocaleString('it-IT')}</div>
+                  <div style={{fontSize:'10px',color:C.red2}}>colli mancanti · Prodotti: {risultato.cumulo.toLocaleString('it-IT')}</div>
                 </>
               )}
             </div>
-
-            {/* Grafico */}
-            <Grafico turni={turni} strao={strao} colli={Number(colli)} rate={Number(rate)} risultato={risultato} />
+            <Grafico turni={turni} straPers={straPers} colli={Number(colli)} rate={Number(rate)}/>
           </div>
         )}
+
+        {/* PUNTO SITUAZIONE */}
+        <div style={{marginTop:'16px',borderTop:`1px solid ${C.border}`,paddingTop:'14px'}}>
+          <SectionLabel color={C.green}>📍 PUNTO SITUAZIONE</SectionLabel>
+          <div style={{fontSize:'10px',color:C.dim,marginBottom:'10px'}}>Quanti colli mancano adesso?</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
+            <div>
+              <SectionLabel>ORA ATTUALE</SectionLabel>
+              <input type="time" value={puntoOra} onChange={e=>{setPuntoOra(e.target.value);setPuntoResult(null)}}
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'18px',fontWeight:'bold',padding:'10px 10px',outline:'none'}}/>
+            </div>
+            <div>
+              <SectionLabel>COLLI RIMANENTI</SectionLabel>
+              <input type="number" value={puntoRim} onChange={e=>{setPuntoRim(e.target.value);setPuntoResult(null)}} placeholder="es. 5000"
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'18px',fontWeight:'bold',padding:'10px 10px',outline:'none'}}/>
+            </div>
+          </div>
+          <Btn onClick={calcolaPunto} color={C.green} full>📍 CALCOLA</Btn>
+          {puntoResult&&(
+            <div className="fadeup" style={{marginTop:'10px'}}>
+              <div style={{background:puntoResult.ok?'linear-gradient(135deg,#064e3b,#065f46)':'linear-gradient(135deg,#450a0a,#7f1d1d)',border:`2px solid ${puntoResult.ok?C.green:C.red}`,borderRadius:'12px',padding:'16px',marginBottom:'8px',textAlign:'center'}}>
+                <div style={{fontSize:'9px',letterSpacing:'2px',color:puntoResult.ok?'#6ee7b7':C.red2,marginBottom:'6px'}}>{puntoResult.ok?'✅ CE LA FACCIAMO':'🔴 NON CE LA FACCIAMO'}</div>
+                {puntoResult.ok?(
+                  <>
+                    <div style={{fontSize:'36px',fontWeight:'bold',color:C.green,lineHeight:1}}>{puntoResult.fineStimata||'—'}</div>
+                    {puntoResult.anticipo?.totale>0&&<div style={{fontSize:'10px',color:'#6ee7b7',marginTop:'4px'}}>⚡ Anticipo: +{puntoResult.anticipo.totale.toLocaleString('it-IT')} colli</div>}
+                  </>
+                ):(
+                  <div style={{fontSize:'22px',fontWeight:'bold',color:C.red}}>{puntoResult.mancaDelta.toLocaleString('it-IT')} colli mancanti</div>
+                )}
+              </div>
+              {puntoResult.confronto&&(
+                <Panel style={{marginBottom:'8px'}}>
+                  <SectionLabel>CONFRONTO PIANIFICATO vs REALE</SectionLabel>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',textAlign:'center'}}>
+                    {[['FATTI',puntoResult.confronto.fatti,C.text],['PIANO',puntoResult.confronto.pianificati,C.blue],['DELTA',puntoResult.confronto.delta>=0?'+'+puntoResult.confronto.delta:puntoResult.confronto.delta,puntoResult.confronto.delta>=0?C.green:C.red]].map(([l,v,c])=>(
+                      <div key={l}><div style={{fontSize:'8px',color:C.dim,marginBottom:'2px'}}>{l}</div><div style={{fontSize:'16px',fontWeight:'bold',color:c}}>{typeof v==='number'?v.toLocaleString('it-IT'):v}</div></div>
+                    ))}
+                  </div>
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* OBIETTIVO INVERSO */}
+        <div style={{marginTop:'16px',borderTop:`1px solid ${C.border}`,paddingTop:'14px'}}>
+          <SectionLabel color={C.purple}>🎯 OBIETTIVO INVERSO</SectionLabel>
+          <div style={{fontSize:'10px',color:C.dim,marginBottom:'10px'}}>Vuoi chiudere entro che ora?</div>
+          <div style={{display:'flex',gap:'10px',alignItems:'flex-end',marginBottom:'10px',flexWrap:'wrap'}}>
+            <div style={{flex:1}}>
+              <SectionLabel>CHIUSURA DESIDERATA</SectionLabel>
+              <input type="time" value={oraTarget} onChange={e=>{setOraTarget(e.target.value);setInvResult(null)}}
+                style={{width:'100%',background:C.bg3,border:`2px solid ${C.purple}`,borderRadius:'8px',color:C.purple,fontFamily:C.F,fontSize:'22px',fontWeight:'bold',padding:'10px',outline:'none'}}/>
+            </div>
+            <Btn onClick={calcolaInverso} color={C.purple}>🎯 CALCOLA</Btn>
+          </div>
+          {invResult&&(
+            <div className="fadeup">
+              {invResult.tipo==='ok'&&<Panel style={{border:`2px solid ${C.green}`,textAlign:'center'}}><div style={{fontSize:'9px',color:C.green,letterSpacing:'2px',marginBottom:'6px'}}>✅ GIÀ OK</div><div style={{fontSize:'36px',fontWeight:'bold',color:C.green}}>{invResult.fineAttuale}</div></Panel>}
+              {invResult.tipo==='impossibile'&&<Panel style={{border:`2px solid ${C.red}`}}><div style={{fontSize:'9px',color:C.red,letterSpacing:'2px',marginBottom:'6px'}}>🔴 IMPOSSIBILE</div><div style={{fontSize:'11px',color:C.red2}}>{invResult.messaggio}</div></Panel>}
+              {(invResult.tipo==='sposta'||invResult.tipo==='combinato')&&invResult.spostamento&&(
+                <Panel style={{border:`2px solid ${C.purple}`,marginBottom:'8px'}}>
+                  <div style={{fontSize:'9px',color:C.purple2,letterSpacing:'2px',marginBottom:'10px'}}>🔀 SPOSTA PERSONE</div>
+                  <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap',marginBottom:'8px'}}>
+                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:'8px',color:C.dim}}>DA</div>
+                      <div style={{fontSize:'10px',color:C.purple2,fontWeight:'bold'}}>{invResult.spostamento.da}</div>
+                    </div>
+                    <div style={{fontSize:'20px',color:C.purple}}>→</div>
+                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:'8px',color:C.dim}}>A</div>
+                      <div style={{fontSize:'10px',color:C.purple2,fontWeight:'bold'}}>{invResult.spostamento.a}</div>
+                    </div>
+                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:'8px',color:C.dim}}>QUANTE</div>
+                      <div style={{fontSize:'28px',fontWeight:'bold',color:C.purple,lineHeight:1}}>{invResult.spostamento.quante}</div>
+                    </div>
+                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
+                      <div style={{fontSize:'8px',color:C.dim}}>CHIUSURA</div>
+                      <div style={{fontSize:'22px',fontWeight:'bold',color:C.green,lineHeight:1}}>{invResult.fineNuova}</div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:'11px',color:C.mid}}>Mattina → <b style={{color:C.text}}>{invResult.spostamento.mattinaNew}</b> · Pomeriggio → <b style={{color:C.text}}>{invResult.spostamento.pomeriggioNew}</b></div>
+                </Panel>
+              )}
+              {(invResult.tipo==='straordinario'||invResult.tipo==='combinato')&&invResult.straordinari&&(
+                <Panel style={{border:`2px solid ${C.orange}`}}>
+                  <div style={{fontSize:'9px',color:C.orange,letterSpacing:'2px',marginBottom:'10px'}}>⚡ STRAORDINARIO NECESSARIO</div>
+                  {invResult.straordinari.map((s,i)=>(
+                    <div key={i} style={{display:'flex',gap:'10px',alignItems:'center',marginBottom:'8px'}}>
+                      <div style={{background:C.bg3,borderRadius:'8px',padding:'6px 10px'}}>
+                        <div style={{fontSize:'8px',color:C.dim}}>{s.nome}</div>
+                        <div style={{fontSize:'13px',color:C.orange,fontWeight:'bold'}}>{s.inizio}→{s.fine}</div>
+                      </div>
+                      <div style={{fontSize:'28px',fontWeight:'bold',color:C.orange}}>{s.persone}</div>
+                      <div style={{fontSize:'10px',color:C.dim}}>pers.</div>
+                    </div>
+                  ))}
+                  <div style={{fontSize:'11px',color:C.mid,marginTop:'4px'}}>Chiusura: <b style={{color:C.green,fontSize:'15px'}}>{invResult.fineNuova}</b> · Attuale: {invResult.fineAttuale}</div>
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── GRAFICO ──
-function Grafico({ turni, strao, colli, rate, risultato }) {
-  const W = 340, H = 160, PL = 42, PR = 8, PT = 8, PB = 28;
-  const w = W - PL - PR, h = H - PT - PB;
-
-  const allT = useMemo(() => [
-    ...turni.map(t => ({ ...t, persone: Math.max(0, Number(t.persone) - Number(t.assenti||0)) })),
-    ...strao.filter(s => s.inizio && s.fine && Number(s.persone) > 0),
-  ], [turni, strao]);
-
-  if (!colli || allT.every(t => !t.persone)) return null;
-
-  const evSet = new Set();
-  allT.forEach(t => {
-    evSet.add(tMin(t.inizio)); evSet.add(tMin(t.fine));
-    if (t.pausaInizio && t.pausaFine) { evSet.add(tMin(t.pausaInizio)); evSet.add(tMin(t.pausaFine)); }
-  });
-  const ev = Array.from(evSet).sort((a,b) => a-b);
-  const minS = ev[0], maxE = ev[ev.length-1];
-  const tRange = maxE - minS;
-
-  const points = [{ t: minS, c: 0 }];
-  let cum = 0, done = false;
-  for (let i = 0; i < ev.length-1; i++) {
-    const frm = ev[i], to = ev[i+1];
-    let pers = 0;
-    allT.forEach(t => {
-      const tIn = tMin(t.inizio), tOut = tMin(t.fine);
-      const pIn = t.pausaInizio ? tMin(t.pausaInizio) : null;
-      const pOut = t.pausaFine ? tMin(t.pausaFine) : null;
-      if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
-        pers += Number(t.persone);
-    });
-    if (pers === 0) { points.push({ t: to, c: cum }); continue; }
-    const prod = pers * rate * (to - frm) / 60;
-    if (!done && cum + prod >= colli) {
-      const ft = frm + (colli - cum) / (pers * rate) * 60;
-      cum = colli; done = true;
-      points.push({ t: ft, c: cum });
-    } else if (!done) cum += prod;
-    points.push({ t: to, c: done ? colli : cum });
-  }
-
-  const maxC = Math.max(colli, cum) * 1.05;
-  const tx = t => PL + ((t - minS) / tRange) * w;
-  const ty = c => PT + h - (c / maxC) * h;
-  const pathD = points.map((p,i) => (i===0?'M':'L') + tx(p.t).toFixed(1) + ',' + ty(p.c).toFixed(1)).join(' ');
-  const areaD = pathD + ` L${tx(points[points.length-1].t).toFixed(1)},${PT+h} L${PL},${PT+h} Z`;
-  const targetY = ty(colli);
-  const startH = Math.ceil(minS/60), endH = Math.floor(maxE/60);
-  const hours = [];
-  for (let hh = startH; hh <= endH; hh++) hours.push(hh*60);
-  const closePoint = points.find(p => p.c >= colli);
-
-  return (
-    <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'12px', marginBottom:'10px' }}>
-      <div style={{ fontSize:'9px', letterSpacing:'2px', color:T.purple, marginBottom:'8px' }}>📊 ANDAMENTO</div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block' }}>
-        {[0.25,0.5,0.75,1].map(f => (
-          <g key={f}>
-            <line x1={PL} y1={ty(maxC*f)} x2={PL+w} y2={ty(maxC*f)} stroke={T.border} strokeWidth="1"/>
-            <text x={PL-4} y={ty(maxC*f)+4} textAnchor="end" fill={T.textDim} fontSize="8">{Math.round(maxC*f/100)*100}</text>
-          </g>
-        ))}
-        <line x1={PL} y1={targetY} x2={PL+w} y2={targetY} stroke={T.accent} strokeWidth="1" strokeDasharray="3,3"/>
-        <path d={areaD} fill="rgba(167,139,250,0.1)"/>
-        <path d={pathD} fill="none" stroke={T.purple} strokeWidth="2" strokeLinejoin="round"/>
-        {hours.map(m => (
-          <g key={m}>
-            <line x1={tx(m)} y1={PT} x2={tx(m)} y2={PT+h} stroke={T.border} strokeWidth="1"/>
-            <text x={tx(m)} y={PT+h+12} textAnchor="middle" fill={T.textDim} fontSize="8">{Math.floor(m/60)}:00</text>
-          </g>
-        ))}
-        {closePoint && (
-          <g>
-            <circle cx={tx(closePoint.t)} cy={ty(closePoint.c)} r="4" fill={T.green}/>
-            <text x={tx(closePoint.t)} y={ty(closePoint.c)-7} textAnchor="middle" fill={T.green} fontSize="8" fontWeight="bold">{risultato.fineEsatta}</text>
-          </g>
-        )}
-        <line x1={PL} y1={PT} x2={PL} y2={PT+h} stroke={T.border2} strokeWidth="1"/>
-        <line x1={PL} y1={PT+h} x2={PL+w} y2={PT+h} stroke={T.border2} strokeWidth="1"/>
-      </svg>
-    </div>
-  );
-}
-
-// ── STORICO PAGE ──
-function PageStorico() {
-  const [storico, setStorico] = useState(() => ls(LS.storico, []));
-  const [sel, setSel] = useState(null);
-
-  const del = (id) => {
-    const n = storico.filter(s => s.id !== id);
-    setStorico(n); lsSet(LS.storico, n); setSel(null);
-  };
-
-  if (sel) {
-    const e = storico.find(s => s.id === sel);
-    return (
-      <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:T.font }}>
-        <div style={{ background:T.bg2, borderBottom:`1px solid ${T.border}`, padding:'14px 16px', display:'flex', alignItems:'center', gap:'12px', position:'sticky', top:0, zIndex:10 }}>
-          <button onClick={() => setSel(null)} style={{ background:'transparent', border:'none', color:T.accent, cursor:'pointer', fontSize:'16px', fontFamily:T.font, padding:0 }}>← INDIETRO</button>
-          <div style={{ fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', color:T.accent }}>{e.data}</div>
+// ── STORICO ──
+function PageStorico(){
+  const[storico,setStorico]=useState(()=>lsg(LS.storico,[]));
+  const[sel,setSel]=useState(null);
+  const del=(id)=>{const n=storico.filter(s=>s.id!==id);setStorico(n);lss(LS.storico,n);setSel(null)};
+  if(sel){
+    const e=storico.find(s=>s.id===sel);
+    if(!e)return null;
+    return(
+      <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
+        <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',display:'flex',alignItems:'center',gap:'12px',position:'sticky',top:0,zIndex:10}}>
+          <button onClick={()=>setSel(null)} style={{background:'transparent',border:'none',color:C.accent,cursor:'pointer',fontFamily:C.F,fontSize:'12px'}}>← INDIETRO</button>
+          <div style={{fontSize:'12px',fontWeight:'bold',letterSpacing:'2px',color:C.accent}}>{e.data}</div>
         </div>
-        <div style={{ padding:'14px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'14px' }}>
-            <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', textAlign:'center' }}>
-              <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'1px', marginBottom:'4px' }}>COLLI</div>
-              <div style={{ fontSize:'28px', fontWeight:'bold', color:T.accent }}>{e.colli.toLocaleString('it-IT')}</div>
-            </div>
-            <div style={{ background:T.bg2, border:`1px solid ${e.ok ? T.green : T.red}`, borderRadius:'12px', padding:'14px', textAlign:'center' }}>
-              <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'1px', marginBottom:'4px' }}>CHIUSURA</div>
-              <div style={{ fontSize:'28px', fontWeight:'bold', color: e.ok ? T.green : T.red }}>{e.chiusura || '—'}</div>
-            </div>
+        <div style={{padding:'12px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
+            <Panel style={{textAlign:'center'}}><SectionLabel>COLLI</SectionLabel><div style={{fontSize:'28px',fontWeight:'bold',color:C.accent}}>{e.colli.toLocaleString('it-IT')}</div></Panel>
+            <Panel style={{border:`1px solid ${e.ok?C.green:C.red}`,textAlign:'center'}}><SectionLabel>CHIUSURA</SectionLabel><div style={{fontSize:'28px',fontWeight:'bold',color:e.ok?C.green:C.red}}>{e.chiusura||'—'}</div></Panel>
           </div>
-          {e.anticipo > 0 && (
-            <div style={{ background:'rgba(16,185,129,0.1)', border:`1px solid ${T.green}`, borderRadius:'12px', padding:'12px', textAlign:'center', marginBottom:'14px' }}>
-              <div style={{ fontSize:'9px', color:T.green, letterSpacing:'1px', marginBottom:'2px' }}>ANTICIPO PER DOMANI</div>
-              <div style={{ fontSize:'22px', fontWeight:'bold', color:T.green2 }}>+{e.anticipo.toLocaleString('it-IT')} colli</div>
-            </div>
-          )}
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'2px', marginBottom:'8px' }}>TURNI</div>
-          {e.turni.map((t,i) => (
-            <div key={i} style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'10px', padding:'10px 14px', marginBottom:'6px', display:'flex', justifyContent:'space-between' }}>
-              <div style={{ fontSize:'10px', color:T.text }}>{t.nome}</div>
-              <div style={{ fontSize:'10px', color:T.green }}>{t.persone} pers {t.assenti > 0 ? <span style={{color:T.red}}>({t.assenti} ass.)</span> : ''}</div>
-            </div>
+          {e.anticipo>0&&<Panel style={{border:`1px solid ${C.green}`,textAlign:'center',marginBottom:'10px'}}><div style={{fontSize:'9px',color:C.green,marginBottom:'4px'}}>⚡ ANTICIPO</div><div style={{fontSize:'22px',fontWeight:'bold',color:C.green2}}>+{e.anticipo.toLocaleString('it-IT')}</div></Panel>}
+          <SectionLabel>TURNI</SectionLabel>
+          {e.turni.map((t,i)=>(
+            <Panel key={i} style={{marginBottom:'6px',display:'flex',justifyContent:'space-between'}}>
+              <div style={{fontSize:'10px',color:C.text}}>{t.nome}</div>
+              <div style={{fontSize:'10px',color:C.green}}>{t.persone} pers {t.assenti>0&&<span style={{color:C.red}}>({t.assenti} ass.)</span>}</div>
+            </Panel>
           ))}
-          <button onClick={() => del(e.id)} style={{ width:'100%', marginTop:'14px', padding:'12px', background:'rgba(239,68,68,0.1)', border:`1px solid ${T.red}`, borderRadius:'10px', color:T.red, fontFamily:T.font, fontSize:'10px', letterSpacing:'2px', cursor:'pointer' }}>
-            🗑 ELIMINA RECORD
-          </button>
+          <Btn onClick={()=>del(e.id)} color={C.red} full style={{marginTop:'14px'}}>🗑 ELIMINA</Btn>
         </div>
       </div>
     );
   }
-
-  return (
-    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:T.font }}>
-      <div style={{ background:T.bg2, borderBottom:`1px solid ${T.border}`, padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:T.accent }}>📋 STORICO</div>
+  return(
+    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
+      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>📋 STORICO</div>
       </div>
-      <div style={{ padding:'14px' }}>
-        {storico.length === 0 ? (
-          <div style={{ textAlign:'center', color:T.textDim, fontSize:'11px', marginTop:'60px', letterSpacing:'2px' }}>
-            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📭</div>
-            NESSUN DATO SALVATO<br/>
-            <span style={{ fontSize:'9px' }}>Salva una giornata dalla pagina TURNI</span>
-          </div>
-        ) : (
-          storico.map(e => (
-            <button key={e.id} onClick={() => setSel(e.id)} style={{ width:'100%', background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', marginBottom:'8px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', fontFamily:T.font }}>
-              <div style={{ textAlign:'left' }}>
-                <div style={{ fontSize:'11px', fontWeight:'bold', color:T.text, marginBottom:'2px' }}>{e.data}</div>
-                <div style={{ fontSize:'9px', color:T.textDim }}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
-              </div>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontSize:'16px', fontWeight:'bold', color: e.ok ? T.green : T.red }}>{e.chiusura || '—'}</div>
-                {e.anticipo > 0 && <div style={{ fontSize:'9px', color:T.green }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
-              </div>
-            </button>
-          ))
-        )}
+      <div style={{padding:'12px'}}>
+        {storico.length===0?(
+          <div style={{textAlign:'center',color:C.dim,fontSize:'11px',marginTop:'60px',letterSpacing:'2px'}}><div style={{fontSize:'32px',marginBottom:'12px'}}>📭</div>NESSUN DATO<br/><span style={{fontSize:'9px'}}>Salva una giornata dalla pagina TURNI</span></div>
+        ):storico.map(e=>(
+          <button key={e.id} onClick={()=>setSel(e.id)} style={{width:'100%',background:C.bg2,border:`1px solid ${C.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:C.F}}>
+            <div style={{textAlign:'left'}}>
+              <div style={{fontSize:'12px',fontWeight:'bold',color:C.text,marginBottom:'2px'}}>{e.data}</div>
+              <div style={{fontSize:'9px',color:C.dim}}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:'18px',fontWeight:'bold',color:e.ok?C.green:C.red}}>{e.chiusura||'—'}</div>
+              {e.anticipo>0&&<div style={{fontSize:'9px',color:C.green}}>+{e.anticipo.toLocaleString('it-IT')}</div>}
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
-// ── SQUADRA PAGE ──
-function PageSquadra() {
-  const [squadra, setSquadra] = useState(() => ls(LS.squadra, []));
-  const [nome, setNome] = useState('');
-  const [turno, setTurno] = useState('Mattina 06:00');
-
-  const aggiungi = () => {
-    if (!nome.trim()) return;
-    const n = [...squadra, { id: Date.now(), nome: nome.trim(), turno, presente: true }];
-    setSquadra(n); lsSet(LS.squadra, n); setNome('');
-  };
-
-  const toggle = (id) => {
-    const n = squadra.map(p => p.id===id ? { ...p, presente: !p.presente } : p);
-    setSquadra(n); lsSet(LS.squadra, n);
-  };
-
-  const rimuovi = (id) => {
-    const n = squadra.filter(p => p.id !== id);
-    setSquadra(n); lsSet(LS.squadra, n);
-  };
-
-  const presenti = squadra.filter(p => p.presente).length;
-  const assenti = squadra.filter(p => !p.presente).length;
-
-  const turnoColor = (t) => {
-    if (/mattina/i.test(t)) return T.accent;
-    if (/pomeriggio/i.test(t)) return T.purple;
-    return '#38bdf8';
-  };
-
-  return (
-    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:T.font }}>
-      <div style={{ background:T.bg2, borderBottom:`1px solid ${T.border}`, padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:T.accent }}>👥 SQUADRA</div>
+// ── SQUADRA ──
+function PageSquadra(){
+  const[squadra,setSquadra]=useState(()=>lsg(LS.squadra,[]));
+  const[nome,setNome]=useState('');
+  const[turnoSel,setTurnoSel]=useState('Mattina 06:00');
+  const upd=(n)=>{setSquadra(n);lss(LS.squadra,n)};
+  const aggiungi=()=>{if(!nome.trim())return;upd([...squadra,{id:Date.now(),nome:nome.trim(),turno:turnoSel,presente:true}]);setNome('')};
+  const toggle=(id)=>upd(squadra.map(p=>p.id===id?{...p,presente:!p.presente}:p));
+  const rimuovi=(id)=>upd(squadra.filter(p=>p.id!==id));
+  const presenti=squadra.filter(p=>p.presente).length;
+  const assenti=squadra.filter(p=>!p.presente).length;
+  const turniNomi=['Mattina 06:00','Giornata 08:00','Giornata 10:00','Pomeriggio 13:00'];
+  return(
+    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
+      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>👥 SQUADRA</div>
       </div>
-      <div style={{ padding:'14px' }}>
-
-        {/* Stats */}
-        {squadra.length > 0 && (
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', marginBottom:'14px' }}>
-            <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'10px', padding:'10px', textAlign:'center' }}>
-              <div style={{ fontSize:'20px', fontWeight:'bold', color:T.text }}>{squadra.length}</div>
-              <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px' }}>TOTALE</div>
-            </div>
-            <div style={{ background:'rgba(16,185,129,0.1)', border:`1px solid ${T.green}`, borderRadius:'10px', padding:'10px', textAlign:'center' }}>
-              <div style={{ fontSize:'20px', fontWeight:'bold', color:T.green }}>{presenti}</div>
-              <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px' }}>PRESENTI</div>
-            </div>
-            <div style={{ background:'rgba(239,68,68,0.1)', border:`1px solid ${T.red}`, borderRadius:'10px', padding:'10px', textAlign:'center' }}>
-              <div style={{ fontSize:'20px', fontWeight:'bold', color:T.red }}>{assenti}</div>
-              <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px' }}>ASSENTI</div>
-            </div>
+      <div style={{padding:'12px'}}>
+        {squadra.length>0&&(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
+            {[[squadra.length,'TOTALE',C.text],[presenti,'PRESENTI',C.green],[assenti,'ASSENTI',C.red]].map(([v,l,c])=>(
+              <Panel key={l} style={{textAlign:'center',border:`1px solid ${c==='#e8e8e0'?C.border:c}`}}><div style={{fontSize:'22px',fontWeight:'bold',color:c}}>{v}</div><div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px'}}>{l}</div></Panel>
+            ))}
           </div>
         )}
-
-        {/* Aggiungi */}
-        <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', marginBottom:'14px' }}>
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'2px', marginBottom:'8px' }}>+ AGGIUNGI PERSONA</div>
-          <input value={nome} onChange={e => setNome(e.target.value)} onKeyDown={e => e.key==='Enter' && aggiungi()}
-            placeholder="Nome..."
-            style={{ width:'100%', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:T.text, fontFamily:T.font, fontSize:'14px', padding:'10px 12px', outline:'none', marginBottom:'8px' }} />
-          <select value={turno} onChange={e => setTurno(e.target.value)}
-            style={{ width:'100%', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:T.text, fontFamily:T.font, fontSize:'12px', padding:'10px 12px', outline:'none', marginBottom:'10px' }}>
-            <option>Mattina 06:00</option>
-            <option>Giornata 08:00</option>
-            <option>Giornata 10:00</option>
-            <option>Pomeriggio 13:00</option>
+        <Panel style={{marginBottom:'12px'}}>
+          <SectionLabel>+ AGGIUNGI</SectionLabel>
+          <input value={nome} onChange={e=>setNome(e.target.value)} onKeyDown={e=>e.key==='Enter'&&aggiungi()} placeholder="Nome..."
+            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'14px',padding:'10px 12px',outline:'none',marginBottom:'8px'}}/>
+          <select value={turnoSel} onChange={e=>setTurnoSel(e.target.value)}
+            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'12px',padding:'10px',outline:'none',marginBottom:'8px'}}>
+            {turniNomi.map(t=><option key={t}>{t}</option>)}
           </select>
-          <button onClick={aggiungi} style={{ width:'100%', padding:'12px', background:`linear-gradient(135deg,${T.accent},${T.accent2})`, border:'none', borderRadius:'8px', color:'#000', fontFamily:T.font, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>
-            + AGGIUNGI
-          </button>
-        </div>
-
-        {/* Lista */}
-        {['Mattina 06:00','Giornata 08:00','Giornata 10:00','Pomeriggio 13:00'].map(turnoN => {
-          const gruppo = squadra.filter(p => p.turno === turnoN);
-          if (gruppo.length === 0) return null;
-          return (
-            <div key={turnoN} style={{ marginBottom:'14px' }}>
-              <div style={{ fontSize:'9px', fontWeight:'bold', color:turnoColor(turnoN), letterSpacing:'2px', marginBottom:'6px', paddingLeft:'4px' }}>{turnoN}</div>
-              {gruppo.map(p => (
-                <div key={p.id} style={{ background:T.bg2, border:`1px solid ${p.presente ? T.border : T.red}`, borderRadius:'10px', padding:'10px 14px', marginBottom:'6px', display:'flex', alignItems:'center', gap:'10px', opacity: p.presente ? 1 : 0.6 }}>
-                  <button onClick={() => toggle(p.id)} style={{ width:'28px', height:'28px', borderRadius:'50%', border:`2px solid ${p.presente ? T.green : T.red}`, background: p.presente ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)', cursor:'pointer', fontSize:'14px', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    {p.presente ? '✓' : '✗'}
+          <Btn onClick={aggiungi} color={C.accent} full>+ AGGIUNGI</Btn>
+        </Panel>
+        {turniNomi.map(tn=>{
+          const gruppo=squadra.filter(p=>p.turno===tn);
+          if(!gruppo.length)return null;
+          return(
+            <div key={tn} style={{marginBottom:'12px'}}>
+              <div style={{fontSize:'9px',fontWeight:'bold',color:turnoColore(tn),letterSpacing:'2px',marginBottom:'6px',paddingLeft:'2px'}}>{tn}</div>
+              {gruppo.map(p=>(
+                <div key={p.id} style={{background:C.bg2,border:`1px solid ${p.presente?C.border:C.red}`,borderRadius:'10px',padding:'10px 12px',marginBottom:'6px',display:'flex',alignItems:'center',gap:'10px',opacity:p.presente?1:0.6}}>
+                  <button onClick={()=>toggle(p.id)} style={{width:'28px',height:'28px',borderRadius:'50%',border:`2px solid ${p.presente?C.green:C.red}`,background:p.presente?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)',cursor:'pointer',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    {p.presente?'✓':'✗'}
                   </button>
-                  <div style={{ flex:1, fontSize:'12px', color: p.presente ? T.text : T.textMid, textDecoration: p.presente ? 'none' : 'line-through' }}>{p.nome}</div>
-                  <button onClick={() => rimuovi(p.id)} style={{ background:'transparent', border:'none', color:T.textDim, cursor:'pointer', fontSize:'16px', padding:'4px' }}>×</button>
+                  <div style={{flex:1,fontSize:'13px',color:p.presente?C.text:C.mid,textDecoration:p.presente?'none':'line-through'}}>{p.nome}</div>
+                  <button onClick={()=>rimuovi(p.id)} style={{background:'transparent',border:'none',color:C.dim,cursor:'pointer',fontSize:'18px',padding:'2px'}}>×</button>
                 </div>
               ))}
             </div>
           );
         })}
-
-        {squadra.length === 0 && (
-          <div style={{ textAlign:'center', color:T.textDim, fontSize:'11px', marginTop:'40px', letterSpacing:'2px' }}>
-            <div style={{ fontSize:'32px', marginBottom:'12px' }}>👤</div>
-            NESSUNA PERSONA<br/>
-            <span style={{ fontSize:'9px' }}>Aggiungi i membri della squadra</span>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// ── SETTINGS PAGE ──
-function PageSettings({ onLogout }) {
-  const [oldPwd, setOldPwd] = useState('');
-  const [newPwd, setNewPwd] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [msg, setMsg] = useState(null);
-  const [rate, setRate] = useState(() => ls('tm_rate', 90));
+// ── SETTINGS ──
+function PageSettings({onLogout}){
+  const[oldP,setOldP]=useState('');
+  const[newP,setNewP]=useState('');
+  const[conf,setConf]=useState('');
+  const[msg,setMsg]=useState(null);
+  const[fbUrl,setFbUrl]=useState(()=>lsg(LS.firebase,{})?.url||'');
+  const[syncing,setSyncing]=useState(false);
+  const[syncMsg,setSyncMsg]=useState(null);
 
-  const cambiaPwd = () => {
-    const current = ls(LS.pwd, DEFAULT_PWD);
-    if (oldPwd !== current) { setMsg({ ok:false, text:'Password attuale errata' }); return; }
-    if (newPwd.length < 4) { setMsg({ ok:false, text:'Minimo 4 caratteri' }); return; }
-    if (newPwd !== confirm) { setMsg({ ok:false, text:'Le password non coincidono' }); return; }
-    lsSet(LS.pwd, newPwd);
-    setMsg({ ok:true, text:'Password cambiata!' });
-    setOldPwd(''); setNewPwd(''); setConfirm('');
-    setTimeout(() => setMsg(null), 2500);
+  const cambiaPwd=()=>{
+    const cur=lsg(LS.pwd,DEFAULT_PWD);
+    if(oldP!==cur){setMsg({ok:false,t:'Password attuale errata'});return}
+    if(newP.length<4){setMsg({ok:false,t:'Minimo 4 caratteri'});return}
+    if(newP!==conf){setMsg({ok:false,t:'Le password non coincidono'});return}
+    lss(LS.pwd,newP);setMsg({ok:true,t:'Password cambiata!'});setOldP('');setNewP('');setConf('');
+    setTimeout(()=>setMsg(null),2500);
   };
 
-  const resetTutto = () => {
-    if (!window.confirm('Cancellare tutti i dati?')) return;
-    [LS.turni, LS.storico, LS.squadra, 'tm_colli', 'tm_strao', 'tm_rate'].forEach(k => { try { localStorage.removeItem(k); } catch {} });
-    window.location.reload();
+  const salvaFb=()=>{lss(LS.firebase,{url:fbUrl});setSyncMsg({ok:true,t:'Configurazione salvata!'});setTimeout(()=>setSyncMsg(null),2000)};
+
+  const syncNow=async(dir)=>{
+    const fbConfig=lsg(LS.firebase,{});
+    if(!fbConfig.url){setSyncMsg({ok:false,t:'Configura prima il URL Firebase'});return}
+    setSyncing(true);
+    if(dir==='up'){
+      const data={turni:lsg(LS.turni,[]),strao:lsg(LS.strao,[]),straPers:lsg(LS.straPers,[]),colli:lsg(LS.colli,''),rate:lsg(LS.rate,90),storico:lsg(LS.storico,[]),squadra:lsg(LS.squadra,[])};
+      const res=await fbSync(fbConfig,data);
+      setSyncMsg(res.ok?{ok:true,t:'✅ Dati caricati online!'}:{ok:false,t:'Errore: '+res.err});
+    }else{
+      const res=await fbLoad(fbConfig);
+      if(res.ok&&res.data){
+        const d=res.data;
+        if(d.turni)lss(LS.turni,d.turni);
+        if(d.straPers)lss(LS.straPers,d.straPers);
+        if(d.colli!==undefined)lss(LS.colli,d.colli);
+        if(d.rate)lss(LS.rate,d.rate);
+        if(d.storico)lss(LS.storico,d.storico);
+        if(d.squadra)lss(LS.squadra,d.squadra);
+        setSyncMsg({ok:true,t:'✅ Dati scaricati! Ricarica la pagina.'});
+      }else setSyncMsg({ok:false,t:'Errore: '+(res.err||'dati vuoti')});
+    }
+    setSyncing(false);setTimeout(()=>setSyncMsg(null),4000);
   };
 
-  return (
-    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:T.font }}>
-      <div style={{ background:T.bg2, borderBottom:`1px solid ${T.border}`, padding:'14px 16px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:T.accent }}>⚙️ IMPOSTAZIONI</div>
+  const resetTutto=()=>{if(!window.confirm('Cancellare tutti i dati?'))return;[LS.turni,LS.strao,LS.straPers,LS.colli,LS.rate,LS.storico,LS.squadra].forEach(k=>{try{localStorage.removeItem(k)}catch{}});window.location.reload()};
+
+  return(
+    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
+      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
+        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>⚙️ IMPOSTAZIONI</div>
       </div>
-      <div style={{ padding:'14px' }}>
+      <div style={{padding:'12px'}}>
 
-        {/* Rate default */}
-        <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', marginBottom:'14px' }}>
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'2px', marginBottom:'10px' }}>COLLI/ORA DEFAULT</div>
-          <div style={{ display:'flex', gap:'8px' }}>
-            {[90, 100].map(v => (
-              <button key={v} onClick={() => { setRate(v); lsSet('tm_rate', v); }} style={{ flex:1, padding:'12px', borderRadius:'10px', border:`2px solid ${rate==v ? T.purple : T.border2}`, background: rate==v ? 'rgba(167,139,250,0.15)' : 'transparent', color: rate==v ? T.purple : T.textDim, fontFamily:T.font, fontSize:'18px', fontWeight:'bold', cursor:'pointer' }}>{v}</button>
-            ))}
+        {/* SYNC ONLINE */}
+        <Panel style={{marginBottom:'12px',border:`1px solid ${C.blue}`}}>
+          <SectionLabel color={C.blue}>☁️ SINCRONIZZAZIONE ONLINE</SectionLabel>
+          <div style={{fontSize:'9px',color:C.dim,marginBottom:'8px',lineHeight:1.6}}>
+            Crea un account su <b style={{color:C.blue}}>firebase.google.com</b> →<br/>
+            Crea progetto → Realtime Database →<br/>
+            Copia l'URL del database (finisce con .firebaseio.com)
           </div>
-        </div>
-
-        {/* Cambio password */}
-        <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', marginBottom:'14px' }}>
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'2px', marginBottom:'10px' }}>🔐 CAMBIA PASSWORD</div>
-          {['Password attuale', 'Nuova password', 'Conferma nuova'].map((label, i) => {
-            const vals = [oldPwd, newPwd, confirm];
-            const sets = [setOldPwd, setNewPwd, setConfirm];
-            return (
-              <div key={i} style={{ marginBottom:'8px' }}>
-                <div style={{ fontSize:'8px', color:T.textDim, letterSpacing:'1px', marginBottom:'4px' }}>{label}</div>
-                <input type="password" value={vals[i]} onChange={e => sets[i](e.target.value)}
-                  style={{ width:'100%', background:T.bg3, border:`1px solid ${T.border2}`, borderRadius:'8px', color:T.text, fontFamily:T.font, fontSize:'14px', padding:'10px 12px', outline:'none' }} />
-              </div>
-            );
-          })}
-          {msg && <div style={{ fontSize:'10px', color: msg.ok ? T.green : T.red, letterSpacing:'1px', marginBottom:'8px', textAlign:'center' }}>{msg.ok ? '✅' : '✗'} {msg.text}</div>}
-          <button onClick={cambiaPwd} style={{ width:'100%', padding:'12px', background:`linear-gradient(135deg,${T.purple},#7c3aed)`, border:'none', borderRadius:'8px', color:'white', fontFamily:T.font, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginTop:'4px' }}>
-            SALVA PASSWORD
-          </button>
-        </div>
-
-        {/* Info */}
-        <div style={{ background:T.bg2, border:`1px solid ${T.border}`, borderRadius:'12px', padding:'14px', marginBottom:'14px' }}>
-          <div style={{ fontSize:'9px', color:T.textDim, letterSpacing:'2px', marginBottom:'10px' }}>ℹ️ INFO APP</div>
-          <div style={{ fontSize:'10px', color:T.textMid, lineHeight:1.6 }}>
-            Turni Magazzino v1.0<br/>
-            I dati sono salvati sul tuo dispositivo.<br/>
-            Nessun dato viene inviato online.
+          <div style={{fontSize:'8px',color:C.dim,marginBottom:'4px',letterSpacing:'1px'}}>URL DATABASE FIREBASE</div>
+          <input value={fbUrl} onChange={e=>setFbUrl(e.target.value)} placeholder="https://progetto-default-rtdb.firebaseio.com"
+            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'10px',padding:'10px',outline:'none',marginBottom:'8px'}}/>
+          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+            <Btn onClick={salvaFb} color={C.blue} small>💾 SALVA URL</Btn>
+            <Btn onClick={()=>syncNow('up')} color={C.green} small>{syncing?<span className="spin">⟳</span>:'⬆️ CARICA'}</Btn>
+            <Btn onClick={()=>syncNow('down')} color={C.orange} small>{syncing?<span className="spin">⟳</span>:'⬇️ SCARICA'}</Btn>
           </div>
-        </div>
+          {syncMsg&&<div style={{marginTop:'8px',fontSize:'10px',color:syncMsg.ok?C.green:C.red,letterSpacing:'1px'}}>{syncMsg.t}</div>}
+        </Panel>
 
-        {/* Logout */}
-        <button onClick={onLogout} style={{ width:'100%', padding:'14px', background:'rgba(245,158,11,0.1)', border:`1px solid ${T.accent}`, borderRadius:'12px', color:T.accent, fontFamily:T.font, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>
-          🚪 ESCI
-        </button>
+        {/* PASSWORD */}
+        <Panel style={{marginBottom:'12px'}}>
+          <SectionLabel>🔐 CAMBIA PASSWORD</SectionLabel>
+          {[['Password attuale',oldP,setOldP],['Nuova password',newP,setNewP],['Conferma',conf,setConf]].map(([l,v,s])=>(
+            <div key={l} style={{marginBottom:'8px'}}>
+              <div style={{fontSize:'8px',color:C.dim,marginBottom:'3px',letterSpacing:'1px'}}>{l}</div>
+              <input type="password" value={v} onChange={e=>s(e.target.value)}
+                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'14px',padding:'10px',outline:'none'}}/>
+            </div>
+          ))}
+          {msg&&<div style={{fontSize:'10px',color:msg.ok?C.green:C.red,textAlign:'center',marginBottom:'8px'}}>{msg.t}</div>}
+          <Btn onClick={cambiaPwd} color={C.purple} full>SALVA PASSWORD</Btn>
+        </Panel>
 
-        {/* Reset */}
-        <button onClick={resetTutto} style={{ width:'100%', padding:'14px', background:'rgba(239,68,68,0.1)', border:`1px solid ${T.red}`, borderRadius:'12px', color:T.red, fontFamily:T.font, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>
-          🗑 CANCELLA TUTTI I DATI
-        </button>
+        {/* INFO */}
+        <Panel style={{marginBottom:'12px'}}>
+          <SectionLabel>ℹ️ INFO</SectionLabel>
+          <div style={{fontSize:'10px',color:C.mid,lineHeight:1.7}}>Turni Magazzino v2.0<br/>Dati salvati sul dispositivo.<br/>Usa SYNC per condividerli tra dispositivi.</div>
+        </Panel>
+
+        <Btn onClick={onLogout} color={C.accent} full style={{marginBottom:'8px'}}>🚪 ESCI</Btn>
+        <Btn onClick={resetTutto} color={C.red} full>🗑 CANCELLA TUTTI I DATI</Btn>
       </div>
     </div>
   );
 }
 
-// ── ROOT ──
-function App() {
-  const [page, setPage] = useState('turni');
-  const logout = () => { try { sessionStorage.removeItem(LS.auth); } catch {} window.location.reload(); };
-
-  const pages = { turni: <PageTurni/>, storico: <PageStorico/>, squadra: <PageSquadra/>, settings: <PageSettings onLogout={logout}/> };
-
-  return (
-    <div style={{ height:'100vh', height:'100dvh', display:'flex', flexDirection:'column', background:T.bg, fontFamily:T.font, overflow:'hidden' }}>
-      <div key={page} className="page-enter" style={{ flex:1, overflow:'hidden' }}>
-        {pages[page]}
-      </div>
-      <BottomNav page={page} setPage={setPage}/>
+// ── APP ──
+function App(){
+  const[page,setPage]=useState('turni');
+  const logout=()=>{try{sessionStorage.removeItem(LS.auth)}catch{}window.location.reload()};
+  const pages={turni:<PageTurni/>,storico:<PageStorico/>,squadra:<PageSquadra/>,settings:<PageSettings onLogout={logout}/>};
+  return(
+    <div style={{height:'100vh',height:'100dvh',display:'flex',flexDirection:'column',background:C.bg,overflow:'hidden'}}>
+      <div key={page} style={{flex:1,overflow:'hidden',animation:'fadeUp 0.25s ease'}}>{pages[page]}</div>
+      <Nav page={page} setPage={setPage}/>
     </div>
   );
 }
-
-function Root() {
-  const [ok, setOk] = useState(() => {
-    try { return !!sessionStorage.getItem(LS.auth); } catch { return false; }
-  });
-  const login = () => { try { sessionStorage.setItem(LS.auth, '1'); } catch {} setOk(true); };
-  return ok ? <App/> : <Login onLogin={login}/>;
+function Root(){
+  const[ok,setOk]=useState(()=>{try{return!!sessionStorage.getItem(LS.auth)}catch{return false}});
+  const login=()=>{try{sessionStorage.setItem(LS.auth,'1')}catch{}setOk(true)};
+  return ok?<App/>:<Login onLogin={login}/>;
 }
-
 ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
 </script>
 </body>
