@@ -204,8 +204,20 @@ function Login(props) {
     if (!pwd) return;
     setLoading(true);
     var h = await sha256(pwd);
-    var saved = lsg(K.pwd, PWD_DEFAULT_HASH);
-    if (h === saved) {
+    var saved = lsg(K.pwd, null);
+    var ok = false;
+    if (!saved) {
+      // Prima volta: nessuna password salvata, usa default Naturasi2026
+      ok = (h === PWD_DEFAULT_HASH);
+    } else if (saved === h) {
+      // Password salvata come hash — confronto normale
+      ok = true;
+    } else if (saved === pwd) {
+      // Vecchio sistema: password salvata in chiaro — migra automaticamente a hash
+      ok = true;
+      lss(K.pwd, h); // salva come hash da adesso
+    }
+    if (ok) {
       try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
       props.onLogin();
     } else {
