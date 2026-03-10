@@ -271,6 +271,8 @@ function Login(props) {
 // ── BOTTOM NAV ──
 function Nav(props) {
   var tabs = [
+    { id:'input', icon:'✏️', label:'INPUT' },
+    { id:'input', icon:'✏️', label:'INPUT' },
     { id:'turni', icon:'📊', label:'TURNI' },
     { id:'dettaglio', icon:'📋', label:'DETTAGLIO' },
     { id:'riepilogo', icon:'📦', label:'RIEPILOGO' },
@@ -288,6 +290,159 @@ function Nav(props) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+
+// ── PAGE INPUT RAPIDO ──
+function PageInput(props) {
+  var turni = props.turni; var setTurni = props.setTurni;
+  var colli = props.colli; var setColli = props.setColli;
+  var rate = props.rate; var setRate = props.setRate;
+  var setPage = props.setPage;
+
+  var _ok = React.useState(false); var confermato = _ok[0]; var setConfermato = _ok[1];
+
+  // Persone locali per ogni turno (inizializzate dai turni esistenti)
+  var _pers = React.useState(function() {
+    var m = {};
+    props.turni.forEach(function(t){ m[t.id] = t.persone || 0; });
+    return m;
+  });
+  var persone = _pers[0]; var setPersone = _pers[1];
+
+  var _colliInput = React.useState(colli || '');
+  var colliInput = _colliInput[0]; var setColliInput = _colliInput[1];
+
+  function setPers(id, v) {
+    setPersone(function(prev){ var n = Object.assign({}, prev); n[id] = Math.max(0, v); return n; });
+  }
+
+  var totPersone = Object.values(persone).reduce(function(a,b){ return a + Number(b); }, 0);
+
+  // Calcolo rapido chiusura stimata
+  var chiusuraStimata = (function() {
+    if (!colliInput || totPersone === 0) return null;
+    var colliN = Number(colliInput);
+    var r = Number(rate);
+    var allT = props.turni.map(function(t) {
+      return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0, rate: r });
+    });
+    var evS = {};
+    allT.forEach(function(t){ evS[tMin(t.inizio)] = true; evS[tMin(t.fine)] = true; if(t.pIn&&t.pOut){evS[tMin(t.pIn)]=true;evS[tMin(t.pOut)]=true;} });
+    var ev = Object.keys(evS).map(Number).sort(function(a,b){return a-b;});
+    var cum = 0;
+    for (var i = 0; i < ev.length - 1; i++) {
+      var frm = ev[i]; var to = ev[i+1]; var tR = 0;
+      allT.forEach(function(t) {
+        var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+        var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+        if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
+          tR += t.persone * t.rate;
+      });
+      if (tR === 0) continue;
+      var prod = tR * (to - frm) / 60;
+      if (cum + prod >= colliN) {
+        return mToT(frm + (colliN - cum) / tR * 60);
+      }
+      cum += prod;
+    }
+    return null;
+  })();
+
+  function conferma() {
+    // Applica le persone ai turni
+    setTurni(function(prev) {
+      return prev.map(function(t) {
+        return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0 });
+      });
+    });
+    // Applica i colli
+    setColli(colliInput);
+    setConfermato(true);
+    setTimeout(function() { setConfermato(false); setPage('turni'); }, 1200);
+  }
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:FONT }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 14px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>✏️ INPUT RAPIDO</div>
+        <div style={{ fontSize:'9px', color:DIM, marginTop:'2px', letterSpacing:'1px' }}>Inserisci persone e colli — si compila tutto in automatico</div>
+      </div>
+
+      <div style={{ padding:'12px' }}>
+
+        {/* COLLI + RATE */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'14px' }}>
+          <Panel>
+            <Lbl color={YELLOW}>📦 COLLI DA FARE</Lbl>
+            <input type="number" value={colliInput} onChange={function(e){setColliInput(e.target.value);}}
+              placeholder="es. 12000"
+              style={{ width:'100%', background:'transparent', border:'none', color:YELLOW, fontFamily:FONT, fontSize:'28px', fontWeight:'bold', outline:'none', padding:0 }} />
+          </Panel>
+          <Panel>
+            <Lbl color={PURPLE}>COLLI / ORA</Lbl>
+            <div style={{ display:'flex', gap:'6px' }}>
+              {[90,100].map(function(v) {
+                return (
+                  <button key={v} onClick={function(){setRate(v);}}
+                    style={{ flex:1, padding:'8px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', cursor:'pointer' }}>
+                    {v}
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+
+        {/* PERSONE PER TURNO */}
+        <Lbl color={YELLOW}>👥 PERSONE PER TURNO</Lbl>
+        {props.turni.map(function(t) {
+          var cl = tColor(t.nome);
+          var p = persone[t.id] || 0;
+          return (
+            <Panel key={t.id} style={{ marginBottom:'8px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:'11px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
+                  <div style={{ fontSize:'9px', color:DIM, marginTop:'2px' }}>{t.inizio} → {t.fine}</div>
+                </div>
+                <NumInput value={p} onChange={function(v){setPers(t.id, v);}} color={cl} />
+              </div>
+            </Panel>
+          );
+        })}
+
+        {/* TOTALE */}
+        {totPersone > 0 && (
+          <Panel style={{ marginBottom:'14px', border:'1px solid '+BORDER2, textAlign:'center' }}>
+            <Lbl>TOTALE PERSONE</Lbl>
+            <div style={{ fontSize:'32px', fontWeight:'bold', color:TEXT }}>{totPersone}</div>
+          </Panel>
+        )}
+
+        {/* CHIUSURA STIMATA PREVIEW */}
+        {chiusuraStimata && (
+          <div style={{ background:'linear-gradient(135deg,#064e3b,#065f46)', border:'2px solid '+GREEN, borderRadius:'14px', padding:'16px', textAlign:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'9px', letterSpacing:'3px', color:'#6ee7b7', marginBottom:'6px' }}>✅ CHIUSURA STIMATA</div>
+            <div style={{ fontSize:'48px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{chiusuraStimata}</div>
+          </div>
+        )}
+        {colliInput && totPersone > 0 && !chiusuraStimata && (
+          <div style={{ background:'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+RED, borderRadius:'14px', padding:'16px', textAlign:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'9px', letterSpacing:'3px', color:'#fca5a5', marginBottom:'4px' }}>🔴 TURNI INSUFFICIENTI</div>
+            <div style={{ fontSize:'11px', color:'#fca5a5' }}>Aggiungi più persone o straordinari</div>
+          </div>
+        )}
+
+        {/* BOTTONE CONFERMA */}
+        <button onClick={conferma}
+          style={{ width:'100%', padding:'16px', background: confermato ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border: confermato ? '2px solid '+GREEN : 'none', borderRadius:'14px', color: confermato ? GREEN : '#000', fontFamily:FONT, fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', transition:'all 0.3s' }}>
+          {confermato ? '✅ APPLICATO!' : '✅ APPLICA E VAI AI TURNI'}
+        </button>
+
+      </div>
     </div>
   );
 }
@@ -1162,6 +1317,8 @@ function App() {
   return (
     <div style={{ height:'100vh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
       <div key={page} style={{ flex:1, overflow:'hidden', animation:'fadeUp 0.2s ease' }}>
+        {page === 'input' && <PageInput {...pageProps} setPage={setPage} />}
+        {page === 'input' && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni' && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
         {page === 'riepilogo' && <PageRiepilogo {...pageProps} />}
