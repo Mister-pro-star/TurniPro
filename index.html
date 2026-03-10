@@ -4,991 +4,1103 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Turni Magazzino</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-    html,body{height:100%;background:#0a0c12;overflow:hidden;font-family:'Courier New',Consolas,monospace}
+    html,body{height:100%;background:#070910;overflow:hidden;font-family:'Courier New',Consolas,monospace}
     #root{height:100%}
-    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
     input,button,select{-webkit-appearance:none}
     ::-webkit-scrollbar{width:0}
     @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
-    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
     .fadeup{animation:fadeUp 0.3s ease}
-    .spin{animation:spin 1s linear infinite;display:inline-block}
   </style>
 </head>
-<body><div id="root"></div>
+<body>
+<div id="root"></div>
 <script type="text/babel">
-const {useState,useCallback,useEffect,useRef,useMemo} = React;
 
-// ── THEME ──
-const C = {
-  bg:'#0a0c12',bg2:'#12141e',bg3:'#1a1d2a',
-  border:'#1e2235',border2:'#2a2d3f',
-  accent:'#f59e0b',accent2:'#fbbf24',
-  purple:'#a78bfa',purple2:'#c4b5fd',
-  green:'#10b981',green2:'#34d399',
-  red:'#ef4444',red2:'#fca5a5',
-  orange:'#f97316',
-  blue:'#38bdf8',
-  text:'#e8e8e0',dim:'#555',mid:'#888',
-  F:"'Courier New',Consolas,monospace",
-};
+const { useState, useCallback, useEffect, useRef, useMemo } = React;
 
-// ── STORAGE KEYS ──
-const LS = {pwd:'tm_pwd',auth:'tm_auth',turni:'tm_turni',strao:'tm_strao',straPers:'tm_straPers',colli:'tm_colli',rate:'tm_rate',storico:'tm_storico',squadra:'tm_squadra',firebase:'tm_firebase'};
-const DEFAULT_PWD = 'Vaniusa1987.';
+// ── COLORI ──
+var BG = '#0a0c12';
+var BG2 = '#12141e';
+var BG3 = '#1a1d2a';
+var BORDER = '#1e2235';
+var BORDER2 = '#2a2d3f';
+var YELLOW = '#f59e0b';
+var YELLOW2 = '#fbbf24';
+var PURPLE = '#a78bfa';
+var GREEN = '#10b981';
+var GREEN2 = '#34d399';
+var RED = '#ef4444';
+var ORANGE = '#f97316';
+var BLUE = '#38bdf8';
+var TEXT = '#e8e8e0';
+var DIM = '#555';
+var MID = '#888';
+var FONT = "'Courier New',Consolas,monospace";
 
-const DEFAULT_TURNI = [
-  {id:1,nome:'Mattina 06:00',inizio:'06:00',fine:'12:20',pausaInizio:'10:00',pausaFine:'10:20',persone:0,assenti:0},
-  {id:5,nome:'Giornata 08:00',inizio:'08:00',fine:'14:20',pausaInizio:'12:00',pausaFine:'12:20',persone:0,assenti:0},
-  {id:2,nome:'Giornata 10:00',inizio:'10:00',fine:'16:20',pausaInizio:'14:00',pausaFine:'14:20',persone:0,assenti:0},
-  {id:3,nome:'Pomeriggio 13:00',inizio:'13:00',fine:'19:20',pausaInizio:'17:00',pausaFine:'17:20',persone:0,assenti:0},
+// ── STORAGE ──
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb' };
+var PWD_DEFAULT = 'Vaniusa1987.';
+
+var DEF_TURNI = [
+  { id:1, nome:'Mattina 06:00',    inizio:'06:00', fine:'12:20', pIn:'10:00', pOut:'10:20', persone:0, assenti:0 },
+  { id:5, nome:'Giornata 08:00',   inizio:'08:00', fine:'14:20', pIn:'12:00', pOut:'12:20', persone:0, assenti:0 },
+  { id:2, nome:'Giornata 10:00',   inizio:'10:00', fine:'16:20', pIn:'14:00', pOut:'14:20', persone:0, assenti:0 },
+  { id:3, nome:'Pomeriggio 13:00', inizio:'13:00', fine:'19:20', pIn:'17:00', pOut:'17:20', persone:0, assenti:0 },
 ];
-const DEFAULT_STRAPERSONE = [
-  {id:1,inizio:'12:20',fine:'13:20',persone:0},
-  {id:5,inizio:'',fine:'',persone:0},
-  {id:2,inizio:'',fine:'',persone:0},
-  {id:3,inizio:'12:00',fine:'13:00',persone:0},
+var DEF_STRA = [
+  { id:1, righe:[ { inizio:'12:20', fine:'13:20', persone:0 } ] },
+  { id:5, righe:[] },
+  { id:2, righe:[] },
+  { id:3, righe:[ { inizio:'12:00', fine:'13:00', persone:0 } ] },
 ];
 
-// ── UTILS ──
-function lsg(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}}
-function lss(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
-function timeToMin(t){if(!t||!t.includes(':'))return 0;const[h,m]=t.split(':').map(Number);return h*60+m}
-function minToTime(m){let h=Math.floor(m/60);let mn=Math.round(m%60);if(mn===60){h++;mn=0}return`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`}
-function oggi(){const d=new Date();return`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`}
-function turnoColore(nome){if(/mattina/i.test(nome))return C.accent;if(/pomeriggio/i.test(nome))return C.purple;return C.blue}
+function lsg(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e) { return d; } }
+function lss(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function tMin(t) { if (!t || t.indexOf(':') < 0) return 0; var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
+function mToT(m) { var h = Math.floor(m/60); var mn = Math.round(m % 60); if (mn === 60) { h++; mn = 0; } return (h < 10 ? '0'+h : ''+h) + ':' + (mn < 10 ? '0'+mn : ''+mn); }
+function oggi() { var d = new Date(); return (d.getDate()<10?'0':'')+d.getDate()+'/'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'/'+d.getFullYear(); }
+function tColor(nome) { if (/mattina/i.test(nome)) return YELLOW; if (/pomeriggio/i.test(nome)) return PURPLE; return BLUE; }
+function newId() { return Date.now() + Math.floor(Math.random()*999); }
 
-// ── CALC ENGINE ──
-function calcola(colliN, tuttiTurni, rate) {
-  const events = new Set();
-  tuttiTurni.forEach(t=>{
-    events.add(timeToMin(t.inizio));events.add(timeToMin(t.fine));
-    if(t.pausaInizio&&t.pausaFine){events.add(timeToMin(t.pausaInizio));events.add(timeToMin(t.pausaFine))}
+// ── CALCOLO ──
+function buildAllT(turni, stra, rate) {
+  var all = turni.map(function(t) {
+    return { id: t.id, nome: t.nome, inizio: t.inizio, fine: t.fine, pIn: t.pIn, pOut: t.pOut,
+             persone: Math.max(0, (t.persone||0) - (t.assenti||0)), rate: Number(rate) };
   });
-  const sorted=Array.from(events).sort((a,b)=>a-b);
-  let cumulo=0;const rows=[];
-  for(let i=0;i<sorted.length-1;i++){
-    const from=sorted[i],to=sorted[i+1];
-    let pers=0;
-    tuttiTurni.forEach(t=>{
-      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-      const r=Number(t._rate||rate);
-      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
-        pers+=Number(t.persone)||0;
+  stra.forEach(function(sp) {
+    var t = turni.find(function(x) { return x.id === sp.id; });
+    if (!t) return;
+    (sp.righe || []).forEach(function(r) {
+      if (r.inizio && r.fine && Number(r.persone) > 0) {
+        all.push({ id: t.id, nome: t.nome + ' (strao)', inizio: r.inizio, fine: r.fine,
+                   pIn: '', pOut: '', persone: Number(r.persone), rate: Number(rate), isStrao: true });
+      }
     });
-    let r2=rate;
-    tuttiTurni.forEach(t=>{const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;const pOut=t.pausaFine?timeToMin(t.pausaFine):null;if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut)&&t._rate)r2=Number(t._rate)});
-    const prod=pers*(Number(tuttiTurni[0]?._rate||rate))*(to-from)/60;
-    // recalc with proper rates
-    let prodPreciso=0;
-    tuttiTurni.forEach(t=>{
-      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-      const r=Number(t._rate||rate);
-      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
-        prodPreciso+=(Number(t.persone)||0)*r*(to-from)/60;
+  });
+  return all;
+}
+
+function calcRows(colliN, allT, rate) {
+  var evS = {};
+  allT.forEach(function(t) {
+    evS[tMin(t.inizio)] = true; evS[tMin(t.fine)] = true;
+    if (t.pIn && t.pOut) { evS[tMin(t.pIn)] = true; evS[tMin(t.pOut)] = true; }
+  });
+  var ev = Object.keys(evS).map(Number).sort(function(a,b){return a-b;});
+  var cum = 0; var rows = []; var finished = false;
+
+  for (var i = 0; i < ev.length - 1; i++) {
+    var frm = ev[i]; var to = ev[i+1];
+    var totalR = 0; var pers = 0; var nome = ''; var isStrao = false;
+    allT.forEach(function(t) {
+      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+      if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut)) {
+        totalR += t.persone * t.rate; pers += t.persone;
+        nome = t.nome; if (t.isStrao) isStrao = true;
+      }
     });
-    if(pers===0){rows.push({from,to,pers:0,prod:0,cumulo,nome:'PAUSA'});continue}
-    if(cumulo+prodPreciso>=colliN){
-      const fineMin=from+(colliN-cumulo)/pers/rate*60;
-      // better: find exact with rate
-      let c2=cumulo,fineEx=from;
-      let persR=0,rateR=rate;
-      tuttiTurni.forEach(t=>{
-        const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-        const r=Number(t._rate||rate);
-        if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut)){
-          persR+=Number(t.persone)||0;
-        }
-      });
-      let totalRate=0;
-      tuttiTurni.forEach(t=>{
-        const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-        const r=Number(t._rate||rate);
-        if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
-          totalRate+=(Number(t.persone)||0)*r;
-      });
-      const fineEsatta=totalRate>0?minToTime(from+(colliN-cumulo)/totalRate*60):minToTime(fineMin);
-      rows.push({from,to,pers,prod:colliN-cumulo,cumulo:colliN,highlight:true,fineEsatta});
-      return{ok:true,fineEsatta,rows,cumulo:colliN};
+    var dur = to - frm;
+    var prod = totalR * dur / 60;
+    var colliH = Math.round(totalR);
+
+    if (pers === 0) {
+      rows.push({ frm: mToT(frm), to: mToT(to), pers: 0, colliH: 0, dur: dur, prod: 0, cum: Math.round(cum), rim: Math.round(Math.max(0, colliN - cum)), pausa: true });
+      continue;
     }
-    cumulo+=prodPreciso;
-    rows.push({from,to,pers,prod:Math.round(prodPreciso),cumulo:Math.round(cumulo)});
+
+    if (finished) {
+      rows.push({ frm: mToT(frm), to: mToT(to), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prod), cum: colliN, rim: 0, anticipo: true, nome: nome, isStrao: isStrao });
+      continue;
+    }
+
+    if (cum + prod >= colliN) {
+      var fineMin = frm + (colliN - cum) / totalR * 60;
+      var prodFatta = colliN - cum; cum = colliN; finished = true;
+      rows.push({ frm: mToT(frm), to: mToT(to), fineEx: mToT(fineMin), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prodFatta), cum: colliN, rim: 0, highlight: true, nome: nome, isStrao: isStrao });
+    } else {
+      cum += prod;
+      rows.push({ frm: mToT(frm), to: mToT(to), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prod), cum: Math.round(cum), rim: Math.round(Math.max(0, colliN - cum)), nome: nome, isStrao: isStrao });
+    }
   }
-  return{ok:false,fineEsatta:null,rows,cumulo:Math.round(cumulo)};
+  return { ok: finished, rows: rows, cum: Math.round(cum), fineEx: finished ? rows.find(function(r){return r.highlight;}).fineEx : null };
 }
 
-function calcolaAnticipo(tuttiTurni,fineStr,rate){
-  if(!fineStr)return{totale:0,dettaglio:[]};
-  const fineMin=timeToMin(fineStr);
-  let totale=0;const dettaglio=[];
-  const events=new Set([fineMin]);
-  tuttiTurni.forEach(t=>{
-    events.add(timeToMin(t.inizio));events.add(timeToMin(t.fine));
-    if(t.pausaInizio&&t.pausaFine){events.add(timeToMin(t.pausaInizio));events.add(timeToMin(t.pausaFine))}
+function calcAnticipo(allT, fineStr, rate) {
+  if (!fineStr) return 0;
+  var fineM = tMin(fineStr); var tot = 0;
+  var evS = {}; evS[fineM] = true;
+  allT.forEach(function(t) {
+    evS[tMin(t.inizio)] = true; evS[tMin(t.fine)] = true;
+    if (t.pIn && t.pOut) { evS[tMin(t.pIn)] = true; evS[tMin(t.pOut)] = true; }
   });
-  const sorted=Array.from(events).filter(e=>e>=fineMin).sort((a,b)=>a-b);
-  for(let i=0;i<sorted.length-1;i++){
-    const from=sorted[i],to=sorted[i+1];
-    let prodPreciso=0;
-    tuttiTurni.forEach(t=>{
-      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-      const r=Number(t._rate||rate);
-      if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
-        prodPreciso+=(Number(t.persone)||0)*r*(to-from)/60;
+  var ev = Object.keys(evS).map(Number).filter(function(e){return e >= fineM;}).sort(function(a,b){return a-b;});
+  for (var i = 0; i < ev.length - 1; i++) {
+    var frm = ev[i]; var to = ev[i+1]; var tR = 0;
+    allT.forEach(function(t) {
+      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+      if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
+        tR += t.persone * t.rate;
     });
-    totale+=prodPreciso;
+    tot += tR * (to - frm) / 60;
   }
-  return{totale:Math.round(totale),dettaglio};
+  return Math.round(tot);
 }
 
-// ── FIREBASE SYNC ──
-async function fbSync(fbConfig, data) {
-  if(!fbConfig?.url)return{ok:false,err:'Nessun URL Firebase configurato'};
-  try{
-    const url=fbConfig.url.replace(/\/$/,'')+'/turni_data.json';
-    const res=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    return{ok:true};
-  }catch(e){return{ok:false,err:e.message}}
+// ── UI BASE ──
+function Panel(props) {
+  var s = Object.assign({ background: BG2, border: '1px solid ' + BORDER, borderRadius: '12px', padding: '12px 14px' }, props.style || {});
+  return React.createElement('div', { style: s }, props.children);
 }
-async function fbLoad(fbConfig) {
-  if(!fbConfig?.url)return{ok:false,err:'Nessun URL Firebase configurato'};
-  try{
-    const url=fbConfig.url.replace(/\/$/,'')+'/turni_data.json';
-    const res=await fetch(url);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    return{ok:true,data};
-  }catch(e){return{ok:false,err:e.message}}
+function Lbl(props) {
+  return React.createElement('div', { style: { fontSize: '9px', letterSpacing: '2px', color: props.color || DIM, marginBottom: '5px' } }, props.children);
 }
-
-// ── SHARED UI ──
-function Btn({onClick,children,color=C.accent,bg='transparent',full=false,small=false,style={}}){
-  return <button onClick={onClick} style={{width:full?'100%':'auto',padding:small?'8px 12px':'13px 16px',background:bg||`rgba(${color==='#f59e0b'?'245,158,11':'167,139,250'},0.1)`,border:`1px solid ${color}`,borderRadius:'10px',color,fontFamily:C.F,fontSize:small?'9px':'10px',fontWeight:'bold',letterSpacing:'2px',cursor:'pointer',...style}}>{children}</button>
-}
-function NumInput({value,onChange,color=C.green}){
-  return(
-    <div style={{display:'flex',alignItems:'center',gap:'5px'}}>
-      <button onClick={()=>onChange(Math.max(0,Number(value)-1))} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${C.border2}`,background:C.bg3,color,fontFamily:C.F,fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>−</button>
-      <input type="number" value={value} onChange={e=>onChange(Number(e.target.value))}
-        style={{width:'42px',textAlign:'center',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color,fontFamily:C.F,fontSize:'15px',fontWeight:'bold',padding:'4px 2px',outline:'none'}}/>
-      <button onClick={()=>onChange(Number(value)+1)} style={{width:'30px',height:'30px',borderRadius:'8px',border:`1px solid ${C.border2}`,background:C.bg3,color,fontFamily:C.F,fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>+</button>
+function NumInput(props) {
+  var color = props.color || GREEN;
+  var displayVal = (props.value === 0 || props.value === '0') ? '' : props.value;
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+      <button onClick={function(){props.onChange(Math.max(0, Number(props.value)-1));}} style={{ width:'28px', height:'28px', borderRadius:'7px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'17px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+      <input type="number" value={displayVal} placeholder="0" onChange={function(e){props.onChange(e.target.value===''?0:Math.max(0,Number(e.target.value)));}} style={{ width:'40px', textAlign:'center', background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:color, fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'4px 2px', outline:'none' }} />
+      <button onClick={function(){props.onChange(Number(props.value)+1);}} style={{ width:'28px', height:'28px', borderRadius:'7px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'17px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
     </div>
   );
 }
-function Panel({children,style={}}){return <div style={{background:C.bg2,border:`1px solid ${C.border}`,borderRadius:'12px',padding:'12px 14px',...style}}>{children}</div>}
-function SectionLabel({children,color=C.dim}){return <div style={{fontSize:'9px',letterSpacing:'2px',color,marginBottom:'6px'}}>{children}</div>}
+function TimeInput(props) {
+  return <input type="time" value={props.value || ''} onChange={function(e){props.onChange(e.target.value);}} style={{ background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:props.color||TEXT, fontFamily:FONT, fontSize:'12px', padding:'5px 7px', outline:'none', width:'100%' }} />;
+}
+function Btn(props) {
+  var bg = props.bg || 'rgba(245,158,11,0.1)';
+  var border = '1px solid ' + (props.color || YELLOW);
+  return <button onClick={props.onClick} style={{ width: props.full ? '100%' : 'auto', padding: props.small ? '7px 10px' : '12px 14px', background:bg, border:border, borderRadius:'10px', color:props.color||YELLOW, fontFamily:FONT, fontSize: props.small ? '9px' : '10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>{props.children}</button>;
+}
 
 // ── LOGIN ──
-function Login({onLogin}){
-  const[code,setCode]=useState('');
-  const[err,setErr]=useState(false);
-  const[shake,setShake]=useState(false);
-  const inp=useRef(null);
-  useEffect(()=>{setTimeout(()=>inp.current?.focus(),400)},[]);
-  const tryLogin=()=>{
-    const pwd=lsg(LS.pwd,DEFAULT_PWD);
-    if(code===pwd){try{sessionStorage.setItem(LS.auth,'1')}catch{}onLogin()}
-    else{setErr(true);setShake(true);setCode('');setTimeout(()=>setShake(false),500);setTimeout(()=>setErr(false),2000)}
-  };
-  return(
-    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:C.F,padding:'20px'}}>
-      <div style={{width:'100%',maxWidth:'320px',animation:shake?'shake 0.4s ease':'fadeIn 0.4s ease'}}>
-        <div style={{textAlign:'center',marginBottom:'36px'}}>
-          <div style={{fontSize:'56px',marginBottom:'10px'}}>📦</div>
-          <div style={{fontSize:'15px',fontWeight:'bold',letterSpacing:'4px',color:C.accent}}>TURNI MAGAZZINO</div>
-          <div style={{fontSize:'9px',color:C.dim,letterSpacing:'3px',marginTop:'4px'}}>ACCESSO RISERVATO</div>
+function Login(props) {
+  var _pin = useState(''); var pin = _pin[0]; var setPin = _pin[1];
+  var _err = useState(false); var err = _err[0]; var setErr = _err[1];
+  var _shake = useState(false); var shake = _shake[0]; var setShake = _shake[1];
+  var _setup = useState(function(){ return !lsg(K.pwd, null); }); var setup = _setup[0]; var setSetup = _setup[1];
+  var _confirm = useState(''); var confirmPin = _confirm[0]; var setConfirmPin = _confirm[1];
+  var _step = useState(1); var step = _step[0]; var setStep = _step[1];
+
+  function addDigit(d) {
+    if (setup) {
+      if (step === 1 && pin.length < 6) { setPin(pin + d); }
+      else if (step === 2 && confirmPin.length < 6) {
+        var newConf = confirmPin + d;
+        setConfirmPin(newConf);
+        if (newConf.length === pin.length && newConf.length >= 4) {
+          if (newConf === pin) {
+            lss(K.pwd, pin);
+            try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
+            props.onLogin();
+          } else {
+            setErr(true); setShake(true); setPin(''); setConfirmPin(''); setStep(1);
+            setTimeout(function(){setShake(false);}, 500);
+            setTimeout(function(){setErr(false);}, 2000);
+          }
+        }
+      }
+    } else {
+      var newPin = pin + d;
+      if (newPin.length <= 6) {
+        setPin(newPin);
+        if (newPin.length >= 4) {
+          var saved = lsg(K.pwd, PWD_DEFAULT);
+          if (newPin === saved) {
+            try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
+            props.onLogin();
+          } else if (newPin.length === saved.length) {
+            setErr(true); setShake(true);
+            setTimeout(function(){setPin('');}, 300);
+            setTimeout(function(){setShake(false);}, 500);
+            setTimeout(function(){setErr(false);}, 2000);
+          }
+        }
+      }
+    }
+  }
+
+  function delDigit() {
+    if (setup && step === 2) setConfirmPin(confirmPin.slice(0,-1));
+    else setPin(pin.slice(0,-1));
+  }
+
+  function nextStep() {
+    if (pin.length >= 4) { setStep(2); setConfirmPin(''); }
+  }
+
+  var currentPin = (setup && step === 2) ? confirmPin : pin;
+  var savedLen = setup ? (pin.length || 4) : (lsg(K.pwd, PWD_DEFAULT) || '').length;
+
+  var titleText = setup
+    ? (step === 1 ? 'CREA IL TUO PIN' : 'CONFERMA IL PIN')
+    : 'INSERISCI IL PIN';
+  var subtitleText = setup
+    ? (step === 1 ? 'Scegli un PIN da 4 a 6 cifre' : 'Ripeti il PIN per confermare')
+    : '';
+
+  return (
+    <div style={{ minHeight:'100dvh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:FONT, padding:'20px' }}>
+      <div style={{ width:'100%', maxWidth:'300px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.4s ease' }}>
+        <div style={{ textAlign:'center', marginBottom:'32px' }}>
+          <div style={{ fontSize:'52px', marginBottom:'10px' }}>📦</div>
+          <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'4px', color:YELLOW }}>TURNI MAGAZZINO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px', marginTop:'4px' }}>{titleText}</div>
+          {subtitleText && <div style={{ fontSize:'9px', color:MID, marginTop:'4px' }}>{subtitleText}</div>}
         </div>
-        <Panel>
-          <SectionLabel>CODICE DI ACCESSO</SectionLabel>
-          <input ref={inp} type="password" value={code} onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryLogin()} placeholder="••••••••"
-            style={{width:'100%',background:C.bg,border:`2px solid ${err?C.red:C.border2}`,borderRadius:'10px',color:C.text,fontFamily:C.F,fontSize:'22px',padding:'13px 16px',textAlign:'center',letterSpacing:'6px',outline:'none',transition:'border-color 0.2s',marginBottom:'8px'}}/>
-          {err&&<div style={{color:C.red,fontSize:'10px',letterSpacing:'2px',textAlign:'center',marginBottom:'8px'}}>✗ CODICE ERRATO</div>}
-          <Btn onClick={tryLogin} color="#000" bg={`linear-gradient(135deg,${C.accent},${C.accent2})`} full style={{marginTop:'6px'}}>ENTRA →</Btn>
-        </Panel>
+
+        {/* PIN dots */}
+        <div style={{ display:'flex', justifyContent:'center', gap:'14px', marginBottom:'32px' }}>
+          {[0,1,2,3,4,5].map(function(i) {
+            if (!setup && i >= savedLen) return null;
+            if (setup && step===1 && i >= Math.max(pin.length || 4, i+1) && i >= 4) return null;
+            return (
+              <div key={i} style={{ width:'14px', height:'14px', borderRadius:'50%', border:'2px solid '+(err?RED:YELLOW), background: currentPin.length > i ? (err?RED:YELLOW) : 'transparent', transition:'background 0.15s' }} />
+            );
+          })}
+        </div>
+
+        {/* Tastiera numerica */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
+          {[1,2,3,4,5,6,7,8,9].map(function(n) {
+            return (
+              <button key={n} onClick={function(){addDigit(''+n);}} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', cursor:'pointer', transition:'background 0.1s' }}>{n}</button>
+            );
+          })}
+          <div />
+          <button onClick={function(){addDigit('0');}} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', cursor:'pointer' }}>0</button>
+          <button onClick={delDigit} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:MID, fontFamily:FONT, fontSize:'20px', cursor:'pointer' }}>⌫</button>
+        </div>
+
+        {setup && step === 1 && pin.length >= 4 && (
+          <button onClick={nextStep} style={{ width:'100%', marginTop:'16px', padding:'14px', background:'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border:'none', borderRadius:'10px', color:'#000', fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer' }}>AVANTI →</button>
+        )}
+
+        {err && (
+          <div style={{ textAlign:'center', color:RED, fontSize:'10px', letterSpacing:'2px', marginTop:'16px' }}>
+            {setup ? '✗ I PIN NON COINCIDONO' : '✗ PIN ERRATO'}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // ── BOTTOM NAV ──
-function Nav({page,setPage}){
-  const tabs=[{id:'turni',icon:'📊',label:'TURNI'},{id:'storico',icon:'📋',label:'STORICO'},{id:'squadra',icon:'👥',label:'SQUADRA'},{id:'settings',icon:'⚙️',label:'CONFIG'}];
-  return(
-    <div style={{position:'fixed',bottom:0,left:0,right:0,background:C.bg2,borderTop:`1px solid ${C.border}`,display:'flex',zIndex:100,paddingBottom:'env(safe-area-inset-bottom)'}}>
-      {tabs.map(t=>(
-        <button key={t.id} onClick={()=>setPage(t.id)} style={{flex:1,background:'transparent',border:'none',padding:'10px 4px 8px',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}}>
-          <div style={{fontSize:'22px',lineHeight:1}}>{t.icon}</div>
-          <div style={{fontSize:'8px',letterSpacing:'1px',fontFamily:C.F,color:page===t.id?C.accent:C.dim,fontWeight:page===t.id?'bold':'normal',transition:'color 0.2s'}}>{t.label}</div>
-          {page===t.id&&<div style={{width:'20px',height:'2px',background:C.accent,borderRadius:'1px'}}/>}
-        </button>
-      ))}
+function Nav(props) {
+  var tabs = [
+    { id:'turni', icon:'📊', label:'TURNI' },
+    { id:'dettaglio', icon:'📋', label:'DETTAGLIO' },
+    { id:'riepilogo', icon:'📦', label:'RIEPILOGO' },
+    { id:'settings', icon:'⚙️', label:'CONFIG' },
+  ];
+  return (
+    <div style={{ position:'absolute', bottom:0, left:0, right:0, background:BG2, borderTop:'1px solid '+BORDER, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
+      {tabs.map(function(t) {
+        var active = props.page === t.id;
+        return (
+          <button key={t.id} onClick={function(){props.setPage(t.id);}} style={{ flex:1, background:'transparent', border:'none', padding:'7px 4px 5px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+            <div style={{ fontSize:'18px', lineHeight:1 }}>{t.icon}</div>
+            <div style={{ fontSize:'7px', letterSpacing:'1px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal' }}>{t.label}</div>
+            {active && <div style={{ width:'18px', height:'2px', background:YELLOW, borderRadius:'1px' }} />}
+          </button>
+        );
+      })}
     </div>
-  );
-}
-
-// ── GRAFICO ──
-function Grafico({turni,straPers,colli,rate}){
-  const allT=useMemo(()=>[
-    ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:rate})),
-    ...straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:rate})),
-  ],[turni,straPers,rate]);
-  if(!colli||allT.every(t=>!Number(t.persone)))return null;
-  const W=340,H=150,PL=44,PR=8,PT=8,PB=26;
-  const pw=W-PL-PR,ph=H-PT-PB;
-  const evS=new Set();
-  allT.forEach(t=>{evS.add(timeToMin(t.inizio));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){evS.add(timeToMin(t.pausaInizio));evS.add(timeToMin(t.pausaFine))}});
-  const ev=Array.from(evS).sort((a,b)=>a-b);
-  const minS=ev[0],maxE=ev[ev.length-1],tRange=maxE-minS;
-  const pts=[{t:minS,c:0}];
-  let cum=0,done=false;
-  for(let i=0;i<ev.length-1;i++){
-    const frm=ev[i],to=ev[i+1];
-    let prod=0;
-    allT.forEach(t=>{
-      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-      const r=Number(t._rate||rate);
-      if(frm>=tIn&&to<=tOut&&!(pIn!==null&&frm>=pIn&&to<=pOut))
-        prod+=(Number(t.persone)||0)*r*(to-frm)/60;
-    });
-    if(!done&&cum+prod>=colli){const ft=frm+(colli-cum)/(prod/(to-frm))*60;cum=colli;done=true;pts.push({t:ft,c:cum})}
-    else if(!done)cum+=prod;
-    pts.push({t:to,c:done?colli:cum});
-  }
-  const maxC=Math.max(colli,cum)*1.05;
-  const tx=t=>PL+((t-minS)/tRange)*pw;
-  const ty=c=>PT+ph-(c/maxC)*ph;
-  const pathD=pts.map((p,i)=>(i===0?'M':'L')+tx(p.t).toFixed(1)+','+ty(p.c).toFixed(1)).join(' ');
-  const areaD=pathD+` L${tx(pts[pts.length-1].t).toFixed(1)},${PT+ph} L${PL},${PT+ph} Z`;
-  const tY=ty(colli);
-  const startH=Math.ceil(minS/60),endH=Math.floor(maxE/60);
-  const hours=[];for(let h=startH;h<=endH;h++)hours.push(h*60);
-  const closePt=pts.find(p=>p.c>=colli);
-  return(
-    <Panel style={{marginTop:'10px'}}>
-      <SectionLabel color={C.purple}>📊 ANDAMENTO PRODUZIONE</SectionLabel>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}}>
-        {[0.25,0.5,0.75,1].map(f=>(
-          <g key={f}>
-            <line x1={PL} y1={ty(maxC*f)} x2={PL+pw} y2={ty(maxC*f)} stroke={C.border} strokeWidth="1"/>
-            <text x={PL-4} y={ty(maxC*f)+4} textAnchor="end" fill={C.dim} fontSize="8">{Math.round(maxC*f/100)*100}</text>
-          </g>
-        ))}
-        <line x1={PL} y1={tY} x2={PL+pw} y2={tY} stroke={C.accent} strokeWidth="1" strokeDasharray="3,3"/>
-        <path d={areaD} fill="rgba(167,139,250,0.1)"/>
-        <path d={pathD} fill="none" stroke={C.purple} strokeWidth="2" strokeLinejoin="round"/>
-        {hours.map(m=>(
-          <g key={m}>
-            <line x1={tx(m)} y1={PT} x2={tx(m)} y2={PT+ph} stroke={C.border} strokeWidth="1"/>
-            <text x={tx(m)} y={PT+ph+12} textAnchor="middle" fill={C.dim} fontSize="8">{Math.floor(m/60)}:00</text>
-          </g>
-        ))}
-        {closePt&&<g><circle cx={tx(closePt.t)} cy={ty(closePt.c)} r="4" fill={C.green}/><text x={tx(closePt.t)} y={ty(closePt.c)-7} textAnchor="middle" fill={C.green} fontSize="8" fontWeight="bold">{minToTime(closePt.t)}</text></g>}
-        <line x1={PL} y1={PT} x2={PL} y2={PT+ph} stroke={C.border2} strokeWidth="1"/>
-        <line x1={PL} y1={PT+ph} x2={PL+pw} y2={PT+ph} stroke={C.border2} strokeWidth="1"/>
-      </svg>
-    </Panel>
   );
 }
 
 // ── PAGE TURNI ──
-function PageTurni(){
-  const[colli,setColli]=useState(()=>lsg(LS.colli,''));
-  const[rate,setRate]=useState(()=>lsg(LS.rate,90));
-  const[turni,setTurni]=useState(()=>lsg(LS.turni,DEFAULT_TURNI));
-  const[straPers,setStraPers]=useState(()=>lsg(LS.straPers,DEFAULT_STRAPERSONE));
-  const[risultato,setRisultato]=useState(null);
-  const[puntoOra,setPuntoOra]=useState('');
-  const[puntoRim,setPuntoRim]=useState('');
-  const[puntoResult,setPuntoResult]=useState(null);
-  const[oraTarget,setOraTarget]=useState('18:00');
-  const[invResult,setInvResult]=useState(null);
-  const[salvato,setSalvato]=useState(false);
-  const[copiato,setCopiato]=useState(false);
+function PageTurni(props) {
+  var turni = props.turni; var setTurni = props.setTurni;
+  var stra = props.stra; var setStra = props.setStra;
+  var colli = props.colli; var setColli = props.setColli;
+  var rate = props.rate; var setRate = props.setRate;
 
-  useEffect(()=>{lss(LS.colli,colli)},[colli]);
-  useEffect(()=>{lss(LS.rate,rate)},[rate]);
-  useEffect(()=>{lss(LS.turni,turni)},[turni]);
-  useEffect(()=>{lss(LS.straPers,straPers)},[straPers]);
+  var _r = useState(null); var risultato = _r[0]; var setRisultato = _r[1];
+  var _po = useState(''); var puntoOra = _po[0]; var setPuntoOra = _po[1];
+  var _pr = useState(''); var puntoRim = _pr[0]; var setPuntoRim = _pr[1];
+  var _pRes = useState(null); var puntoRes = _pRes[0]; var setPuntoRes = _pRes[1];
+  var _ot = useState('18:00'); var oraTarget = _ot[0]; var setOraTarget = _ot[1];
+  var _inv = useState(null); var invResult = _inv[0]; var setInvResult = _inv[1];
+  var _sv = useState(false); var salvato = _sv[0]; var setSalvato = _sv[1];
+  var _cp = useState(false); var copiato = _cp[0]; var setCopiato = _cp[1];
 
-  // Sync straPersone when turni change
-  useEffect(()=>{
-    setStraPers(prev=>turni.map(t=>{
-      const ex=prev.find(s=>s.id===t.id);
-      return ex||{id:t.id,inizio:'',fine:'',persone:0};
-    }));
-  },[turni.length]);
-
-  // Auto-calcolo
-  useEffect(()=>{
-    const colliN=Number(colli);
-    if(!colliN||colliN<=0){setRisultato(null);return}
-    const r=Number(rate);
-    const tuttiTurni=[
-      ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r})),
-      ...straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r})),
-    ];
-    const res=calcola(colliN,tuttiTurni,r);
-    if(res.ok)res.anticipo=calcolaAnticipo(tuttiTurni,res.fineEsatta,r);
+  useEffect(function() {
+    var colliN = Number(colli);
+    if (!colliN) { setRisultato(null); return; }
+    var r = Number(rate);
+    var allT = buildAllT(turni, stra, r);
+    var res = calcRows(colliN, allT, r);
+    if (res.ok) res.anticipo = calcAnticipo(allT, res.fineEx, r);
     setRisultato(res);
-  },[colli,rate,turni,straPers]);
+  }, [colli, rate, JSON.stringify(turni), JSON.stringify(stra)]);
 
-  const setP=(id,v)=>setTurni(prev=>prev.map(t=>t.id===id?{...t,persone:Math.max(0,v)}:t));
-  const setA=(id,v)=>setTurni(prev=>prev.map(t=>t.id===id?{...t,assenti:Math.max(0,v)}:t));
-  const setStrP=(id,field,v)=>setStraPers(prev=>prev.map(s=>s.id===id?{...s,[field]:v}:s));
+  function setP(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{persone:Math.max(0,v)}) : t;});}); }
+  function setA(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{assenti:Math.max(0,v)}) : t;});}); }
+  function setStraRiga(tid, ri, field, val) {
+    setStra(function(prev){return prev.map(function(sp){
+      if (sp.id !== tid) return sp;
+      return Object.assign({}, sp, { righe: sp.righe.map(function(r,i){ return i===ri ? Object.assign({},r,{[field]:val}) : r; }) });
+    });});
+  }
+  function addStraRiga(tid) {
+    setStra(function(prev){return prev.map(function(sp){
+      if (sp.id !== tid) return sp;
+      return Object.assign({}, sp, { righe: sp.righe.concat([{inizio:'',fine:'',persone:0}]) });
+    });});
+  }
+  function delStraRiga(tid, ri) {
+    setStra(function(prev){return prev.map(function(sp){
+      if (sp.id !== tid) return sp;
+      return Object.assign({}, sp, { righe: sp.righe.filter(function(_,i){return i!==ri;}) });
+    });});
+  }
 
-  const calcolaPunto=useCallback(()=>{
-    if(!puntoOra||!puntoRim)return;
-    const r=Number(rate);
-    const oraMin=timeToMin(puntoOra);
-    const rimanenti=Number(puntoRim);
-    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r,nome:(turni.find(t=>t.id===s.id)?.nome||'')+'(strao)'}));
-    const tuttiTurni=[
-      ...turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r})),
-      ...straV,
-    ];
-    // Capacità rimanente
-    let capRim=0;const dettaglio=[];
-    tuttiTurni.forEach(t=>{
-      const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-      const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-      const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-      const start=Math.max(oraMin,tIn);
-      if(start>=tOut)return;
-      let min=tOut-start;
-      if(pIn!==null&&pOut>start&&pIn<tOut)min-=Math.min(pOut,tOut)-Math.max(pIn,start);
-      if(min<=0)return;
-      const c=Math.round(min/60*r*Number(t.persone));
-      capRim+=c;
-      dettaglio.push({nome:t.nome||'Turno',dalle:minToTime(start),alle:t.fine,persone:Number(t.persone),colli:c});
+  function resetGiornata() {
+    setTurni(function(prev){return prev.map(function(t){return Object.assign({},t,{persone:0,assenti:0});});});
+    setStra(function(prev){return prev.map(function(sp){return Object.assign({},sp,{righe:(sp.righe||[]).map(function(r){return Object.assign({},r,{persone:0});})});});});
+  }
+
+  function calcolaPunto() {
+    if (!puntoOra || !puntoRim) return;
+    var r = Number(rate); var oraM = tMin(puntoOra); var rim = Number(puntoRim);
+    var allT = buildAllT(turni, stra, r);
+    var capRim = 0;
+    allT.forEach(function(t) {
+      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+      var start = Math.max(oraM, tIn);
+      if (start >= tOut) return;
+      var min = tOut - start;
+      if (pIn !== null && pOut > start && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,start);
+      if (min <= 0) return;
+      capRim += Math.round(min / 60 * t.rate * t.persone);
     });
-    const ok=capRim>=rimanenti;
-    // Stima fine
-    let fineStimata=null;
-    if(ok){
-      const evS=new Set([oraMin]);
-      tuttiTurni.forEach(t=>{if(timeToMin(t.fine)>oraMin){evS.add(Math.max(oraMin,timeToMin(t.inizio)));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){const pI=timeToMin(t.pausaInizio);const pO=timeToMin(t.pausaFine);if(pI>oraMin)evS.add(pI);if(pO>oraMin)evS.add(pO)}}});
-      const sorted=Array.from(evS).sort((a,b)=>a-b);
-      let cum=0;
-      for(let i=0;i<sorted.length-1;i++){
-        const from=sorted[i],to=sorted[i+1];
-        if(from<oraMin)continue;
-        let prodP=0;
-        tuttiTurni.forEach(t=>{
-          const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-          const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-          const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-          if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))
-            prodP+=(Number(t.persone)||0)*r*(to-from)/60;
-        });
-        if(cum+prodP>=rimanenti){
-          let totalRate=0;
-          tuttiTurni.forEach(t=>{const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;const pOut=t.pausaFine?timeToMin(t.pausaFine):null;if(from>=tIn&&to<=tOut&&!(pIn!==null&&from>=pIn&&to<=pOut))totalRate+=(Number(t.persone)||0)*r});
-          fineStimata=totalRate>0?minToTime(from+(rimanenti-cum)/totalRate*60):null;
-          break;
+    var ok = capRim >= rim;
+    var fineStimata = null;
+    if (ok) {
+      var evS2 = {}; evS2[oraM] = true;
+      allT.forEach(function(t) {
+        if (tMin(t.fine) > oraM) {
+          evS2[Math.max(oraM, tMin(t.inizio))] = true; evS2[tMin(t.fine)] = true;
+          if (t.pIn && t.pOut) { if (tMin(t.pIn)>oraM) evS2[tMin(t.pIn)]=true; if (tMin(t.pOut)>oraM) evS2[tMin(t.pOut)]=true; }
         }
-        cum+=prodP;
+      });
+      var sorted = Object.keys(evS2).map(Number).sort(function(a,b){return a-b;});
+      var cum2 = 0;
+      for (var ii = 0; ii < sorted.length-1; ii++) {
+        var f2 = sorted[ii]; var t2 = sorted[ii+1];
+        if (f2 < oraM) continue;
+        var tR2 = 0;
+        allT.forEach(function(t) {
+          var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+          var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+          if (f2 >= tIn && t2 <= tOut && !(pIn !== null && f2 >= pIn && t2 <= pOut))
+            tR2 += t.persone * t.rate;
+        });
+        if (tR2 === 0) continue;
+        var p2 = tR2 * (t2 - f2) / 60;
+        if (cum2 + p2 >= rim) { fineStimata = mToT(f2 + (rim - cum2) / tR2 * 60); break; }
+        cum2 += p2;
       }
     }
-    let anticipo=null;
-    if(ok&&fineStimata)anticipo=calcolaAnticipo(tuttiTurni,fineStimata,r);
-    // Confronto
-    let confronto=null;
-    if(colli){
-      const colliFatti=Math.max(0,Number(colli)-rimanenti);
-      let colliPian=0;
-      tuttiTurni.forEach(t=>{
-        const tIn=timeToMin(t.inizio),tOut=Math.min(oraMin,timeToMin(t.fine));
-        if(tIn>=oraMin||tOut<=tIn)return;
-        const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-        const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-        let min=tOut-tIn;
-        if(pIn!==null&&pOut>tIn&&pIn<tOut)min-=Math.min(pOut,tOut)-Math.max(pIn,tIn);
-        if(min>0)colliPian+=Math.round(min/60*r*Number(t.persone));
+    var anticipo2 = ok && fineStimata ? calcAnticipo(allT, fineStimata, r) : 0;
+    var confronto = null;
+    if (colli) {
+      var fatti = Math.max(0, Number(colli) - rim); var colliPian = 0;
+      allT.forEach(function(t) {
+        var tIn = tMin(t.inizio); var tOut = Math.min(oraM, tMin(t.fine));
+        if (tIn >= oraM || tOut <= tIn) return;
+        var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+        var min = tOut - tIn;
+        if (pIn !== null && pOut > tIn && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,tIn);
+        if (min > 0) colliPian += Math.round(min/60*t.rate*t.persone);
       });
-      confronto={fatti:colliFatti,pianificati:Math.round(colliPian),delta:colliFatti-Math.round(colliPian)};
+      confronto = { fatti:fatti, piano:Math.round(colliPian), delta:fatti-Math.round(colliPian) };
     }
-    setPuntoResult({ok,capRim:Math.round(capRim),rimanenti,mancaDelta:Math.abs(rimanenti-capRim),fineStimata,dettaglio,anticipo,confronto});
-  },[puntoOra,puntoRim,turni,straPers,colli,rate]);
+    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto });
+  }
 
-  const calcolaInverso=useCallback(()=>{
-    const target=timeToMin(oraTarget);
-    const colliN=Number(colli);
-    const r=Number(rate);
-    const TOL=20;
-    const calcF=(allT)=>{
-      const evS=new Set();
-      allT.forEach(t=>{evS.add(timeToMin(t.inizio));evS.add(timeToMin(t.fine));if(t.pausaInizio&&t.pausaFine){evS.add(timeToMin(t.pausaInizio));evS.add(timeToMin(t.pausaFine))}});
-      const ev=Array.from(evS).sort((a,b)=>a-b);
-      let cum=0;
-      for(let i=0;i<ev.length-1;i++){
-        const frm=ev[i],to=ev[i+1];
-        let totalR=0;
-        allT.forEach(t=>{
-          const tIn=timeToMin(t.inizio),tOut=timeToMin(t.fine);
-          const pIn=t.pausaInizio?timeToMin(t.pausaInizio):null;
-          const pOut=t.pausaFine?timeToMin(t.pausaFine):null;
-          const rt=Number(t._rate||r);
-          if(frm>=tIn&&to<=tOut&&!(pIn!==null&&frm>=pIn&&to<=pOut))
-            totalR+=(Number(t.persone)||0)*rt;
-        });
-        if(totalR===0)continue;
-        const prod=totalR*(to-frm)/60;
-        if(cum+prod>=colliN)return frm+(colliN-cum)/totalR*60;
-        cum+=prod;
+  function calcolaInverso() {
+    var target = tMin(oraTarget); var colliN = Number(colli); var r = Number(rate); var TOL = 20;
+    function calcF(allT2) {
+      var evS3 = {};
+      allT2.forEach(function(t){ evS3[tMin(t.inizio)]=true; evS3[tMin(t.fine)]=true; if(t.pIn&&t.pOut){evS3[tMin(t.pIn)]=true;evS3[tMin(t.pOut)]=true;} });
+      var ev2 = Object.keys(evS3).map(Number).sort(function(a,b){return a-b;}); var cum3=0;
+      for(var ii=0;ii<ev2.length-1;ii++){
+        var f3=ev2[ii];var t3=ev2[ii+1];var tR3=0;
+        allT2.forEach(function(t){var tIn=tMin(t.inizio);var tOut=tMin(t.fine);var pIn=t.pIn?tMin(t.pIn):null;var pOut=t.pOut?tMin(t.pOut):null;if(f3>=tIn&&t3<=tOut&&!(pIn!==null&&f3>=pIn&&t3<=pOut))tR3+=t.persone*t.rate;});
+        if(tR3===0)continue;var p3=tR3*(t3-f3)/60;if(cum3+p3>=colliN)return f3+(colliN-cum3)/tR3*60;cum3+=p3;
       }
       return null;
-    };
-    const turniEff=turni.map(t=>({...t,persone:Math.max(0,Number(t.persone)-Number(t.assenti||0)),_rate:r}));
-    const mat=turniEff.find(t=>/mattina/i.test(t.nome));
-    const pom=turniEff.find(t=>/pomeriggio/i.test(t.nome));
-    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0).map(s=>({...s,_rate:r}));
-    const fineAtt=calcF([...turniEff,...straV]);
-    const fineAttStr=fineAtt?minToTime(Math.round(fineAtt)):null;
-    const diff=fineAtt?fineAtt-target:null;
-    if(fineAtt&&Math.abs(diff)<=TOL){setInvResult({tipo:'ok',fineAttuale:fineAttStr});return}
-    // Sposta
-    if(mat&&pom&&fineAtt){
-      const verso=diff<0?'mat_pom':'pom_mat';
-      const maxS=verso==='mat_pom'?mat.persone:pom.persone;
-      for(let s=1;s<=maxS;s++){
-        const tm=turniEff.map(t=>{const tc={...t};if(verso==='mat_pom'){if(t.id===mat.id)tc.persone=Math.max(0,mat.persone-s);if(t.id===pom.id)tc.persone=pom.persone+s}else{if(t.id===mat.id)tc.persone=mat.persone+s;if(t.id===pom.id)tc.persone=Math.max(0,pom.persone-s)}return tc});
-        const fm=calcF([...tm,...straV]);
-        if(fm&&Math.abs(fm-target)<=TOL){
-          setInvResult({tipo:'sposta',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:{quante:s,da:verso==='mat_pom'?mat.nome:pom.nome,a:verso==='mat_pom'?pom.nome:mat.nome,mattinaNew:verso==='mat_pom'?mat.persone-s:mat.persone+s,pomeriggioNew:verso==='mat_pom'?pom.persone+s:Math.max(0,pom.persone-s)},straordinari:null});return;
+    }
+    var turniEff = turni.map(function(t){return Object.assign({},t,{persone:Math.max(0,(t.persone||0)-(t.assenti||0)),rate:r});});
+    var straV = [];
+    stra.forEach(function(sp){
+      var t = turni.find(function(x){return x.id===sp.id;});
+      (sp.righe||[]).forEach(function(rr){
+        if(rr.inizio&&rr.fine&&Number(rr.persone)>0)
+          straV.push({id:sp.id,nome:(t?t.nome:'')+'(strao)',inizio:rr.inizio,fine:rr.fine,pIn:'',pOut:'',persone:Number(rr.persone),rate:r,isStrao:true});
+      });
+    });
+    var mat = turniEff.find(function(t){return /mattina/i.test(t.nome);});
+    var pom = turniEff.find(function(t){return /pomeriggio/i.test(t.nome);});
+    var allCur = turniEff.concat(straV);
+    var fineAtt = calcF(allCur);
+    var fineAttStr = fineAtt ? mToT(Math.round(fineAtt)) : null;
+    var diff = fineAtt ? fineAtt - target : null;
+    if (fineAtt && Math.abs(diff) <= TOL) { setInvResult({tipo:'ok',fine:fineAttStr}); return; }
+    if (mat && pom && fineAtt) {
+      var verso = diff < 0 ? 'mp' : 'pm';
+      var maxS = verso==='mp' ? mat.persone : pom.persone;
+      for (var s=1; s<=maxS; s++) {
+        var tm = turniEff.map(function(t){
+          var tc = Object.assign({},t);
+          if(verso==='mp'){if(t.id===mat.id)tc.persone=Math.max(0,mat.persone-s);if(t.id===pom.id)tc.persone=pom.persone+s;}
+          else{if(t.id===mat.id)tc.persone=mat.persone+s;if(t.id===pom.id)tc.persone=Math.max(0,pom.persone-s);}
+          return tc;
+        });
+        var fm = calcF(tm.concat(straV));
+        if (fm && Math.abs(fm-target) <= TOL) {
+          setInvResult({tipo:'sposta',fineAtt:fineAttStr,fineNuova:mToT(Math.round(fm)),quante:s,da:verso==='mp'?mat.nome:pom.nome,a:verso==='mp'?pom.nome:mat.nome,matNew:verso==='mp'?mat.persone-s:mat.persone+s,pomNew:verso==='mp'?pom.persone+s:Math.max(0,pom.persone-s)});
+          return;
         }
       }
     }
-    // Straordinari
-    const maxM=mat?mat.persone:0,maxP=pom?pom.persone:0;
-    for(let pm=0;pm<=maxP;pm++){
-      for(let sm=0;sm<=maxM;sm++){
-        if(pm===0&&sm===0)continue;
-        const st=[];
-        if(sm>0)st.push({nome:'Strao Mattina',inizio:'12:20',fine:'13:20',persone:sm,pausaInizio:'',pausaFine:'',_rate:r});
-        if(pm>0)st.push({nome:'Strao Pomeriggio',inizio:'12:00',fine:'13:00',persone:pm,pausaInizio:'',pausaFine:'',_rate:r});
-        const fm=calcF([...turniEff,...straV,...st]);
-        if(fm&&Math.abs(fm-target)<=TOL){setInvResult({tipo:'straordinario',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:null,straordinari:st});return}
+    var maxM = mat?mat.persone:0; var maxP = pom?pom.persone:0;
+    for (var pm=0;pm<=maxP;pm++) {
+      for (var sm=0;sm<=maxM;sm++) {
+        if (pm===0&&sm===0) continue;
+        var st = [];
+        if(sm>0) st.push({nome:'Strao Mat',inizio:'12:20',fine:'13:20',pIn:'',pOut:'',persone:sm,rate:r,isStrao:true});
+        if(pm>0) st.push({nome:'Strao Pom',inizio:'12:00',fine:'13:00',pIn:'',pOut:'',persone:pm,rate:r,isStrao:true});
+        var fm2 = calcF(turniEff.concat(straV).concat(st));
+        if (fm2 && Math.abs(fm2-target) <= TOL) { setInvResult({tipo:'strao',fineAtt:fineAttStr,fineNuova:mToT(Math.round(fm2)),strao:st}); return; }
       }
     }
-    // Combinato
-    if(mat&&pom){
-      for(let s=1;s<=Math.min(mat.persone,pom.persone,3);s++){
-        const tm=turniEff.map(t=>{const tc={...t};if(t.id===mat.id)tc.persone=Math.max(0,mat.persone-s);if(t.id===pom.id)tc.persone=pom.persone+s;return tc});
-        for(let pm=0;pm<=Math.min(maxP,4);pm++){
-          for(let sm=0;sm<=Math.min(maxM,4);sm++){
-            if(pm===0&&sm===0)continue;
-            const st=[];
-            if(sm>0)st.push({nome:'Strao Mattina',inizio:'12:20',fine:'13:20',persone:sm,pausaInizio:'',pausaFine:'',_rate:r});
-            if(pm>0)st.push({nome:'Strao Pomeriggio',inizio:'12:00',fine:'13:00',persone:pm,pausaInizio:'',pausaFine:'',_rate:r});
-            const fm=calcF([...tm,...straV,...st]);
-            if(fm&&Math.abs(fm-target)<=TOL){
-              setInvResult({tipo:'combinato',fineAttuale:fineAttStr,fineNuova:minToTime(Math.round(fm)),spostamento:{quante:s,da:mat.nome,a:pom.nome,mattinaNew:mat.persone-s,pomeriggioNew:pom.persone+s},straordinari:st});return;
-            }
-          }
-        }
-      }
-    }
-    setInvResult({tipo:'impossibile',fineAttuale:fineAttStr,messaggio:'Nessuna soluzione trovata'});
-  },[oraTarget,colli,rate,turni,straPers]);
-
-  const salvaStorico=()=>{
-    const storico=lsg(LS.storico,[]);
-    const entry={id:Date.now(),data:oggi(),colli:Number(colli),rate:Number(rate),turni:turni.map(t=>({nome:t.nome,persone:Number(t.persone),assenti:Number(t.assenti||0)})),chiusura:risultato?.fineEsatta||null,anticipo:risultato?.anticipo?.totale||risultato?.anticipo||0,ok:risultato?.ok||false};
-    lss(LS.storico,[entry,...storico.slice(0,29)]);
-    setSalvato(true);setTimeout(()=>setSalvato(false),2500);
-  };
-
-  const copiaPianificazione=()=>{
-    const lines=['📦 TURNI MAGAZZINO - '+oggi(),'=====================================','COLLI: '+(colli||0),'COLLI/ORA: '+rate,''];
-    lines.push('TURNI','─────────────────────────');
-    turni.forEach(t=>{const eff=Math.max(0,Number(t.persone)-Number(t.assenti||0));if(eff>0)lines.push(`${t.nome}  ${t.inizio}→${t.fine}  👥${eff}`)});
-    const straV=straPers.filter(s=>s.inizio&&s.fine&&Number(s.persone)>0);
-    if(straV.length){lines.push('','STRAORDINARI','─────────────────────────');straV.forEach(s=>{const t=turni.find(x=>x.id===s.id);lines.push(`${t?.nome||'Strao'}  ${s.inizio}→${s.fine}  👥${s.persone}`)})}
-    if(risultato){
-      lines.push('','RISULTATO','─────────────────────────');
-      if(risultato.ok){
-        lines.push('🏁 Chiusura: '+risultato.fineEsatta);
-        const ant=risultato.anticipo?.totale||risultato.anticipo||0;
-        if(ant>0)lines.push('⚡ Anticipo: +'+ant.toLocaleString('it-IT')+' colli');
-      }else lines.push('🔴 NON CE LA FACCIAMO','Mancano: '+(Number(colli)-risultato.cumulo).toLocaleString('it-IT')+' colli');
-    }
-    const txt=lines.join('\n');
-    navigator.clipboard.writeText(txt).then(()=>{setCopiato(true);setTimeout(()=>setCopiato(false),2500)}).catch(()=>prompt('Copia:',txt));
-  };
-
-  const isOk=risultato&&risultato.ok;
-  const coloreRis=isOk?C.green:C.red;
-
-  return(
-    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px'}}>
-      {/* Header */}
-      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:10}}>
-        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent,fontFamily:C.F}}>📦 TURNI</div>
-        <div style={{display:'flex',gap:'6px'}}>
-          <button onClick={copiaPianificazione} style={{background:copiato?'rgba(16,185,129,0.15)':'rgba(167,139,250,0.1)',border:`1px solid ${copiato?C.green:C.purple}`,borderRadius:'8px',color:copiato?C.green:C.purple,fontFamily:C.F,fontSize:'9px',letterSpacing:'1px',padding:'6px 8px',cursor:'pointer'}}>
-            {copiato?'✅':'📋'}
-          </button>
-          {risultato&&<button onClick={salvaStorico} style={{background:salvato?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.1)',border:`1px solid ${C.green}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'9px',letterSpacing:'1px',padding:'6px 8px',cursor:'pointer'}}>{salvato?'✅':'💾'}</button>}
-          <button onClick={()=>{setTurni(DEFAULT_TURNI);setStraPers(DEFAULT_STRAPERSONE);setColli('')}} style={{background:'rgba(239,68,68,0.1)',border:`1px solid ${C.red}`,borderRadius:'8px',color:C.red,fontFamily:C.F,fontSize:'9px',padding:'6px 8px',cursor:'pointer'}}>↺</button>
-        </div>
-      </div>
-
-      <div style={{padding:'12px',fontFamily:C.F}}>
-        {/* Colli + Rate */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}}>
-          <Panel>
-            <SectionLabel color={C.accent}>COLLI DA PROCESSARE</SectionLabel>
-            <input type="number" value={colli} onChange={e=>setColli(e.target.value)} placeholder="0"
-              style={{width:'100%',background:'transparent',border:'none',color:C.accent,fontFamily:C.F,fontSize:'32px',fontWeight:'bold',outline:'none',padding:0}}/>
-          </Panel>
-          <Panel>
-            <SectionLabel color={C.purple}>COLLI / ORA</SectionLabel>
-            <div style={{display:'flex',gap:'6px'}}>
-              {[90,100].map(v=>(
-                <button key={v} onClick={()=>setRate(v)} style={{flex:1,padding:'8px 4px',borderRadius:'8px',border:`2px solid ${rate==v?C.purple:C.border2}`,background:rate==v?'rgba(167,139,250,0.15)':'transparent',color:rate==v?C.purple:C.dim,fontFamily:C.F,fontSize:'16px',fontWeight:'bold',cursor:'pointer'}}>{v}</button>
-              ))}
-            </div>
-          </Panel>
-        </div>
-
-        {/* Turni */}
-        <SectionLabel color={C.accent}>TURNI DI LAVORO</SectionLabel>
-        {turni.map(t=>{
-          const eff=Math.max(0,Number(t.persone)-Number(t.assenti||0));
-          const cl=turnoColore(t.nome);
-          const sp=straPers.find(s=>s.id===t.id);
-          return(
-            <Panel key={t.id} style={{marginBottom:'8px'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-                <div>
-                  <div style={{fontSize:'10px',fontWeight:'bold',color:cl,letterSpacing:'1px'}}>{t.nome}</div>
-                  <div style={{fontSize:'9px',color:C.dim,marginTop:'1px'}}>{t.inizio} → {t.fine} · pausa {t.pausaInizio}-{t.pausaFine}</div>
-                </div>
-                {eff>0&&<div style={{fontSize:'9px',color:C.green,background:'rgba(16,185,129,0.1)',border:`1px solid ${C.green}`,borderRadius:'6px',padding:'2px 7px'}}>{eff} eff.</div>}
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom: sp?'10px':0}}>
-                <div>
-                  <div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px',marginBottom:'4px'}}>👥 PERSONE</div>
-                  <NumInput value={t.persone} onChange={v=>setP(t.id,v)} color={cl}/>
-                </div>
-                <div>
-                  <div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px',marginBottom:'4px'}}>🚫 ASSENTI</div>
-                  <NumInput value={t.assenti||0} onChange={v=>setA(t.id,v)} color={C.red}/>
-                </div>
-              </div>
-              {/* Straordinario per questo turno */}
-              {sp&&(
-                <div style={{borderTop:`1px solid ${C.border}`,paddingTop:'8px',marginTop:'2px'}}>
-                  <div style={{fontSize:'8px',color:C.orange,letterSpacing:'1px',marginBottom:'6px'}}>⚡ STRAORDINARIO</div>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'6px',alignItems:'center'}}>
-                    <div>
-                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>DALLE</div>
-                      <input type="time" value={sp.inizio} onChange={e=>setStrP(t.id,'inizio',e.target.value)}
-                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:C.orange,fontFamily:C.F,fontSize:'11px',padding:'4px 6px',outline:'none'}}/>
-                    </div>
-                    <div>
-                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>ALLE</div>
-                      <input type="time" value={sp.fine} onChange={e=>setStrP(t.id,'fine',e.target.value)}
-                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:C.orange,fontFamily:C.F,fontSize:'11px',padding:'4px 6px',outline:'none'}}/>
-                    </div>
-                    <div>
-                      <div style={{fontSize:'7px',color:C.dim,marginBottom:'2px'}}>PERSONE</div>
-                      <input type="number" value={sp.persone} onChange={e=>setStrP(t.id,'persone',Math.max(0,Number(e.target.value)))}
-                        style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'6px',color:'#4ade80',fontFamily:C.F,fontSize:'14px',fontWeight:'bold',padding:'4px 6px',outline:'none',textAlign:'center'}}/>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Panel>
-          );
-        })}
-
-        {/* Risultato principale */}
-        {risultato&&(
-          <div className="fadeup" style={{marginTop:'12px'}}>
-            <div style={{background:isOk?'linear-gradient(135deg,#064e3b,#065f46)':'linear-gradient(135deg,#450a0a,#7f1d1d)',border:`2px solid ${coloreRis}`,borderRadius:'14px',padding:'20px',textAlign:'center',marginBottom:'10px'}}>
-              <div style={{fontSize:'9px',letterSpacing:'3px',color:isOk?'#6ee7b7':C.red2,marginBottom:'8px'}}>{isOk?'✅ CHIUSURA PREVISTA':'🔴 TURNI INSUFFICIENTI'}</div>
-              {isOk?(
-                <>
-                  <div style={{fontSize:'52px',fontWeight:'bold',color:C.green,lineHeight:1,marginBottom:'6px'}}>{risultato.fineEsatta}</div>
-                  {(risultato.anticipo?.totale||risultato.anticipo)>0&&<div style={{fontSize:'11px',color:'#6ee7b7'}}>⚡ Anticipo: <b style={{color:C.green2}}>+{(risultato.anticipo?.totale||risultato.anticipo).toLocaleString('it-IT')} colli</b></div>}
-                </>
-              ):(
-                <>
-                  <div style={{fontSize:'32px',fontWeight:'bold',color:C.red,marginBottom:'4px'}}>{(Number(colli)-risultato.cumulo).toLocaleString('it-IT')}</div>
-                  <div style={{fontSize:'10px',color:C.red2}}>colli mancanti · Prodotti: {risultato.cumulo.toLocaleString('it-IT')}</div>
-                </>
-              )}
-            </div>
-            <Grafico turni={turni} straPers={straPers} colli={Number(colli)} rate={Number(rate)}/>
-          </div>
-        )}
-
-        {/* PUNTO SITUAZIONE */}
-        <div style={{marginTop:'16px',borderTop:`1px solid ${C.border}`,paddingTop:'14px'}}>
-          <SectionLabel color={C.green}>📍 PUNTO SITUAZIONE</SectionLabel>
-          <div style={{fontSize:'10px',color:C.dim,marginBottom:'10px'}}>Quanti colli mancano adesso?</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
-            <div>
-              <SectionLabel>ORA ATTUALE</SectionLabel>
-              <input type="time" value={puntoOra} onChange={e=>{setPuntoOra(e.target.value);setPuntoResult(null)}}
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'18px',fontWeight:'bold',padding:'10px 10px',outline:'none'}}/>
-            </div>
-            <div>
-              <SectionLabel>COLLI RIMANENTI</SectionLabel>
-              <input type="number" value={puntoRim} onChange={e=>{setPuntoRim(e.target.value);setPuntoResult(null)}} placeholder="es. 5000"
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.green,fontFamily:C.F,fontSize:'18px',fontWeight:'bold',padding:'10px 10px',outline:'none'}}/>
-            </div>
-          </div>
-          <Btn onClick={calcolaPunto} color={C.green} full>📍 CALCOLA</Btn>
-          {puntoResult&&(
-            <div className="fadeup" style={{marginTop:'10px'}}>
-              <div style={{background:puntoResult.ok?'linear-gradient(135deg,#064e3b,#065f46)':'linear-gradient(135deg,#450a0a,#7f1d1d)',border:`2px solid ${puntoResult.ok?C.green:C.red}`,borderRadius:'12px',padding:'16px',marginBottom:'8px',textAlign:'center'}}>
-                <div style={{fontSize:'9px',letterSpacing:'2px',color:puntoResult.ok?'#6ee7b7':C.red2,marginBottom:'6px'}}>{puntoResult.ok?'✅ CE LA FACCIAMO':'🔴 NON CE LA FACCIAMO'}</div>
-                {puntoResult.ok?(
-                  <>
-                    <div style={{fontSize:'36px',fontWeight:'bold',color:C.green,lineHeight:1}}>{puntoResult.fineStimata||'—'}</div>
-                    {puntoResult.anticipo?.totale>0&&<div style={{fontSize:'10px',color:'#6ee7b7',marginTop:'4px'}}>⚡ Anticipo: +{puntoResult.anticipo.totale.toLocaleString('it-IT')} colli</div>}
-                  </>
-                ):(
-                  <div style={{fontSize:'22px',fontWeight:'bold',color:C.red}}>{puntoResult.mancaDelta.toLocaleString('it-IT')} colli mancanti</div>
-                )}
-              </div>
-              {puntoResult.confronto&&(
-                <Panel style={{marginBottom:'8px'}}>
-                  <SectionLabel>CONFRONTO PIANIFICATO vs REALE</SectionLabel>
-                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',textAlign:'center'}}>
-                    {[['FATTI',puntoResult.confronto.fatti,C.text],['PIANO',puntoResult.confronto.pianificati,C.blue],['DELTA',puntoResult.confronto.delta>=0?'+'+puntoResult.confronto.delta:puntoResult.confronto.delta,puntoResult.confronto.delta>=0?C.green:C.red]].map(([l,v,c])=>(
-                      <div key={l}><div style={{fontSize:'8px',color:C.dim,marginBottom:'2px'}}>{l}</div><div style={{fontSize:'16px',fontWeight:'bold',color:c}}>{typeof v==='number'?v.toLocaleString('it-IT'):v}</div></div>
-                    ))}
-                  </div>
-                </Panel>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* OBIETTIVO INVERSO */}
-        <div style={{marginTop:'16px',borderTop:`1px solid ${C.border}`,paddingTop:'14px'}}>
-          <SectionLabel color={C.purple}>🎯 OBIETTIVO INVERSO</SectionLabel>
-          <div style={{fontSize:'10px',color:C.dim,marginBottom:'10px'}}>Vuoi chiudere entro che ora?</div>
-          <div style={{display:'flex',gap:'10px',alignItems:'flex-end',marginBottom:'10px',flexWrap:'wrap'}}>
-            <div style={{flex:1}}>
-              <SectionLabel>CHIUSURA DESIDERATA</SectionLabel>
-              <input type="time" value={oraTarget} onChange={e=>{setOraTarget(e.target.value);setInvResult(null)}}
-                style={{width:'100%',background:C.bg3,border:`2px solid ${C.purple}`,borderRadius:'8px',color:C.purple,fontFamily:C.F,fontSize:'22px',fontWeight:'bold',padding:'10px',outline:'none'}}/>
-            </div>
-            <Btn onClick={calcolaInverso} color={C.purple}>🎯 CALCOLA</Btn>
-          </div>
-          {invResult&&(
-            <div className="fadeup">
-              {invResult.tipo==='ok'&&<Panel style={{border:`2px solid ${C.green}`,textAlign:'center'}}><div style={{fontSize:'9px',color:C.green,letterSpacing:'2px',marginBottom:'6px'}}>✅ GIÀ OK</div><div style={{fontSize:'36px',fontWeight:'bold',color:C.green}}>{invResult.fineAttuale}</div></Panel>}
-              {invResult.tipo==='impossibile'&&<Panel style={{border:`2px solid ${C.red}`}}><div style={{fontSize:'9px',color:C.red,letterSpacing:'2px',marginBottom:'6px'}}>🔴 IMPOSSIBILE</div><div style={{fontSize:'11px',color:C.red2}}>{invResult.messaggio}</div></Panel>}
-              {(invResult.tipo==='sposta'||invResult.tipo==='combinato')&&invResult.spostamento&&(
-                <Panel style={{border:`2px solid ${C.purple}`,marginBottom:'8px'}}>
-                  <div style={{fontSize:'9px',color:C.purple2,letterSpacing:'2px',marginBottom:'10px'}}>🔀 SPOSTA PERSONE</div>
-                  <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap',marginBottom:'8px'}}>
-                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
-                      <div style={{fontSize:'8px',color:C.dim}}>DA</div>
-                      <div style={{fontSize:'10px',color:C.purple2,fontWeight:'bold'}}>{invResult.spostamento.da}</div>
-                    </div>
-                    <div style={{fontSize:'20px',color:C.purple}}>→</div>
-                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
-                      <div style={{fontSize:'8px',color:C.dim}}>A</div>
-                      <div style={{fontSize:'10px',color:C.purple2,fontWeight:'bold'}}>{invResult.spostamento.a}</div>
-                    </div>
-                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
-                      <div style={{fontSize:'8px',color:C.dim}}>QUANTE</div>
-                      <div style={{fontSize:'28px',fontWeight:'bold',color:C.purple,lineHeight:1}}>{invResult.spostamento.quante}</div>
-                    </div>
-                    <div style={{background:C.bg3,borderRadius:'8px',padding:'8px 12px',textAlign:'center'}}>
-                      <div style={{fontSize:'8px',color:C.dim}}>CHIUSURA</div>
-                      <div style={{fontSize:'22px',fontWeight:'bold',color:C.green,lineHeight:1}}>{invResult.fineNuova}</div>
-                    </div>
-                  </div>
-                  <div style={{fontSize:'11px',color:C.mid}}>Mattina → <b style={{color:C.text}}>{invResult.spostamento.mattinaNew}</b> · Pomeriggio → <b style={{color:C.text}}>{invResult.spostamento.pomeriggioNew}</b></div>
-                </Panel>
-              )}
-              {(invResult.tipo==='straordinario'||invResult.tipo==='combinato')&&invResult.straordinari&&(
-                <Panel style={{border:`2px solid ${C.orange}`}}>
-                  <div style={{fontSize:'9px',color:C.orange,letterSpacing:'2px',marginBottom:'10px'}}>⚡ STRAORDINARIO NECESSARIO</div>
-                  {invResult.straordinari.map((s,i)=>(
-                    <div key={i} style={{display:'flex',gap:'10px',alignItems:'center',marginBottom:'8px'}}>
-                      <div style={{background:C.bg3,borderRadius:'8px',padding:'6px 10px'}}>
-                        <div style={{fontSize:'8px',color:C.dim}}>{s.nome}</div>
-                        <div style={{fontSize:'13px',color:C.orange,fontWeight:'bold'}}>{s.inizio}→{s.fine}</div>
-                      </div>
-                      <div style={{fontSize:'28px',fontWeight:'bold',color:C.orange}}>{s.persone}</div>
-                      <div style={{fontSize:'10px',color:C.dim}}>pers.</div>
-                    </div>
-                  ))}
-                  <div style={{fontSize:'11px',color:C.mid,marginTop:'4px'}}>Chiusura: <b style={{color:C.green,fontSize:'15px'}}>{invResult.fineNuova}</b> · Attuale: {invResult.fineAttuale}</div>
-                </Panel>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── STORICO ──
-function PageStorico(){
-  const[storico,setStorico]=useState(()=>lsg(LS.storico,[]));
-  const[sel,setSel]=useState(null);
-  const del=(id)=>{const n=storico.filter(s=>s.id!==id);setStorico(n);lss(LS.storico,n);setSel(null)};
-  if(sel){
-    const e=storico.find(s=>s.id===sel);
-    if(!e)return null;
-    return(
-      <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
-        <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',display:'flex',alignItems:'center',gap:'12px',position:'sticky',top:0,zIndex:10}}>
-          <button onClick={()=>setSel(null)} style={{background:'transparent',border:'none',color:C.accent,cursor:'pointer',fontFamily:C.F,fontSize:'12px'}}>← INDIETRO</button>
-          <div style={{fontSize:'12px',fontWeight:'bold',letterSpacing:'2px',color:C.accent}}>{e.data}</div>
-        </div>
-        <div style={{padding:'12px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'10px'}}>
-            <Panel style={{textAlign:'center'}}><SectionLabel>COLLI</SectionLabel><div style={{fontSize:'28px',fontWeight:'bold',color:C.accent}}>{e.colli.toLocaleString('it-IT')}</div></Panel>
-            <Panel style={{border:`1px solid ${e.ok?C.green:C.red}`,textAlign:'center'}}><SectionLabel>CHIUSURA</SectionLabel><div style={{fontSize:'28px',fontWeight:'bold',color:e.ok?C.green:C.red}}>{e.chiusura||'—'}</div></Panel>
-          </div>
-          {e.anticipo>0&&<Panel style={{border:`1px solid ${C.green}`,textAlign:'center',marginBottom:'10px'}}><div style={{fontSize:'9px',color:C.green,marginBottom:'4px'}}>⚡ ANTICIPO</div><div style={{fontSize:'22px',fontWeight:'bold',color:C.green2}}>+{e.anticipo.toLocaleString('it-IT')}</div></Panel>}
-          <SectionLabel>TURNI</SectionLabel>
-          {e.turni.map((t,i)=>(
-            <Panel key={i} style={{marginBottom:'6px',display:'flex',justifyContent:'space-between'}}>
-              <div style={{fontSize:'10px',color:C.text}}>{t.nome}</div>
-              <div style={{fontSize:'10px',color:C.green}}>{t.persone} pers {t.assenti>0&&<span style={{color:C.red}}>({t.assenti} ass.)</span>}</div>
-            </Panel>
-          ))}
-          <Btn onClick={()=>del(e.id)} color={C.red} full style={{marginTop:'14px'}}>🗑 ELIMINA</Btn>
-        </div>
-      </div>
-    );
+    setInvResult({tipo:'impossibile',fineAtt:fineAttStr});
   }
-  return(
-    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
-      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
-        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>📋 STORICO</div>
-      </div>
-      <div style={{padding:'12px'}}>
-        {storico.length===0?(
-          <div style={{textAlign:'center',color:C.dim,fontSize:'11px',marginTop:'60px',letterSpacing:'2px'}}><div style={{fontSize:'32px',marginBottom:'12px'}}>📭</div>NESSUN DATO<br/><span style={{fontSize:'9px'}}>Salva una giornata dalla pagina TURNI</span></div>
-        ):storico.map(e=>(
-          <button key={e.id} onClick={()=>setSel(e.id)} style={{width:'100%',background:C.bg2,border:`1px solid ${C.border}`,borderRadius:'12px',padding:'12px 14px',marginBottom:'8px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:C.F}}>
-            <div style={{textAlign:'left'}}>
-              <div style={{fontSize:'12px',fontWeight:'bold',color:C.text,marginBottom:'2px'}}>{e.data}</div>
-              <div style={{fontSize:'9px',color:C.dim}}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
-            </div>
-            <div style={{textAlign:'right'}}>
-              <div style={{fontSize:'18px',fontWeight:'bold',color:e.ok?C.green:C.red}}>{e.chiusura||'—'}</div>
-              {e.anticipo>0&&<div style={{fontSize:'9px',color:C.green}}>+{e.anticipo.toLocaleString('it-IT')}</div>}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-// ── SQUADRA ──
-function PageSquadra(){
-  const[squadra,setSquadra]=useState(()=>lsg(LS.squadra,[]));
-  const[nome,setNome]=useState('');
-  const[turnoSel,setTurnoSel]=useState('Mattina 06:00');
-  const upd=(n)=>{setSquadra(n);lss(LS.squadra,n)};
-  const aggiungi=()=>{if(!nome.trim())return;upd([...squadra,{id:Date.now(),nome:nome.trim(),turno:turnoSel,presente:true}]);setNome('')};
-  const toggle=(id)=>upd(squadra.map(p=>p.id===id?{...p,presente:!p.presente}:p));
-  const rimuovi=(id)=>upd(squadra.filter(p=>p.id!==id));
-  const presenti=squadra.filter(p=>p.presente).length;
-  const assenti=squadra.filter(p=>!p.presente).length;
-  const turniNomi=['Mattina 06:00','Giornata 08:00','Giornata 10:00','Pomeriggio 13:00'];
-  return(
-    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
-      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
-        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>👥 SQUADRA</div>
+  function salvaStorico() {
+    var storico = lsg(K.storico, []);
+    var ant = risultato ? (risultato.anticipo||0) : 0;
+    var entry = { id:Date.now(), data:oggi(), colli:Number(colli), rate:Number(rate), turni:turni.map(function(t){return{nome:t.nome,persone:t.persone||0,assenti:t.assenti||0};}), chiusura:risultato?risultato.fineEx:null, anticipo:ant, ok:risultato?risultato.ok:false };
+    lss(K.storico, [entry].concat(storico.slice(0,29)));
+    setSalvato(true); setTimeout(function(){setSalvato(false);}, 2500);
+  }
+
+  function copiaPian() {
+    var lines = ['📦 TURNI MAGAZZINO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
+    turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
+    var hasS=false;
+    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','STRAORDINARI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
+    if (risultato) {
+      lines.push('','RISULTATO','────────────────────────────');
+      if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')); }
+      else lines.push('🔴 Mancano: '+(Number(colli)-risultato.cum).toLocaleString('it-IT'));
+    }
+    var txt = lines.join('\n');
+    navigator.clipboard.writeText(txt).then(function(){setCopiato(true);setTimeout(function(){setCopiato(false);},2500);}).catch(function(){prompt('Copia:',txt);});
+  }
+
+  var isOk = risultato && risultato.ok;
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px' }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW, fontFamily:FONT }}>📦 TURNI</div>
+        <div style={{ display:'flex', gap:'5px' }}>
+          <button onClick={copiaPian} style={{ background: copiato?'rgba(16,185,129,0.15)':'rgba(167,139,250,0.1)', border:'1px solid '+(copiato?GREEN:PURPLE), borderRadius:'7px', color:copiato?GREEN:PURPLE, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>{copiato?'✅ COPIATO':'📋 COPIA'}</button>
+          {risultato && <button onClick={salvaStorico} style={{ background:salvato?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'7px', color:GREEN, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>{salvato?'✅ SALVATO':'💾 SALVA'}</button>}
+          <button onClick={function(){setTurni(DEF_TURNI);setStra(DEF_STRA);setColli('');}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'7px', color:RED, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>↺ TUTTO</button>
+        </div>
       </div>
-      <div style={{padding:'12px'}}>
-        {squadra.length>0&&(
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'12px'}}>
-            {[[squadra.length,'TOTALE',C.text],[presenti,'PRESENTI',C.green],[assenti,'ASSENTI',C.red]].map(([v,l,c])=>(
-              <Panel key={l} style={{textAlign:'center',border:`1px solid ${c==='#e8e8e0'?C.border:c}`}}><div style={{fontSize:'22px',fontWeight:'bold',color:c}}>{v}</div><div style={{fontSize:'8px',color:C.dim,letterSpacing:'1px'}}>{l}</div></Panel>
-            ))}
-          </div>
-        )}
-        <Panel style={{marginBottom:'12px'}}>
-          <SectionLabel>+ AGGIUNGI</SectionLabel>
-          <input value={nome} onChange={e=>setNome(e.target.value)} onKeyDown={e=>e.key==='Enter'&&aggiungi()} placeholder="Nome..."
-            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'14px',padding:'10px 12px',outline:'none',marginBottom:'8px'}}/>
-          <select value={turnoSel} onChange={e=>setTurnoSel(e.target.value)}
-            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'12px',padding:'10px',outline:'none',marginBottom:'8px'}}>
-            {turniNomi.map(t=><option key={t}>{t}</option>)}
-          </select>
-          <Btn onClick={aggiungi} color={C.accent} full>+ AGGIUNGI</Btn>
-        </Panel>
-        {turniNomi.map(tn=>{
-          const gruppo=squadra.filter(p=>p.turno===tn);
-          if(!gruppo.length)return null;
-          return(
-            <div key={tn} style={{marginBottom:'12px'}}>
-              <div style={{fontSize:'9px',fontWeight:'bold',color:turnoColore(tn),letterSpacing:'2px',marginBottom:'6px',paddingLeft:'2px'}}>{tn}</div>
-              {gruppo.map(p=>(
-                <div key={p.id} style={{background:C.bg2,border:`1px solid ${p.presente?C.border:C.red}`,borderRadius:'10px',padding:'10px 12px',marginBottom:'6px',display:'flex',alignItems:'center',gap:'10px',opacity:p.presente?1:0.6}}>
-                  <button onClick={()=>toggle(p.id)} style={{width:'28px',height:'28px',borderRadius:'50%',border:`2px solid ${p.presente?C.green:C.red}`,background:p.presente?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)',cursor:'pointer',fontSize:'14px',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    {p.presente?'✓':'✗'}
-                  </button>
-                  <div style={{flex:1,fontSize:'13px',color:p.presente?C.text:C.mid,textDecoration:p.presente?'none':'line-through'}}>{p.nome}</div>
-                  <button onClick={()=>rimuovi(p.id)} style={{background:'transparent',border:'none',color:C.dim,cursor:'pointer',fontSize:'18px',padding:'2px'}}>×</button>
-                </div>
-              ))}
+
+      <div style={{ padding:'10px 12px 0' }}>
+        <button onClick={resetGiornata} style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.07)', border:'2px solid '+RED, borderRadius:'12px', color:RED, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer' }}>
+          ↺ RESET PERSONE + STRAORDINARI
+        </button>
+      </div>
+
+      <div style={{ padding:'12px', fontFamily:FONT }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
+          <Panel>
+            <Lbl color={YELLOW}>COLLI</Lbl>
+            <input type="number" value={colli} onChange={function(e){setColli(e.target.value);}} placeholder="0"
+              style={{ width:'100%', background:'transparent', border:'none', color:YELLOW, fontFamily:FONT, fontSize:'30px', fontWeight:'bold', outline:'none', padding:0 }} />
+          </Panel>
+          <Panel>
+            <Lbl color={PURPLE}>COLLI / ORA</Lbl>
+            <div style={{ display:'flex', gap:'6px' }}>
+              {[90,100].map(function(v) {
+                return <button key={v} onClick={function(){setRate(v);}} style={{ flex:1, padding:'8px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', cursor:'pointer' }}>{v}</button>;
+              })}
             </div>
+          </Panel>
+        </div>
+
+        <Lbl color={YELLOW}>TURNI DI LAVORO</Lbl>
+        {turni.map(function(t) {
+          var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
+          var cl = tColor(t.nome);
+          var sp = stra.find(function(s){return s.id===t.id;}) || { righe:[] };
+          return (
+            <Panel key={t.id} style={{ marginBottom:'8px' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+                <div>
+                  <div style={{ fontSize:'10px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
+                  <div style={{ fontSize:'9px', color:DIM, marginTop:'1px' }}>{t.inizio} → {t.fine} · pausa {t.pIn}-{t.pOut}</div>
+                </div>
+                {eff > 0 && <div style={{ fontSize:'9px', color:GREEN, background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'6px', padding:'2px 7px' }}>{eff} eff.</div>}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom: sp.righe.length > 0 ? '8px' : 0 }}>
+                <div><Lbl>👥 PERSONE</Lbl><NumInput value={t.persone||0} onChange={function(v){setP(t.id,v);}} color={cl} /></div>
+                <div><Lbl>🚫 ASSENTI</Lbl><NumInput value={t.assenti||0} onChange={function(v){setA(t.id,v);}} color={RED} /></div>
+              </div>
+              {(function(){
+                var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
+                if (eff === 0) return null;
+                var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+                var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+                var min = tOut - tIn;
+                if (pIn && pOut) min -= (pOut - pIn);
+                var colliTurno = Math.round(eff * Number(rate) * min / 60);
+                var colliStrao = 0;
+                (sp.righe||[]).forEach(function(rr){
+                  if(rr.inizio&&rr.fine&&Number(rr.persone)>0)
+                    colliStrao += Math.round(Number(rr.persone)*Number(rate)*(tMin(rr.fine)-tMin(rr.inizio))/60);
+                });
+                return (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'8px', padding:'7px 10px', marginBottom:'8px', marginTop:'2px' }}>
+                    <div style={{ fontSize:'9px', color:DIM, letterSpacing:'1px' }}>📦 COLLI TURNO</div>
+                    <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
+                      <div style={{ fontSize:'14px', fontWeight:'bold', color:cl }}>{colliTurno.toLocaleString('it-IT')}</div>
+                      {colliStrao > 0 && <div style={{ fontSize:'11px', color:ORANGE }}>+{colliStrao.toLocaleString('it-IT')} strao</div>}
+                    </div>
+                  </div>
+                );
+              })()}
+              {sp.righe.map(function(rr, ri) {
+                return (
+                  <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'8px', marginTop:'6px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px' }}>
+                      <Lbl color={ORANGE}>⚡ STRAORDINARIO{sp.righe.length > 1 ? ' '+(ri+1) : ''}</Lbl>
+                      <button onClick={function(){delStraRiga(t.id, ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'16px', padding:'0 4px' }}>×</button>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 70px', gap:'6px' }}>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>DALLE</div><TimeInput value={rr.inizio} onChange={function(v){setStraRiga(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>ALLE</div><TimeInput value={rr.fine} onChange={function(v){setStraRiga(t.id,ri,'fine',v);}} color={ORANGE} /></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>PERS.</div><input type="number" value={rr.persone===0?'':`${rr.persone}`} placeholder="0" onChange={function(e){setStraRiga(t.id,ri,'persone',e.target.value===''?0:Math.max(0,Number(e.target.value)));}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:'#4ade80', fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'4px 4px', outline:'none', textAlign:'center' }} /></div>
+                    </div>
+                  </div>
+                );
+              })}
+              <button onClick={function(){addStraRiga(t.id);}} style={{ width:'100%', marginTop:'8px', padding:'7px', background:'rgba(249,115,22,0.06)', border:'1px dashed '+ORANGE, borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer' }}>+ AGGIUNGI STRAORDINARIO</button>
+            </Panel>
           );
         })}
+
+        {risultato && (
+          <div className="fadeup" style={{ marginTop:'12px' }}>
+            <div style={{ background: isOk ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(isOk?GREEN:RED), borderRadius:'14px', padding:'20px', textAlign:'center' }}>
+              <div style={{ fontSize:'9px', letterSpacing:'3px', color: isOk ? '#6ee7b7' : '#fca5a5', marginBottom:'8px' }}>{isOk ? '✅ CHIUSURA PREVISTA' : '🔴 TURNI INSUFFICIENTI'}</div>
+              {isOk ? (
+                <div>
+                  <div style={{ fontSize:'52px', fontWeight:'bold', color:GREEN, lineHeight:1, marginBottom:'6px' }}>{risultato.fineEx}</div>
+                  {risultato.anticipo > 0 && <div style={{ fontSize:'11px', color:'#6ee7b7' }}>⚡ Anticipo: <b style={{ color:GREEN2 }}>+{risultato.anticipo.toLocaleString('it-IT')} colli</b></div>}
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize:'32px', fontWeight:'bold', color:RED, marginBottom:'4px' }}>{(Number(colli)-risultato.cum).toLocaleString('it-IT')}</div>
+                  <div style={{ fontSize:'10px', color:'#fca5a5' }}>colli mancanti · Prodotti: {risultato.cum.toLocaleString('it-IT')}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop:'16px', borderTop:'1px solid '+BORDER, paddingTop:'14px' }}>
+          <Lbl color={GREEN}>📍 PUNTO SITUAZIONE</Lbl>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+            <div><Lbl>ORA ATTUALE</Lbl><input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);setPuntoRes(null);}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+            <div><Lbl>COLLI RIMANENTI</Lbl><input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);setPuntoRes(null);}} placeholder="es. 5000" style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+          </div>
+          <button onClick={calcolaPunto} style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.1)', border:'2px solid '+GREEN, borderRadius:'10px', color:GREEN, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>📍 CALCOLA</button>
+          {puntoRes && (
+            <div className="fadeup" style={{ marginTop:'10px' }}>
+              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'12px', padding:'16px', marginBottom:'8px', textAlign:'center' }}>
+                <div style={{ fontSize:'9px', letterSpacing:'2px', color: puntoRes.ok ? '#6ee7b7' : '#fca5a5', marginBottom:'6px' }}>{puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}</div>
+                {puntoRes.ok ? (
+                  <div>
+                    <div style={{ fontSize:'36px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{puntoRes.fine || '—'}</div>
+                    {puntoRes.anticipo > 0 && <div style={{ fontSize:'10px', color:'#6ee7b7', marginTop:'4px' }}>⚡ +{puntoRes.anticipo.toLocaleString('it-IT')}</div>}
+                  </div>
+                ) : <div style={{ fontSize:'22px', fontWeight:'bold', color:RED }}>{puntoRes.manca.toLocaleString('it-IT')} colli mancanti</div>}
+              </div>
+              {puntoRes.confronto && (
+                <Panel style={{ marginBottom:'8px' }}>
+                  <Lbl>CONFRONTO</Lbl>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>FATTI</div><div style={{ fontSize:'16px', fontWeight:'bold', color:TEXT }}>{puntoRes.confronto.fatti.toLocaleString('it-IT')}</div></div>
+                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>PIANO</div><div style={{ fontSize:'16px', fontWeight:'bold', color:BLUE }}>{puntoRes.confronto.piano.toLocaleString('it-IT')}</div></div>
+                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>DELTA</div><div style={{ fontSize:'16px', fontWeight:'bold', color: puntoRes.confronto.delta>=0?GREEN:RED }}>{puntoRes.confronto.delta>=0?'+':''}{puntoRes.confronto.delta.toLocaleString('it-IT')}</div></div>
+                  </div>
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop:'16px', borderTop:'1px solid '+BORDER, paddingTop:'14px' }}>
+          <Lbl color={PURPLE}>🎯 OBIETTIVO INVERSO</Lbl>
+          <div style={{ display:'flex', gap:'10px', alignItems:'flex-end', marginBottom:'10px', flexWrap:'wrap' }}>
+            <div style={{ flex:1 }}><Lbl>CHIUSURA DESIDERATA</Lbl><input type="time" value={oraTarget} onChange={function(e){setOraTarget(e.target.value);setInvResult(null);}} style={{ width:'100%', background:BG3, border:'2px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+            <button onClick={calcolaInverso} style={{ padding:'11px 16px', background:'rgba(167,139,250,0.1)', border:'2px solid '+PURPLE, borderRadius:'10px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>🎯 CALCOLA</button>
+          </div>
+          {invResult && (
+            <div className="fadeup">
+              {invResult.tipo === 'ok' && <Panel style={{ border:'2px solid '+GREEN, textAlign:'center', marginBottom:'8px' }}><Lbl color={GREEN}>✅ GIÀ OK</Lbl><div style={{ fontSize:'36px', fontWeight:'bold', color:GREEN }}>{invResult.fine}</div></Panel>}
+              {invResult.tipo === 'impossibile' && <Panel style={{ border:'2px solid '+RED, marginBottom:'8px' }}><Lbl color={RED}>🔴 IMPOSSIBILE</Lbl><div style={{ fontSize:'11px', color:'#fca5a5' }}>Nessuna soluzione trovata</div></Panel>}
+              {invResult.tipo === 'sposta' && (
+                <Panel style={{ border:'2px solid '+PURPLE, marginBottom:'8px' }}>
+                  <Lbl color={PURPLE}>🔀 SPOSTA PERSONE</Lbl>
+                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'8px', alignItems:'center' }}>
+                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>DA</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.da}</div></div>
+                    <div style={{ fontSize:'18px', color:PURPLE }}>→</div>
+                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>A</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.a}</div></div>
+                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>QUANTE</div><div style={{ fontSize:'26px', fontWeight:'bold', color:PURPLE, lineHeight:1 }}>{invResult.quante}</div></div>
+                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>CHIUSURA</div><div style={{ fontSize:'20px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{invResult.fineNuova}</div></div>
+                  </div>
+                  <div style={{ fontSize:'10px', color:MID }}>Mattina → <b style={{ color:TEXT }}>{invResult.matNew}</b> · Pomeriggio → <b style={{ color:TEXT }}>{invResult.pomNew}</b></div>
+                </Panel>
+              )}
+              {invResult.tipo === 'strao' && (
+                <Panel style={{ border:'2px solid '+ORANGE, marginBottom:'8px' }}>
+                  <Lbl color={ORANGE}>⚡ STRAORDINARIO NECESSARIO</Lbl>
+                  {invResult.strao.map(function(s, i) {
+                    return (
+                      <div key={i} style={{ display:'flex', gap:'10px', alignItems:'center', marginBottom:'8px' }}>
+                        <div style={{ background:BG3, borderRadius:'8px', padding:'6px 10px' }}><div style={{ fontSize:'8px', color:DIM }}>{s.nome}</div><div style={{ fontSize:'12px', color:ORANGE, fontWeight:'bold' }}>{s.inizio}→{s.fine}</div></div>
+                        <div style={{ fontSize:'26px', fontWeight:'bold', color:ORANGE }}>{s.persone}</div>
+                        <div style={{ fontSize:'10px', color:DIM }}>pers.</div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize:'11px', color:MID }}>Chiusura: <b style={{ color:GREEN, fontSize:'14px' }}>{invResult.fineNuova}</b> · Attuale: {invResult.fineAtt}</div>
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── SETTINGS ──
-function PageSettings({onLogout}){
-  const[oldP,setOldP]=useState('');
-  const[newP,setNewP]=useState('');
-  const[conf,setConf]=useState('');
-  const[msg,setMsg]=useState(null);
-  const[fbUrl,setFbUrl]=useState(()=>lsg(LS.firebase,{})?.url||'');
-  const[syncing,setSyncing]=useState(false);
-  const[syncMsg,setSyncMsg]=useState(null);
+// ── PAGE DETTAGLIO ──
+function PageDettaglio(props) {
+  var turni = props.turni; var stra = props.stra;
+  var colli = props.colli; var rate = props.rate;
 
-  const cambiaPwd=()=>{
-    const cur=lsg(LS.pwd,DEFAULT_PWD);
-    if(oldP!==cur){setMsg({ok:false,t:'Password attuale errata'});return}
-    if(newP.length<4){setMsg({ok:false,t:'Minimo 4 caratteri'});return}
-    if(newP!==conf){setMsg({ok:false,t:'Le password non coincidono'});return}
-    lss(LS.pwd,newP);setMsg({ok:true,t:'Password cambiata!'});setOldP('');setNewP('');setConf('');
-    setTimeout(()=>setMsg(null),2500);
-  };
+  var rows = useMemo(function() {
+    var colliN = Number(colli);
+    if (!colliN) return [];
+    var allT = buildAllT(turni, stra, Number(rate));
+    return calcRows(colliN, allT, Number(rate)).rows;
+  }, [colli, rate, JSON.stringify(turni), JSON.stringify(stra)]);
 
-  const salvaFb=()=>{lss(LS.firebase,{url:fbUrl});setSyncMsg({ok:true,t:'Configurazione salvata!'});setTimeout(()=>setSyncMsg(null),2000)};
+  var chiusura = null;
+  rows.forEach(function(r) { if (r.highlight) chiusura = r.fineEx; });
+  var anticipo = chiusura ? calcAnticipo(buildAllT(turni, stra, Number(rate)), chiusura, Number(rate)) : 0;
 
-  const syncNow=async(dir)=>{
-    const fbConfig=lsg(LS.firebase,{});
-    if(!fbConfig.url){setSyncMsg({ok:false,t:'Configura prima il URL Firebase'});return}
-    setSyncing(true);
-    if(dir==='up'){
-      const data={turni:lsg(LS.turni,[]),strao:lsg(LS.strao,[]),straPers:lsg(LS.straPers,[]),colli:lsg(LS.colli,''),rate:lsg(LS.rate,90),storico:lsg(LS.storico,[]),squadra:lsg(LS.squadra,[])};
-      const res=await fbSync(fbConfig,data);
-      setSyncMsg(res.ok?{ok:true,t:'✅ Dati caricati online!'}:{ok:false,t:'Errore: '+res.err});
-    }else{
-      const res=await fbLoad(fbConfig);
-      if(res.ok&&res.data){
-        const d=res.data;
-        if(d.turni)lss(LS.turni,d.turni);
-        if(d.straPers)lss(LS.straPers,d.straPers);
-        if(d.colli!==undefined)lss(LS.colli,d.colli);
-        if(d.rate)lss(LS.rate,d.rate);
-        if(d.storico)lss(LS.storico,d.storico);
-        if(d.squadra)lss(LS.squadra,d.squadra);
-        setSyncMsg({ok:true,t:'✅ Dati scaricati! Ricarica la pagina.'});
-      }else setSyncMsg({ok:false,t:'Errore: '+(res.err||'dati vuoti')});
-    }
-    setSyncing(false);setTimeout(()=>setSyncMsg(null),4000);
-  };
-
-  const resetTutto=()=>{if(!window.confirm('Cancellare tutti i dati?'))return;[LS.turni,LS.strao,LS.straPers,LS.colli,LS.rate,LS.storico,LS.squadra].forEach(k=>{try{localStorage.removeItem(k)}catch{}});window.location.reload()};
-
-  return(
-    <div style={{height:'100%',overflowY:'auto',paddingBottom:'80px',fontFamily:C.F}}>
-      <div style={{background:C.bg2,borderBottom:`1px solid ${C.border}`,padding:'12px 14px',position:'sticky',top:0,zIndex:10}}>
-        <div style={{fontSize:'13px',fontWeight:'bold',letterSpacing:'3px',color:C.accent}}>⚙️ IMPOSTAZIONI</div>
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📋 DETTAGLIO FASCE</div>
       </div>
-      <div style={{padding:'12px'}}>
-
-        {/* SYNC ONLINE */}
-        <Panel style={{marginBottom:'12px',border:`1px solid ${C.blue}`}}>
-          <SectionLabel color={C.blue}>☁️ SINCRONIZZAZIONE ONLINE</SectionLabel>
-          <div style={{fontSize:'9px',color:C.dim,marginBottom:'8px',lineHeight:1.6}}>
-            Crea un account su <b style={{color:C.blue}}>firebase.google.com</b> →<br/>
-            Crea progetto → Realtime Database →<br/>
-            Copia l'URL del database (finisce con .firebaseio.com)
+      <div style={{ padding:'12px' }}>
+        {!Number(colli) ? (
+          <div style={{ textAlign:'center', color:DIM, fontSize:'11px', marginTop:'60px', letterSpacing:'2px' }}>
+            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📋</div>
+            INSERISCI I COLLI<br />
+            <span style={{ fontSize:'9px' }}>nella pagina TURNI</span>
           </div>
-          <div style={{fontSize:'8px',color:C.dim,marginBottom:'4px',letterSpacing:'1px'}}>URL DATABASE FIREBASE</div>
-          <input value={fbUrl} onChange={e=>setFbUrl(e.target.value)} placeholder="https://progetto-default-rtdb.firebaseio.com"
-            style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'10px',padding:'10px',outline:'none',marginBottom:'8px'}}/>
-          <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-            <Btn onClick={salvaFb} color={C.blue} small>💾 SALVA URL</Btn>
-            <Btn onClick={()=>syncNow('up')} color={C.green} small>{syncing?<span className="spin">⟳</span>:'⬆️ CARICA'}</Btn>
-            <Btn onClick={()=>syncNow('down')} color={C.orange} small>{syncing?<span className="spin">⟳</span>:'⬇️ SCARICA'}</Btn>
-          </div>
-          {syncMsg&&<div style={{marginTop:'8px',fontSize:'10px',color:syncMsg.ok?C.green:C.red,letterSpacing:'1px'}}>{syncMsg.t}</div>}
-        </Panel>
-
-        {/* PASSWORD */}
-        <Panel style={{marginBottom:'12px'}}>
-          <SectionLabel>🔐 CAMBIA PASSWORD</SectionLabel>
-          {[['Password attuale',oldP,setOldP],['Nuova password',newP,setNewP],['Conferma',conf,setConf]].map(([l,v,s])=>(
-            <div key={l} style={{marginBottom:'8px'}}>
-              <div style={{fontSize:'8px',color:C.dim,marginBottom:'3px',letterSpacing:'1px'}}>{l}</div>
-              <input type="password" value={v} onChange={e=>s(e.target.value)}
-                style={{width:'100%',background:C.bg3,border:`1px solid ${C.border2}`,borderRadius:'8px',color:C.text,fontFamily:C.F,fontSize:'14px',padding:'10px',outline:'none'}}/>
+        ) : (
+          <div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
+              <Panel style={{ textAlign:'center' }}><Lbl>COLLI</Lbl><div style={{ fontSize:'24px', fontWeight:'bold', color:YELLOW }}>{Number(colli).toLocaleString('it-IT')}</div></Panel>
+              <Panel style={{ border:'2px solid '+(chiusura?GREEN:RED), textAlign:'center' }}><Lbl>CHIUSURA</Lbl><div style={{ fontSize:'24px', fontWeight:'bold', color:chiusura?GREEN:RED }}>{chiusura||'—'}</div></Panel>
             </div>
-          ))}
-          {msg&&<div style={{fontSize:'10px',color:msg.ok?C.green:C.red,textAlign:'center',marginBottom:'8px'}}>{msg.t}</div>}
-          <Btn onClick={cambiaPwd} color={C.purple} full>SALVA PASSWORD</Btn>
-        </Panel>
+            {anticipo > 0 && <Panel style={{ border:'1px solid '+PURPLE, textAlign:'center', marginBottom:'12px' }}><Lbl color={PURPLE}>⚡ ANTICIPO</Lbl><div style={{ fontSize:'20px', fontWeight:'bold', color:'#c4b5fd' }}>+{anticipo.toLocaleString('it-IT')} colli</div></Panel>}
+            <Lbl>FASCE ORARIE</Lbl>
+            {rows.map(function(r, i) {
+              var isS = r.isStrao || (r.nome && r.nome.indexOf('strao') >= 0);
+              var bord = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : BORDER;
+              var bg = r.highlight ? 'rgba(16,185,129,0.08)' : isS ? 'rgba(249,115,22,0.08)' : r.anticipo ? 'rgba(167,139,250,0.06)' : r.pausa ? 'rgba(239,68,68,0.04)' : BG2;
+              var tc = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : r.pausa ? RED : TEXT;
+              return (
+                <div key={i} style={{ background:bg, border:'1px solid '+bord, borderRadius:'10px', padding:'10px 12px', marginBottom:'6px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: r.pausa ? 0 : '8px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                      {isS && <span>⚡</span>}
+                      <div style={{ fontSize:'13px', fontWeight:'bold', color:tc }}>
+                        {r.frm} → {r.highlight ? r.fineEx : r.to}
+                        {r.highlight && <span style={{ marginLeft:'8px', fontSize:'9px', background:GREEN, color:'#000', borderRadius:'4px', padding:'1px 6px' }}>FINE ✓</span>}
+                        {r.anticipo && <span style={{ marginLeft:'6px', fontSize:'9px', color:PURPLE }}> anticipo</span>}
+                      </div>
+                      {isS && <span style={{ fontSize:'8px', background:'rgba(249,115,22,0.2)', color:ORANGE, borderRadius:'4px', padding:'1px 5px' }}>STRAO</span>}
+                    </div>
+                    <div style={{ fontSize:'9px', color:DIM }}>{r.dur}min</div>
+                  </div>
+                  {r.pausa ? (
+                    <div style={{ fontSize:'9px', color:RED, textAlign:'center', letterSpacing:'2px' }}>— PAUSA —</div>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', textAlign:'center' }}>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>PERS.</div><div style={{ fontSize:'12px', fontWeight:'bold', color:TEXT }}>{r.pers}</div></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>C/H</div><div style={{ fontSize:'12px', fontWeight:'bold', color:MID }}>{r.colliH||'—'}</div></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>{r.anticipo?'ANTICIPO':'PROD.'}</div><div style={{ fontSize:'12px', fontWeight:'bold', color: r.highlight?GREEN:isS?ORANGE:r.anticipo?PURPLE:TEXT }}>{r.prod>0 ? '+'+r.prod.toLocaleString('it-IT') : '—'}</div></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>{r.anticipo?'CUM.':'RIM.'}</div><div style={{ fontSize:'12px', fontWeight:'bold', color: r.rim===0?GREEN:r.anticipo?PURPLE:YELLOW }}>{r.rim.toLocaleString('it-IT')}</div></div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        {/* INFO */}
-        <Panel style={{marginBottom:'12px'}}>
-          <SectionLabel>ℹ️ INFO</SectionLabel>
-          <div style={{fontSize:'10px',color:C.mid,lineHeight:1.7}}>Turni Magazzino v2.0<br/>Dati salvati sul dispositivo.<br/>Usa SYNC per condividerli tra dispositivi.</div>
-        </Panel>
+// ── PAGE RIEPILOGO ──
+function PageRiepilogo(props) {
+  var turni = props.turni; var stra = props.stra;
+  var rate = props.rate; var colli = props.colli;
+  var r = Number(rate);
 
-        <Btn onClick={onLogout} color={C.accent} full style={{marginBottom:'8px'}}>🚪 ESCI</Btn>
-        <Btn onClick={resetTutto} color={C.red} full>🗑 CANCELLA TUTTI I DATI</Btn>
+  var righe = [];
+  turni.forEach(function(t) {
+    var pers = Math.max(0, (t.persone||0) - (t.assenti||0));
+    if (!pers) return;
+    var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+    var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+    var min = tOut - tIn;
+    if (pIn && pOut) min -= (pOut - pIn);
+    righe.push({ nome:t.nome, pers:pers, colli:Math.round(pers*r*min/60), isStrao:false, color:tColor(t.nome) });
+    var sp = stra.find(function(s){return s.id===t.id;});
+    if (sp) {
+      (sp.righe||[]).filter(function(rr){return rr.inizio&&rr.fine&&Number(rr.persone)>0;}).forEach(function(rr) {
+        var sMin = tMin(rr.fine) - tMin(rr.inizio);
+        righe.push({ nome:'⚡ '+t.nome.split(' ')[0], pers:Number(rr.persone), colli:Math.round(Number(rr.persone)*r*sMin/60), isStrao:true, color:ORANGE });
+      });
+    }
+  });
+  var totale = righe.reduce(function(s,x){return s+x.colli;}, 0);
+  var storico = lsg(K.storico, []).slice(0, 7);
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📦 RIEPILOGO</div>
+      </div>
+      <div style={{ padding:'12px' }}>
+        {righe.length > 0 ? (
+          <Panel style={{ marginBottom:'12px', border:'1px solid '+YELLOW }}>
+            <Lbl color={YELLOW}>📦 COLLI / TURNO</Lbl>
+            {righe.map(function(x, i) {
+              return (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid '+BORDER }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                    {x.isStrao && <span style={{ fontSize:'11px' }}>⚡</span>}
+                    <div style={{ fontSize:'10px', color:x.color, fontWeight: x.isStrao ? 'normal' : 'bold' }}>{x.nome}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:'14px', alignItems:'center' }}>
+                    <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
+                    <div style={{ fontSize:'14px', fontWeight:'bold', color: x.isStrao ? ORANGE : GREEN, minWidth:'75px', textAlign:'right' }}>{x.colli.toLocaleString('it-IT')}</div>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:'10px' }}>
+              <div style={{ fontSize:'10px', fontWeight:'bold', color:TEXT, letterSpacing:'2px' }}>TOTALE</div>
+              <div style={{ fontSize:'18px', fontWeight:'bold', color:YELLOW }}>{totale.toLocaleString('it-IT')}</div>
+            </div>
+            {Number(colli) > 0 && (
+              <div style={{ marginTop:'8px', paddingTop:'8px', borderTop:'1px solid '+BORDER, display:'flex', justifyContent:'space-between' }}>
+                <div style={{ fontSize:'9px', color:DIM }}>vs obiettivo</div>
+                <div style={{ fontSize:'11px', fontWeight:'bold', color: totale>=Number(colli)?GREEN:RED }}>{totale>=Number(colli) ? '✅ OK +' + (totale-Number(colli)).toLocaleString('it-IT') : '⚠️ mancano '+(Number(colli)-totale).toLocaleString('it-IT')}</div>
+              </div>
+            )}
+          </Panel>
+        ) : (
+          <div style={{ textAlign:'center', color:DIM, fontSize:'11px', marginTop:'40px', letterSpacing:'2px', marginBottom:'20px' }}>
+            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📦</div>
+            INSERISCI LE PERSONE<br />
+            <span style={{ fontSize:'9px' }}>nella pagina TURNI</span>
+          </div>
+        )}
+
+        {storico.length > 0 && (
+          <Panel>
+            <Lbl color={PURPLE}>📋 ULTIME 7 GIORNATE</Lbl>
+            {storico.map(function(e, i) {
+              return (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
+                  <div>
+                    <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{e.data}</div>
+                    <div style={{ fontSize:'9px', color:DIM }}>{e.colli.toLocaleString('it-IT')} colli</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:'14px', fontWeight:'bold', color: e.ok ? GREEN : RED }}>{e.chiusura||'—'}</div>
+                    {e.anticipo > 0 && <div style={{ fontSize:'9px', color:GREEN }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </Panel>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE SETTINGS ──
+function PageSettings(props) {
+  var turni = props.turni; var setTurni = props.setTurni;
+  var stra = props.stra; var setStra = props.setStra;
+  var onLogout = props.onLogout;
+
+  var _tab = useState('turni'); var tab = _tab[0]; var setTab = _tab[1];
+  var _op = useState(''); var oldP = _op[0]; var setOldP = _op[1];
+  var _np = useState(''); var newP = _np[0]; var setNewP = _np[1];
+  var _cf = useState(''); var conf = _cf[0]; var setConf = _cf[1];
+  var _msg = useState(null); var msg = _msg[0]; var setMsg = _msg[1];
+  var _fb = useState(function(){return lsg(K.fb,{}).url||'';}); var fbUrl = _fb[0]; var setFbUrl = _fb[1];
+  var _sm = useState(null); var syncMsg = _sm[0]; var setSyncMsg = _sm[1];
+  var _sy = useState(false); var syncing = _sy[0]; var setSyncing = _sy[1];
+
+  function aggiornaTurno(id, field, val) {
+    setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{[field]:val}) : t;});});
+  }
+  function aggiungiTurno() {
+    var id = newId();
+    setTurni(function(prev){return prev.concat([{id:id,nome:'Nuovo Turno',inizio:'06:00',fine:'14:00',pIn:'10:00',pOut:'10:20',persone:0,assenti:0}]);});
+    setStra(function(prev){return prev.concat([{id:id,righe:[]}]);});
+  }
+  function eliminaTurno(id) {
+    setTurni(function(prev){return prev.filter(function(t){return t.id!==id;});});
+    setStra(function(prev){return prev.filter(function(s){return s.id!==id;});});
+  }
+  function addStraDefault(tid) {
+    setStra(function(prev){return prev.map(function(sp){return sp.id===tid ? Object.assign({},sp,{righe:(sp.righe||[]).concat([{inizio:'',fine:'',persone:0}])}) : sp;});});
+  }
+  function delStraDefault(tid, ri) {
+    setStra(function(prev){return prev.map(function(sp){return sp.id===tid ? Object.assign({},sp,{righe:sp.righe.filter(function(_,i){return i!==ri;})}) : sp;});});
+  }
+  function setStraDefault(tid, ri, field, val) {
+    setStra(function(prev){return prev.map(function(sp){
+      if(sp.id!==tid)return sp;
+      return Object.assign({},sp,{righe:sp.righe.map(function(r,i){return i===ri?Object.assign({},r,{[field]:val}):r;})});
+    });});
+  }
+
+  function cambiaPwd() {
+    var cur = lsg(K.pwd, PWD_DEFAULT); // PIN
+    if (oldP !== cur) { setMsg({ok:false,t:'Password attuale errata'}); return; }
+    if (newP.length < 4) { setMsg({ok:false,t:'Minimo 4 caratteri'}); return; }
+    if (newP !== conf) { setMsg({ok:false,t:'Le password non coincidono'}); return; }
+    lss(K.pwd, newP); setMsg({ok:true,t:'✅ Password cambiata!'}); setOldP(''); setNewP(''); setConf('');
+    setTimeout(function(){setMsg(null);}, 2500);
+  }
+
+  function salvaDefault() {
+    lss('tm_def_stra', stra);
+    setSyncMsg({ok:true,t:'✅ Salvato come default!'}); setTimeout(function(){setSyncMsg(null);}, 2000);
+  }
+
+  function syncNow(dir) {
+    var fbCfg = lsg(K.fb, {});
+    if (!fbCfg.url) { setSyncMsg({ok:false,t:'Configura prima il URL Firebase'}); return; }
+    setSyncing(true);
+    var url = fbCfg.url.replace(/\/$/, '') + '/turni_data.json';
+    if (dir === 'up') {
+      var data = { turni:lsg(K.turni,[]), stra:lsg(K.stra,[]), colli:lsg(K.colli,''), rate:lsg(K.rate,90), storico:lsg(K.storico,[]) };
+      fetch(url, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
+        .then(function(res){ setSyncing(false); setSyncMsg(res.ok?{ok:true,t:'✅ Dati caricati!'}:{ok:false,t:'Errore HTTP '+res.status}); setTimeout(function(){setSyncMsg(null);},4000); })
+        .catch(function(e){ setSyncing(false); setSyncMsg({ok:false,t:'Errore: '+e.message}); setTimeout(function(){setSyncMsg(null);},4000); });
+    } else {
+      fetch(url)
+        .then(function(res){ return res.json(); })
+        .then(function(d){ if(d.turni)lss(K.turni,d.turni); if(d.stra)lss(K.stra,d.stra); if(d.colli!==undefined)lss(K.colli,d.colli); if(d.rate)lss(K.rate,d.rate); if(d.storico)lss(K.storico,d.storico); setSyncing(false); setSyncMsg({ok:true,t:'✅ Scaricato! Ricarica.'}); setTimeout(function(){setSyncMsg(null);},4000); })
+        .catch(function(e){ setSyncing(false); setSyncMsg({ok:false,t:'Errore: '+e.message}); setTimeout(function(){setSyncMsg(null);},4000); });
+    }
+  }
+
+  var tabs = [{id:'turni',label:'TURNI'},{id:'pwd',label:'PASSWORD'},{id:'sync',label:'SYNC'}];
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>⚙️ IMPOSTAZIONI</div>
+      </div>
+      <div style={{ display:'flex', background:BG2, borderBottom:'1px solid '+BORDER }}>
+        {tabs.map(function(t) {
+          return <button key={t.id} onClick={function(){setTab(t.id);}} style={{ flex:1, background:'transparent', border:'none', borderBottom:'2px solid '+(tab===t.id?YELLOW:'transparent'), padding:'10px 4px', color:tab===t.id?YELLOW:DIM, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer', fontWeight:tab===t.id?'bold':'normal' }}>{t.label}</button>;
+        })}
+      </div>
+
+      <div style={{ padding:'12px' }}>
+        {tab === 'turni' && (
+          <div>
+            <div style={{ fontSize:'10px', color:MID, marginBottom:'12px', lineHeight:1.6 }}>Modifica gli orari dei turni e i default degli straordinari.</div>
+            {turni.map(function(t) {
+              var sp = stra.find(function(s){return s.id===t.id;}) || {righe:[]};
+              var cl = tColor(t.nome);
+              return (
+                <Panel key={t.id} style={{ marginBottom:'10px', border:'1px solid '+cl }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+                    <input value={t.nome} onChange={function(e){aggiornaTurno(t.id,'nome',e.target.value);}}
+                      style={{ background:'transparent', border:'none', color:cl, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', outline:'none', letterSpacing:'1px', flex:1 }} />
+                    <button onClick={function(){eliminaTurno(t.id);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'6px', color:RED, fontFamily:FONT, fontSize:'9px', padding:'3px 8px', cursor:'pointer' }}>× ELIMINA</button>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'8px' }}>
+                    <div><Lbl>INIZIO</Lbl><TimeInput value={t.inizio} onChange={function(v){aggiornaTurno(t.id,'inizio',v);}} /></div>
+                    <div><Lbl>FINE</Lbl><TimeInput value={t.fine} onChange={function(v){aggiornaTurno(t.id,'fine',v);}} /></div>
+                    <div><Lbl>PAUSA INIZIO</Lbl><TimeInput value={t.pIn} onChange={function(v){aggiornaTurno(t.id,'pIn',v);}} color={MID} /></div>
+                    <div><Lbl>PAUSA FINE</Lbl><TimeInput value={t.pOut} onChange={function(v){aggiornaTurno(t.id,'pOut',v);}} color={MID} /></div>
+                  </div>
+                  {(sp.righe||[]).map(function(rr, ri) {
+                    return (
+                      <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'8px', marginTop:'4px' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px' }}>
+                          <Lbl color={ORANGE}>⚡ STRAO DEFAULT {ri+1}</Lbl>
+                          <button onClick={function(){delStraDefault(t.id,ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'13px' }}>×</button>
+                        </div>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
+                          <div><Lbl>DALLE</Lbl><TimeInput value={rr.inizio} onChange={function(v){setStraDefault(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
+                          <div><Lbl>ALLE</Lbl><TimeInput value={rr.fine} onChange={function(v){setStraDefault(t.id,ri,'fine',v);}} color={ORANGE} /></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button onClick={function(){addStraDefault(t.id);}} style={{ width:'100%', marginTop:'8px', padding:'7px', background:'rgba(249,115,22,0.06)', border:'1px dashed '+ORANGE, borderRadius:'7px', color:ORANGE, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer' }}>+ AGGIUNGI RIGA STRAORDINARIO</button>
+                </Panel>
+              );
+            })}
+            <button onClick={aggiungiTurno} style={{ width:'100%', padding:'13px', background:'rgba(245,158,11,0.06)', border:'2px dashed '+YELLOW, borderRadius:'12px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', marginBottom:'10px' }}>+ AGGIUNGI TURNO</button>
+            <button onClick={salvaDefault} style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'10px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>💾 SALVA COME DEFAULT</button>
+            {syncMsg && <div style={{ marginTop:'8px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
+          </div>
+        )}
+
+        {tab === 'pwd' && (
+          <Panel>
+            <Lbl color={PURPLE}>🔐 CAMBIA PIN</Lbl>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.6 }}>Il PIN attuale è richiesto per confermarne uno nuovo. Minimo 4 cifre, massimo 6.</div>
+            {[['PIN ATTUALE',oldP,setOldP,'tel'],['NUOVO PIN',newP,setNewP,'tel'],['CONFERMA PIN',conf,setConf,'tel']].map(function(item) {
+              return (
+                <div key={item[0]} style={{ marginBottom:'8px' }}>
+                  <div style={{ fontSize:'8px', color:DIM, marginBottom:'3px', letterSpacing:'1px' }}>{item[0]}</div>
+                  <input type="password" inputMode="numeric" pattern="[0-9]*" value={item[1]} onChange={function(e){item[2](e.target.value.replace(/[^0-9]/g,'').slice(0,6));}}
+                    style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'20px', padding:'10px', outline:'none', letterSpacing:'8px', textAlign:'center' }} />
+                </div>
+              );
+            })}
+            {msg && <div style={{ fontSize:'10px', color:msg.ok?GREEN:RED, textAlign:'center', marginBottom:'8px' }}>{msg.t}</div>}
+            <button onClick={cambiaPwd} style={{ width:'100%', padding:'12px', background:'rgba(167,139,250,0.1)', border:'1px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>SALVA NUOVO PIN</button>
+            <button onClick={onLogout} style={{ width:'100%', padding:'12px', background:'rgba(245,158,11,0.1)', border:'1px solid '+YELLOW, borderRadius:'8px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>🚪 ESCI</button>
+            <button onClick={function(){if(window.confirm('Cancellare tutti i dati?')){[K.turni,K.stra,K.colli,K.rate,K.storico].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});window.location.reload();}}} style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'8px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>🗑 CANCELLA TUTTI I DATI</button>
+          </Panel>
+        )}
+
+        {tab === 'sync' && (
+          <Panel style={{ border:'1px solid '+BLUE }}>
+            <Lbl color={BLUE}>☁️ SINCRONIZZAZIONE FIREBASE</Lbl>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.7 }}>
+              1. Vai su <b style={{ color:BLUE }}>firebase.google.com</b><br />
+              2. Crea progetto → Realtime Database<br />
+              3. Copia l'URL del database<br />
+              4. Regole: {'{'}".read":true,".write":true{'}'}
+            </div>
+            <Lbl>URL DATABASE</Lbl>
+            <input value={fbUrl} onChange={function(e){setFbUrl(e.target.value);}} placeholder="https://progetto-default-rtdb.firebaseio.com"
+              style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'10px', padding:'10px', outline:'none', marginBottom:'8px' }} />
+            <button onClick={function(){lss(K.fb,{url:fbUrl});setSyncMsg({ok:true,t:'URL salvato!'});setTimeout(function(){setSyncMsg(null);},1500);}} style={{ width:'100%', padding:'10px', background:'rgba(56,189,248,0.1)', border:'1px solid '+BLUE, borderRadius:'8px', color:BLUE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>💾 SALVA URL</button>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
+              <button onClick={function(){syncNow('up');}} style={{ padding:'12px', background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer' }}>{syncing ? '⟳' : '⬆️ CARICA'}</button>
+              <button onClick={function(){syncNow('down');}} style={{ padding:'12px', background:'rgba(249,115,22,0.1)', border:'1px solid '+ORANGE, borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer' }}>{syncing ? '⟳' : '⬇️ SCARICA'}</button>
+            </div>
+            {syncMsg && <div style={{ marginTop:'8px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
+          </Panel>
+        )}
       </div>
     </div>
   );
 }
 
 // ── APP ──
-function App(){
-  const[page,setPage]=useState('turni');
-  const logout=()=>{try{sessionStorage.removeItem(LS.auth)}catch{}window.location.reload()};
-  const pages={turni:<PageTurni/>,storico:<PageStorico/>,squadra:<PageSquadra/>,settings:<PageSettings onLogout={logout}/>};
-  return(
-    <div style={{height:'100vh',height:'100dvh',display:'flex',flexDirection:'column',background:C.bg,overflow:'hidden'}}>
-      <div key={page} style={{flex:1,overflow:'hidden',animation:'fadeUp 0.25s ease'}}>{pages[page]}</div>
-      <Nav page={page} setPage={setPage}/>
+function App() {
+  var _page = useState('turni'); var page = _page[0]; var setPage = _page[1];
+  var _turni = useState(function(){return lsg(K.turni, DEF_TURNI);}); var turni = _turni[0]; var setTurniRaw = _turni[1];
+  var _stra = useState(function(){return lsg(K.stra, DEF_STRA);}); var stra = _stra[0]; var setStraRaw = _stra[1];
+  var _colli = useState(function(){return lsg(K.colli, '');}); var colli = _colli[0]; var setColliRaw = _colli[1];
+  var _rate = useState(function(){return lsg(K.rate, 90);}); var rate = _rate[0]; var setRateRaw = _rate[1];
+
+  function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
+  function setStra(v) { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
+  function setColli(v) { setColliRaw(v); lss(K.colli, v); }
+  function setRate(v) { setRateRaw(v); lss(K.rate, v); }
+
+  useEffect(function() {
+    setStra(function(prev) {
+      var updated = turni.map(function(t) {
+        var ex = prev.find(function(s){return s.id===t.id;});
+        return ex || { id:t.id, righe:[] };
+      });
+      return updated;
+    });
+  }, [turni.length]);
+
+  function logout() { try { sessionStorage.removeItem(K.auth); } catch(e) {} window.location.reload(); }
+
+  var pageProps = { turni:turni, setTurni:setTurni, stra:stra, setStra:setStra, colli:colli, setColli:setColli, rate:rate, setRate:setRate };
+
+  return (
+    <div style={{ height:'100vh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
+      <div key={page} style={{ flex:1, overflow:'hidden', animation:'fadeUp 0.2s ease' }}>
+        {page === 'turni' && <PageTurni {...pageProps} />}
+        {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
+        {page === 'riepilogo' && <PageRiepilogo {...pageProps} />}
+        {page === 'settings' && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
+      </div>
+      <Nav page={page} setPage={setPage} />
     </div>
   );
 }
-function Root(){
-  const[ok,setOk]=useState(()=>{try{return!!sessionStorage.getItem(LS.auth)}catch{return false}});
-  const login=()=>{try{sessionStorage.setItem(LS.auth,'1')}catch{}setOk(true)};
-  return ok?<App/>:<Login onLogin={login}/>;
+
+function Root() {
+  var _ok = useState(function(){try{return!!sessionStorage.getItem(K.auth);}catch(e){return false;}}); var ok = _ok[0]; var setOk = _ok[1];
+  function login() { try { sessionStorage.setItem(K.auth, '1'); } catch(e) {} setOk(true); }
+  return ok ? <App /> : <Login onLogin={login} />;
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+
 </script>
 </body>
 </html>
