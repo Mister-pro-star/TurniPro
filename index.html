@@ -49,7 +49,12 @@ var FONT = "'Courier New',Consolas,monospace";
 
 // ── STORAGE ──
 var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb' };
-var PWD_DEFAULT = 'Vaniusa1987.';
+// SHA-256 hash di "Naturasi2026" — nel codice non si vede mai la password vera
+var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
+async function sha256(str) {
+  var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
 
 var DEF_TURNI = [
   { id:1, nome:'Mattina 06:00',    inizio:'06:00', fine:'12:20', pIn:'10:00', pOut:'10:20', persone:0, assenti:0 },
@@ -189,111 +194,62 @@ function Btn(props) {
 
 // ── LOGIN ──
 function Login(props) {
-  var _pin = useState(''); var pin = _pin[0]; var setPin = _pin[1];
-  var _err = useState(false); var err = _err[0]; var setErr = _err[1];
+  var _pwd = useState(''); var pwd = _pwd[0]; var setPwd = _pwd[1];
+  var _show = useState(false); var show = _show[0]; var setShow = _show[1];
+  var _err = useState(''); var err = _err[0]; var setErr = _err[1];
   var _shake = useState(false); var shake = _shake[0]; var setShake = _shake[1];
-  var _setup = useState(function(){ return !lsg(K.pwd, null); }); var setup = _setup[0]; var setSetup = _setup[1];
-  var _confirm = useState(''); var confirmPin = _confirm[0]; var setConfirmPin = _confirm[1];
-  var _step = useState(1); var step = _step[0]; var setStep = _step[1];
+  var _loading = useState(false); var loading = _loading[0]; var setLoading = _loading[1];
 
-  function addDigit(d) {
-    if (setup) {
-      if (step === 1 && pin.length < 6) { setPin(pin + d); }
-      else if (step === 2 && confirmPin.length < 6) {
-        var newConf = confirmPin + d;
-        setConfirmPin(newConf);
-        if (newConf.length === pin.length && newConf.length >= 4) {
-          if (newConf === pin) {
-            lss(K.pwd, pin);
-            try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
-            props.onLogin();
-          } else {
-            setErr(true); setShake(true); setPin(''); setConfirmPin(''); setStep(1);
-            setTimeout(function(){setShake(false);}, 500);
-            setTimeout(function(){setErr(false);}, 2000);
-          }
-        }
-      }
+  async function doLogin() {
+    if (!pwd) return;
+    setLoading(true);
+    var h = await sha256(pwd);
+    var saved = lsg(K.pwd, PWD_DEFAULT_HASH);
+    if (h === saved) {
+      try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
+      props.onLogin();
     } else {
-      var newPin = pin + d;
-      if (newPin.length <= 6) {
-        setPin(newPin);
-        if (newPin.length >= 4) {
-          var saved = lsg(K.pwd, PWD_DEFAULT);
-          if (newPin === saved) {
-            try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
-            props.onLogin();
-          } else if (newPin.length === saved.length) {
-            setErr(true); setShake(true);
-            setTimeout(function(){setPin('');}, 300);
-            setTimeout(function(){setShake(false);}, 500);
-            setTimeout(function(){setErr(false);}, 2000);
-          }
-        }
-      }
+      setErr('✗ PASSWORD ERRATA');
+      setShake(true);
+      setPwd('');
+      setTimeout(function(){setShake(false);}, 500);
+      setTimeout(function(){setErr('');}, 2500);
     }
+    setLoading(false);
   }
 
-  function delDigit() {
-    if (setup && step === 2) setConfirmPin(confirmPin.slice(0,-1));
-    else setPin(pin.slice(0,-1));
-  }
-
-  function nextStep() {
-    if (pin.length >= 4) { setStep(2); setConfirmPin(''); }
-  }
-
-  var currentPin = (setup && step === 2) ? confirmPin : pin;
-  var savedLen = setup ? (pin.length || 4) : (lsg(K.pwd, PWD_DEFAULT) || '').length;
-
-  var titleText = setup
-    ? (step === 1 ? 'CREA IL TUO PIN' : 'CONFERMA IL PIN')
-    : 'INSERISCI IL PIN';
-  var subtitleText = setup
-    ? (step === 1 ? 'Scegli un PIN da 4 a 6 cifre' : 'Ripeti il PIN per confermare')
-    : '';
+  function onKey(e) { if (e.key === 'Enter') doLogin(); }
 
   return (
     <div style={{ minHeight:'100dvh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:FONT, padding:'20px' }}>
       <div style={{ width:'100%', maxWidth:'300px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.4s ease' }}>
-        <div style={{ textAlign:'center', marginBottom:'32px' }}>
+        <div style={{ textAlign:'center', marginBottom:'36px' }}>
           <div style={{ fontSize:'52px', marginBottom:'10px' }}>📦</div>
           <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'4px', color:YELLOW }}>TURNI MAGAZZINO</div>
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px', marginTop:'4px' }}>{titleText}</div>
-          {subtitleText && <div style={{ fontSize:'9px', color:MID, marginTop:'4px' }}>{subtitleText}</div>}
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px', marginTop:'4px' }}>INSERISCI LA PASSWORD</div>
         </div>
 
-        {/* PIN dots */}
-        <div style={{ display:'flex', justifyContent:'center', gap:'14px', marginBottom:'32px' }}>
-          {[0,1,2,3,4,5].map(function(i) {
-            if (!setup && i >= savedLen) return null;
-            if (setup && step===1 && i >= Math.max(pin.length || 4, i+1) && i >= 4) return null;
-            return (
-              <div key={i} style={{ width:'14px', height:'14px', borderRadius:'50%', border:'2px solid '+(err?RED:YELLOW), background: currentPin.length > i ? (err?RED:YELLOW) : 'transparent', transition:'background 0.15s' }} />
-            );
-          })}
+        <div style={{ position:'relative', marginBottom:'14px' }}>
+          <input
+            type={show ? 'text' : 'password'}
+            value={pwd}
+            onChange={function(e){setPwd(e.target.value); setErr('');}}
+            onKeyDown={onKey}
+            placeholder="Password"
+            autoFocus
+            style={{ width:'100%', background:BG2, border:'2px solid '+(err?RED:BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'18px', padding:'14px 46px 14px 16px', outline:'none', letterSpacing:'2px', boxSizing:'border-box', transition:'border-color 0.2s' }}
+          />
+          <button onClick={function(){setShow(!show);}} style={{ position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', color:DIM, padding:'4px' }}>
+            {show ? '🙈' : '👁️'}
+          </button>
         </div>
 
-        {/* Tastiera numerica */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
-          {[1,2,3,4,5,6,7,8,9].map(function(n) {
-            return (
-              <button key={n} onClick={function(){addDigit(''+n);}} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', cursor:'pointer', transition:'background 0.1s' }}>{n}</button>
-            );
-          })}
-          <div />
-          <button onClick={function(){addDigit('0');}} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', cursor:'pointer' }}>0</button>
-          <button onClick={delDigit} style={{ padding:'18px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'12px', color:MID, fontFamily:FONT, fontSize:'20px', cursor:'pointer' }}>⌫</button>
-        </div>
-
-        {setup && step === 1 && pin.length >= 4 && (
-          <button onClick={nextStep} style={{ width:'100%', marginTop:'16px', padding:'14px', background:'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border:'none', borderRadius:'10px', color:'#000', fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer' }}>AVANTI →</button>
-        )}
+        <button onClick={doLogin} disabled={loading || !pwd} style={{ width:'100%', padding:'14px', background: pwd ? 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')' : BG3, border:'none', borderRadius:'12px', color: pwd ? '#000' : DIM, fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor: pwd ? 'pointer' : 'default', transition:'all 0.2s' }}>
+          {loading ? '...' : 'ENTRA →'}
+        </button>
 
         {err && (
-          <div style={{ textAlign:'center', color:RED, fontSize:'10px', letterSpacing:'2px', marginTop:'16px' }}>
-            {setup ? '✗ I PIN NON COINCIDONO' : '✗ PIN ERRATO'}
-          </div>
+          <div style={{ textAlign:'center', color:RED, fontSize:'10px', letterSpacing:'2px', marginTop:'14px' }}>{err}</div>
         )}
       </div>
     </div>
@@ -332,9 +288,9 @@ function PageTurni(props) {
   var rate = props.rate; var setRate = props.setRate;
 
   var _r = useState(null); var risultato = _r[0]; var setRisultato = _r[1];
-  var _po = useState(''); var puntoOra = _po[0]; var setPuntoOra = _po[1];
-  var _pr = useState(''); var puntoRim = _pr[0]; var setPuntoRim = _pr[1];
-  var _pRes = useState(null); var puntoRes = _pRes[0]; var setPuntoRes = _pRes[1];
+  var puntoOra = props.puntoOra; var setPuntoOra = props.setPuntoOra;
+  var puntoRim = props.puntoRim; var setPuntoRim = props.setPuntoRim;
+  var puntoRes = props.puntoRes; var setPuntoRes = props.setPuntoRes;
   var _ot = useState('18:00'); var oraTarget = _ot[0]; var setOraTarget = _ot[1];
   var _inv = useState(null); var invResult = _inv[0]; var setInvResult = _inv[1];
   var _sv = useState(false); var salvato = _sv[0]; var setSalvato = _sv[1];
@@ -349,6 +305,77 @@ function PageTurni(props) {
     if (res.ok) res.anticipo = calcAnticipo(allT, res.fineEx, r);
     setRisultato(res);
   }, [colli, rate, JSON.stringify(turni), JSON.stringify(stra)]);
+
+  // Ricalcola automaticamente il punto situazione se i campi sono già compilati
+  useEffect(function() {
+    if (!puntoOra || !puntoRim) return;
+    var r = Number(rate); var oraM = tMin(puntoOra); var rim = Number(puntoRim);
+    if (!rim) return;
+    var allT = buildAllT(turni, stra, r);
+    var capRim = 0;
+    allT.forEach(function(t) {
+      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+      var start = Math.max(oraM, tIn);
+      if (start >= tOut) return;
+      var min = tOut - start;
+      if (pIn !== null && pOut > start && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,start);
+      if (min <= 0) return;
+      capRim += Math.round(min / 60 * t.rate * t.persone);
+    });
+    var ok = capRim >= rim;
+    var fineStimata = null;
+    if (ok) {
+      var evS2 = {}; evS2[oraM] = true;
+      allT.forEach(function(t) {
+        if (tMin(t.fine) > oraM) {
+          evS2[Math.max(oraM, tMin(t.inizio))] = true; evS2[tMin(t.fine)] = true;
+          if (t.pIn && t.pOut) { if (tMin(t.pIn)>oraM) evS2[tMin(t.pIn)]=true; if (tMin(t.pOut)>oraM) evS2[tMin(t.pOut)]=true; }
+        }
+      });
+      var sorted = Object.keys(evS2).map(Number).sort(function(a,b){return a-b;});
+      var cum2 = 0;
+      for (var ii = 0; ii < sorted.length-1; ii++) {
+        var f2 = sorted[ii]; var t2 = sorted[ii+1];
+        if (f2 < oraM) continue;
+        var tR2 = 0;
+        allT.forEach(function(t) {
+          var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+          var pIn2 = t.pIn ? tMin(t.pIn) : null; var pOut2 = t.pOut ? tMin(t.pOut) : null;
+          if (f2 >= tIn && t2 <= tOut && !(pIn2 !== null && f2 >= pIn2 && t2 <= pOut2))
+            tR2 += t.persone * t.rate;
+        });
+        if (tR2 === 0) continue;
+        var p2 = tR2 * (t2 - f2) / 60;
+        if (cum2 + p2 >= rim) { fineStimata = mToT(f2 + (rim - cum2) / tR2 * 60); break; }
+        cum2 += p2;
+      }
+    }
+    var anticipo2 = ok && fineStimata ? calcAnticipo(allT, fineStimata, r) : 0;
+    var persRimanenti = [];
+    allT.forEach(function(t) {
+      var tOut = tMin(t.fine);
+      if (tOut > oraM && t.persone > 0) {
+        persRimanenti.push({ nome: t.isStrao ? (t.nome + ' ⚡') : t.nome, persone: t.persone, fine: mToT(tOut) });
+      }
+    });
+    var totPersRim = persRimanenti.reduce(function(acc, x){ return acc + x.persone; }, 0);
+    var confronto = null;
+    if (colli) {
+      var fatti = Math.max(0, Number(colli) - rim);
+      var colliPian = 0;
+      allT.forEach(function(t) {
+        var tIn = tMin(t.inizio); var tOut = Math.min(oraM, tMin(t.fine));
+        if (tIn >= oraM || tOut <= tIn) return;
+        var pIn3 = t.pIn ? tMin(t.pIn) : null; var pOut3 = t.pOut ? tMin(t.pOut) : null;
+        var min = tOut - tIn;
+        if (pIn3 !== null && pOut3 > tIn && pIn3 < tOut) min -= Math.min(pOut3,tOut) - Math.max(pIn3,tIn);
+        if (min > 0) colliPian += t.persone * t.rate * min / 60;
+      });
+      confronto = { fatti:fatti, piano:Math.round(colliPian), delta:fatti-Math.round(colliPian) };
+    }
+    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto, persRimanenti:persRimanenti, totPersRim:totPersRim });
+  }, [puntoOra, puntoRim, colli, rate, JSON.stringify(turni), JSON.stringify(stra)]);
 
   function setP(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{persone:Math.max(0,v)}) : t;});}); }
   function setA(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{assenti:Math.max(0,v)}) : t;});}); }
@@ -420,20 +447,36 @@ function PageTurni(props) {
       }
     }
     var anticipo2 = ok && fineStimata ? calcAnticipo(allT, fineStimata, r) : 0;
+    // Persone rimanenti dopo l'ora inserita
+    var persRimanenti = [];
+    allT.forEach(function(t) {
+      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
+      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
+      // turno ancora attivo dopo oraM
+      if (tOut > oraM && t.persone > 0) {
+        var etichetta = t.isStrao ? (t.nome + ' ⚡') : t.nome;
+        persRimanenti.push({ nome: etichetta, persone: t.persone, fine: mToT(tOut) });
+      }
+    });
+    var totPersRim = persRimanenti.reduce(function(acc, x){ return acc + x.persone; }, 0);
+
     var confronto = null;
     if (colli) {
-      var fatti = Math.max(0, Number(colli) - rim); var colliPian = 0;
+      // colli fatti REALI = totale - rimanenti (inseriti dall'utente)
+      var fatti = Math.max(0, Number(colli) - rim);
+      // colli pianificati fino all'ora = quanto avrebbero dovuto fare i turni fino ad adesso
+      var colliPian = 0;
       allT.forEach(function(t) {
         var tIn = tMin(t.inizio); var tOut = Math.min(oraM, tMin(t.fine));
         if (tIn >= oraM || tOut <= tIn) return;
         var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
         var min = tOut - tIn;
         if (pIn !== null && pOut > tIn && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,tIn);
-        if (min > 0) colliPian += Math.round(min/60*t.rate*t.persone);
+        if (min > 0) colliPian += t.persone * t.rate * min / 60;
       });
       confronto = { fatti:fatti, piano:Math.round(colliPian), delta:fatti-Math.round(colliPian) };
     }
-    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto });
+    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto, persRimanenti:persRimanenti, totPersRim:totPersRim });
   }
 
   function calcolaInverso() {
@@ -637,8 +680,8 @@ function PageTurni(props) {
         <div style={{ marginTop:'16px', borderTop:'1px solid '+BORDER, paddingTop:'14px' }}>
           <Lbl color={GREEN}>📍 PUNTO SITUAZIONE</Lbl>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
-            <div><Lbl>ORA ATTUALE</Lbl><input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);setPuntoRes(null);}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
-            <div><Lbl>COLLI RIMANENTI</Lbl><input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);setPuntoRes(null);}} placeholder="es. 5000" style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+            <div><Lbl>ORA ATTUALE</Lbl><input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+            <div><Lbl>COLLI RIMANENTI</Lbl><input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);}} placeholder="es. 5000" style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
           </div>
           <button onClick={calcolaPunto} style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.1)', border:'2px solid '+GREEN, borderRadius:'10px', color:GREEN, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>📍 CALCOLA</button>
           {puntoRes && (
@@ -654,12 +697,31 @@ function PageTurni(props) {
               </div>
               {puntoRes.confronto && (
                 <Panel style={{ marginBottom:'8px' }}>
-                  <Lbl>CONFRONTO</Lbl>
+                  <Lbl>CONFRONTO COLLI</Lbl>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
                     <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>FATTI</div><div style={{ fontSize:'16px', fontWeight:'bold', color:TEXT }}>{puntoRes.confronto.fatti.toLocaleString('it-IT')}</div></div>
                     <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>PIANO</div><div style={{ fontSize:'16px', fontWeight:'bold', color:BLUE }}>{puntoRes.confronto.piano.toLocaleString('it-IT')}</div></div>
                     <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>DELTA</div><div style={{ fontSize:'16px', fontWeight:'bold', color: puntoRes.confronto.delta>=0?GREEN:RED }}>{puntoRes.confronto.delta>=0?'+':''}{puntoRes.confronto.delta.toLocaleString('it-IT')}</div></div>
                   </div>
+                </Panel>
+              )}
+              {puntoRes.persRimanenti && puntoRes.persRimanenti.length > 0 && (
+                <Panel style={{ marginBottom:'8px', border:'1px solid '+BLUE }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                    <Lbl color={BLUE}>👥 PERSONE RIMANENTI</Lbl>
+                    <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{puntoRes.totPersRim}</div>
+                  </div>
+                  {puntoRes.persRimanenti.map(function(p, i) {
+                    return (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'7px', padding:'6px 10px', marginBottom:'4px' }}>
+                        <div>
+                          <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{p.nome}</div>
+                          <div style={{ fontSize:'8px', color:DIM, marginTop:'1px' }}>fino alle {p.fine}</div>
+                        </div>
+                        <div style={{ fontSize:'20px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
+                      </div>
+                    );
+                  })}
                 </Panel>
               )}
             </div>
@@ -919,12 +981,14 @@ function PageSettings(props) {
     });});
   }
 
-  function cambiaPwd() {
-    var cur = lsg(K.pwd, PWD_DEFAULT); // PIN
-    if (oldP !== cur) { setMsg({ok:false,t:'Password attuale errata'}); return; }
+  async function cambiaPwd() {
+    var curHash = lsg(K.pwd, PWD_DEFAULT_HASH);
+    var oldHash = await sha256(oldP);
+    if (oldHash !== curHash) { setMsg({ok:false,t:'Password attuale errata'}); return; }
     if (newP.length < 4) { setMsg({ok:false,t:'Minimo 4 caratteri'}); return; }
     if (newP !== conf) { setMsg({ok:false,t:'Le password non coincidono'}); return; }
-    lss(K.pwd, newP); setMsg({ok:true,t:'✅ Password cambiata!'}); setOldP(''); setNewP(''); setConf('');
+    var newHash = await sha256(newP);
+    lss(K.pwd, newHash); setMsg({ok:true,t:'✅ Password cambiata!'}); setOldP(''); setNewP(''); setConf('');
     setTimeout(function(){setMsg(null);}, 2500);
   }
 
@@ -1010,19 +1074,19 @@ function PageSettings(props) {
 
         {tab === 'pwd' && (
           <Panel>
-            <Lbl color={PURPLE}>🔐 CAMBIA PIN</Lbl>
-            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.6 }}>Il PIN attuale è richiesto per confermarne uno nuovo. Minimo 4 cifre, massimo 6.</div>
-            {[['PIN ATTUALE',oldP,setOldP,'tel'],['NUOVO PIN',newP,setNewP,'tel'],['CONFERMA PIN',conf,setConf,'tel']].map(function(item) {
+            <Lbl color={PURPLE}>🔐 CAMBIA PASSWORD</Lbl>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.6 }}>La password attuale è richiesta per confermarne una nuova. Minimo 4 caratteri.</div>
+            {[['PASSWORD ATTUALE',oldP,setOldP],['NUOVA PASSWORD',newP,setNewP],['CONFERMA PASSWORD',conf,setConf]].map(function(item) {
               return (
                 <div key={item[0]} style={{ marginBottom:'8px' }}>
                   <div style={{ fontSize:'8px', color:DIM, marginBottom:'3px', letterSpacing:'1px' }}>{item[0]}</div>
-                  <input type="password" inputMode="numeric" pattern="[0-9]*" value={item[1]} onChange={function(e){item[2](e.target.value.replace(/[^0-9]/g,'').slice(0,6));}}
-                    style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'20px', padding:'10px', outline:'none', letterSpacing:'8px', textAlign:'center' }} />
+                  <input type="password" value={item[1]} onChange={function(e){item[2](e.target.value);}}
+                    style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'16px', padding:'10px 12px', outline:'none' }} />
                 </div>
               );
             })}
             {msg && <div style={{ fontSize:'10px', color:msg.ok?GREEN:RED, textAlign:'center', marginBottom:'8px' }}>{msg.t}</div>}
-            <button onClick={cambiaPwd} style={{ width:'100%', padding:'12px', background:'rgba(167,139,250,0.1)', border:'1px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>SALVA NUOVO PIN</button>
+            <button onClick={cambiaPwd} style={{ width:'100%', padding:'12px', background:'rgba(167,139,250,0.1)', border:'1px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>SALVA NUOVA PASSWORD</button>
             <button onClick={onLogout} style={{ width:'100%', padding:'12px', background:'rgba(245,158,11,0.1)', border:'1px solid '+YELLOW, borderRadius:'8px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>🚪 ESCI</button>
             <button onClick={function(){if(window.confirm('Cancellare tutti i dati?')){[K.turni,K.stra,K.colli,K.rate,K.storico].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});window.location.reload();}}} style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'8px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>🗑 CANCELLA TUTTI I DATI</button>
           </Panel>
@@ -1060,6 +1124,9 @@ function App() {
   var _stra = useState(function(){return lsg(K.stra, DEF_STRA);}); var stra = _stra[0]; var setStraRaw = _stra[1];
   var _colli = useState(function(){return lsg(K.colli, '');}); var colli = _colli[0]; var setColliRaw = _colli[1];
   var _rate = useState(function(){return lsg(K.rate, 90);}); var rate = _rate[0]; var setRateRaw = _rate[1];
+  var _puntoOra = useState(''); var puntoOra = _puntoOra[0]; var setPuntoOra = _puntoOra[1];
+  var _puntoRim = useState(''); var puntoRim = _puntoRim[0]; var setPuntoRim = _puntoRim[1];
+  var _puntoRes = useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
 
   function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
   function setStra(v) { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
@@ -1078,7 +1145,7 @@ function App() {
 
   function logout() { try { sessionStorage.removeItem(K.auth); } catch(e) {} window.location.reload(); }
 
-  var pageProps = { turni:turni, setTurni:setTurni, stra:stra, setStra:setStra, colli:colli, setColli:setColli, rate:rate, setRate:setRate };
+  var pageProps = { turni:turni, setTurni:setTurni, stra:stra, setStra:setStra, colli:colli, setColli:setColli, rate:rate, setRate:setRate, puntoOra:puntoOra, setPuntoOra:setPuntoOra, puntoRim:puntoRim, setPuntoRim:setPuntoRim, puntoRes:puntoRes, setPuntoRes:setPuntoRes };
 
   return (
     <div style={{ height:'100vh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
