@@ -74,6 +74,7 @@ function lss(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e
 function tMin(t) { if (!t || t.indexOf(':') < 0) return 0; var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
 function mToT(m) { var h = Math.floor(m/60); var mn = Math.round(m % 60); if (mn === 60) { h++; mn = 0; } return (h < 10 ? '0'+h : ''+h) + ':' + (mn < 10 ? '0'+mn : ''+mn); }
 function oggi() { var d = new Date(); return (d.getDate()<10?'0':'')+d.getDate()+'/'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'/'+d.getFullYear(); }
+function fmt(n) { return Math.round(n).toLocaleString('it-IT'); }
 function tColor(nome) { if (/mattina/i.test(nome)) return YELLOW; if (/pomeriggio/i.test(nome)) return PURPLE; return BLUE; }
 function newId() { return Date.now() + Math.floor(Math.random()*999); }
 
@@ -275,7 +276,6 @@ function Nav(props) {
     { id:'input', icon:'✏️', label:'INPUT' },
     { id:'turni', icon:'📊', label:'TURNI' },
     { id:'dettaglio', icon:'📋', label:'DETTAGLIO' },
-    { id:'riepilogo', icon:'📦', label:'RIEPILOGO' },
     { id:'settings', icon:'⚙️', label:'CONFIG' },
   ];
   return (
@@ -438,9 +438,77 @@ function PageInput(props) {
 
         {/* BOTTONE CONFERMA */}
         <button onClick={conferma}
-          style={{ width:'100%', padding:'16px', background: confermato ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border: confermato ? '2px solid '+GREEN : 'none', borderRadius:'14px', color: confermato ? GREEN : '#000', fontFamily:FONT, fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', transition:'all 0.3s' }}>
+          style={{ width:'100%', padding:'16px', background: confermato ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border: confermato ? '2px solid '+GREEN : 'none', borderRadius:'14px', color: confermato ? GREEN : '#000', fontFamily:FONT, fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', transition:'all 0.3s', marginBottom:'20px' }}>
           {confermato ? '✅ APPLICATO!' : '✅ APPLICA E VAI AI TURNI'}
         </button>
+
+        {/* RIEPILOGO STORICO */}
+        {(function() {
+          var r2 = Number(props.rate);
+          var righe = [];
+          props.turni.forEach(function(t) {
+            var pers = persone[t.id] || 0;
+            if (!pers) return;
+            var tIn2 = tMin(t.inizio); var tOut2 = tMin(t.fine);
+            var pIn2 = t.pIn ? tMin(t.pIn) : null; var pOut2 = t.pOut ? tMin(t.pOut) : null;
+            var min2 = tOut2 - tIn2;
+            if (pIn2 && pOut2) min2 -= (pOut2 - pIn2);
+            righe.push({ nome:t.nome, pers:pers, colli:Math.round(pers*r2*min2/60), color:tColor(t.nome) });
+          });
+          var totale = righe.reduce(function(s,x){return s+x.colli;},0);
+          var storico = lsg(K.storico, []).slice(0, 7);
+          return (
+            <div>
+              {righe.length > 0 && (
+                <Panel style={{ marginBottom:'12px', border:'1px solid '+YELLOW }}>
+                  <Lbl color={YELLOW}>📦 COLLI PREVISTI / TURNO</Lbl>
+                  {righe.map(function(x, i) {
+                    return (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
+                        <div style={{ fontSize:'10px', color:x.color, fontWeight:'bold' }}>{x.nome}</div>
+                        <div style={{ display:'flex', gap:'12px', alignItems:'center' }}>
+                          <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
+                          <div style={{ fontSize:'14px', fontWeight:'bold', color:GREEN, minWidth:'70px', textAlign:'right' }}>{fmt(x.colli)}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:'10px' }}>
+                    <div style={{ fontSize:'10px', fontWeight:'bold', color:TEXT, letterSpacing:'2px' }}>TOTALE</div>
+                    <div style={{ fontSize:'18px', fontWeight:'bold', color:YELLOW }}>{totale.toLocaleString('it-IT')}</div>
+                  </div>
+                  {Number(colliInput) > 0 && (
+                    <div style={{ marginTop:'8px', paddingTop:'8px', borderTop:'1px solid '+BORDER, display:'flex', justifyContent:'space-between' }}>
+                      <div style={{ fontSize:'9px', color:DIM }}>vs obiettivo</div>
+                      <div style={{ fontSize:'11px', fontWeight:'bold', color: totale>=Number(colliInput)?GREEN:RED }}>
+                        {totale>=Number(colliInput) ? '✅ OK +' + (totale-Number(colliInput)) : '⚠️ mancano '+fmt(Number(colliInput)-totale)}
+                      </div>
+                    </div>
+                  )}
+                </Panel>
+              )}
+              {storico.length > 0 && (
+                <Panel>
+                  <Lbl color={PURPLE}>📋 ULTIME 7 GIORNATE</Lbl>
+                  {storico.map(function(e, i) {
+                    return (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
+                        <div>
+                          <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{e.data}</div>
+                          <div style={{ fontSize:'9px', color:DIM }}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
+                        </div>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontSize:'14px', fontWeight:'bold', color: e.ok ? GREEN : RED }}>{e.chiusura||'—'}</div>
+                          {e.anticipo > 0 && <div style={{ fontSize:'9px', color:GREEN }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Panel>
+              )}
+            </div>
+          );
+        })()}
 
       </div>
     </div>
@@ -1060,7 +1128,7 @@ function PageRiepilogo(props) {
                   </div>
                   <div style={{ display:'flex', gap:'14px', alignItems:'center' }}>
                     <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
-                    <div style={{ fontSize:'14px', fontWeight:'bold', color: x.isStrao ? ORANGE : GREEN, minWidth:'75px', textAlign:'right' }}>{x.colli.toLocaleString('it-IT')}</div>
+                    <div style={{ fontSize:'14px', fontWeight:'bold', color: x.isStrao ? ORANGE : GREEN, minWidth:'75px', textAlign:'right' }}>{fmt(x.colli)}</div>
                   </div>
                 </div>
               );
@@ -1321,7 +1389,6 @@ function App() {
         {page === 'input' && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni' && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
-        {page === 'riepilogo' && <PageRiepilogo {...pageProps} />}
         {page === 'settings' && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
       </div>
       <Nav page={page} setPage={setPage} />
