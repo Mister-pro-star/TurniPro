@@ -867,7 +867,7 @@ function PageTurni(props) {
     var persRimanenti = [];
     allT.forEach(function(t) {
       if (tMin(t.fine) > oraM && t.persone > 0)
-        persRimanenti.push({ nome: t.isStrao ? t.nome+' ⚡' : t.nome, persone: t.persone, fine: mToT(tMin(t.fine)) });
+        persRimanenti.push({ nome: t.isStrao ? t.nome : t.nome, persone: t.persone, fine: mToT(tMin(t.fine)), isStrao: !!t.isStrao });
     });
     var totPersRim = persRimanenti.reduce(function(acc,x){ return acc+x.persone; }, 0);
     var confronto = null;
@@ -1110,6 +1110,76 @@ function PageTurni(props) {
             </div>
           </div>
         )}
+
+        {/* PUNTO SITUAZIONE CON STRAORDINARI */}
+        <div style={{ marginTop:'14px', background:BG2, border:'1px solid rgba(16,185,129,0.3)', borderRadius:'14px', padding:'14px' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+            <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+            <span style={{ fontSize:'8px', color:ORANGE, background:'rgba(249,115,22,0.1)', border:'1px solid rgba(249,115,22,0.35)', borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px' }}>⚡ con straordinari</span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+            <div>
+              <Lbl>ORA ATTUALE</Lbl>
+              <input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);}}
+                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoOra?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
+            </div>
+            <div>
+              <Lbl>COLLI RIMANENTI</Lbl>
+              <input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);}} placeholder="es. 5000"
+                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoRim?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
+            </div>
+          </div>
+          {!puntoOra && !puntoRim && (
+            <div style={{ textAlign:'center', color:DIM, fontSize:'8px', letterSpacing:'1px', padding:'4px 0' }}>
+              Inserisci ora e colli rimanenti → risultato automatico
+            </div>
+          )}
+          {puntoRes && (
+            <div className="fadeup">
+              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'13px', padding:'16px', marginBottom:'8px', textAlign:'center' }}>
+                <div style={{ fontSize:'8px', letterSpacing:'2px', color: puntoRes.ok ? '#6ee7b7' : '#fca5a5', marginBottom:'8px' }}>
+                  {puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}
+                </div>
+                {puntoRes.ok
+                  ? <div>
+                      <div style={{ fontSize:'40px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{puntoRes.fine||'—'}</div>
+                      {puntoRes.anticipo>0 && <div style={{ fontSize:'10px', color:'#6ee7b7', marginTop:'4px' }}>⚡ +{puntoRes.anticipo.toLocaleString('it-IT')} extra</div>}
+                    </div>
+                  : <div style={{ fontSize:'24px', fontWeight:'bold', color:RED }}>{puntoRes.manca.toLocaleString('it-IT')} mancanti</div>
+                }
+              </div>
+              {puntoRes.confronto && (
+                <Panel style={{ marginBottom:'8px' }}>
+                  <Lbl>CONFRONTO COLLI</Lbl>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
+                    {[['FATTI',puntoRes.confronto.fatti,TEXT],['PIANO',puntoRes.confronto.piano,BLUE],['DELTA',puntoRes.confronto.delta,puntoRes.confronto.delta>=0?GREEN:RED]].map(function(x){
+                      return <div key={x[0]}><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div><div style={{ fontSize:'17px', fontWeight:'bold', color:x[2] }}>{x[0]==='DELTA'?(x[1]>=0?'+':'')+x[1].toLocaleString('it-IT'):x[1].toLocaleString('it-IT')}</div></div>;
+                    })}
+                  </div>
+                </Panel>
+              )}
+              {puntoRes.persRimanenti && puntoRes.persRimanenti.length > 0 && (
+                <Panel style={{ border:'1px solid rgba(56,189,248,0.3)' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                    <div style={{ fontSize:'8px', color:BLUE, letterSpacing:'2px', fontWeight:'bold' }}>👥 ANCORA IN TURNO</div>
+                    <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{puntoRes.totPersRim}</div>
+                  </div>
+                  {puntoRes.persRimanenti.map(function(p, i) {
+                    return (
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'8px', padding:'7px 11px', marginBottom:'4px' }}>
+                        <div>
+                          <div style={{ fontSize:'10px', color: p.isStrao ? ORANGE : TEXT, fontWeight:'bold' }}>{p.nome}</div>
+                          <div style={{ fontSize:'8px', color:DIM, marginTop:'1px' }}>fino alle {p.fine}</div>
+                        </div>
+                        <div style={{ fontSize:'22px', fontWeight:'bold', color: p.isStrao ? ORANGE : BLUE }}>{p.persone}</div>
+                      </div>
+                    );
+                  })}
+                </Panel>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* OBIETTIVO INVERSO */}
         <div style={{ marginTop:'12px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
