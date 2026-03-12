@@ -97,7 +97,7 @@ function buildAllT(turni, stra, rate) {
     if (!t) return;
     (sp.righe || []).forEach(function(r) {
       if (r.inizio && r.fine && Number(r.persone) > 0) {
-        all.push({ id: t.id, nome: t.nome + ' (strao)', inizio: r.inizio, fine: r.fine,
+        all.push({ id: t.id, nome: t.nome + ' (rinforzo)', inizio: r.inizio, fine: r.fine,
                    pIn: '', pOut: '', persone: Number(r.persone), rate: Number(rate), isStrao: true });
       }
     });
@@ -879,7 +879,7 @@ function PageTurni(props) {
     var lines = ['📦 TURNI MAGAZZINO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
     turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
     var hasS=false;
-    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','STRAORDINARI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
+    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','RINFORZI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
     if (risultato) {
       lines.push('','RISULTATO','────────────────────────────');
       if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')); }
@@ -906,7 +906,7 @@ function PageTurni(props) {
     stra.forEach(function(sp){
       var t = turni.find(function(x){return x.id===sp.id;});
       (sp.righe||[]).forEach(function(rr){
-        if(rr.inizio&&rr.fine&&Number(rr.persone)>0) straV.push({id:sp.id,nome:(t?t.nome:'')+'(strao)',inizio:rr.inizio,fine:rr.fine,pIn:'',pOut:'',persone:Number(rr.persone),rate:r,isStrao:true});
+        if(rr.inizio&&rr.fine&&Number(rr.persone)>0) straV.push({id:sp.id,nome:(t?t.nome:'')+'(rinforzo)',inizio:rr.inizio,fine:rr.fine,pIn:'',pOut:'',persone:Number(rr.persone),rate:r,isStrao:true});
       });
     });
     var mat = turniEff.find(function(t){return /mattina/i.test(t.nome);});
@@ -938,8 +938,8 @@ function PageTurni(props) {
       for (var sm=0;sm<=maxM;sm++) {
         if (pm===0&&sm===0) continue;
         var st = [];
-        if(sm>0) st.push({nome:'Strao Mat',inizio:'12:20',fine:'13:20',pIn:'',pOut:'',persone:sm,rate:r,isStrao:true});
-        if(pm>0) st.push({nome:'Strao Pom',inizio:'12:00',fine:'13:00',pIn:'',pOut:'',persone:pm,rate:r,isStrao:true});
+        if(sm>0) st.push({nome:'Rinforzo Mat',inizio:'12:20',fine:'13:20',pIn:'',pOut:'',persone:sm,rate:r,isStrao:true});
+        if(pm>0) st.push({nome:'Rinforzo Pom',inizio:'12:00',fine:'13:00',pIn:'',pOut:'',persone:pm,rate:r,isStrao:true});
         var fm2 = calcF(turniEff.concat(straV).concat(st));
         if (fm2 && Math.abs(fm2-target) <= TOL) { setInvResult({tipo:'strao',fineAtt:fineAttStr,fineNuova:mToT(Math.round(fm2)),strao:st}); return; }
       }
@@ -968,7 +968,7 @@ function PageTurni(props) {
       <div style={{ padding:'10px 14px 0' }}>
         <button onClick={resetGiornata}
           style={{ width:'100%', padding:'11px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'11px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', transition:'all 0.2s' }}>
-          ↺ AZZERA PERSONE + STRAORDINARI
+          ↺ AZZERA PERSONE + RINFORZI
         </button>
       </div>
 
@@ -1037,7 +1037,7 @@ function PageTurni(props) {
                 return (
                   <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'10px', marginTop:'6px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'7px' }}>
-                      <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ STRAORDINARIO{sp.righe.length>1?' '+(ri+1):''}</div>
+                      <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ RINFORZO{sp.righe.length>1?' '+(ri+1):''}</div>
                       <button onClick={function(){delStraRiga(t.id,ri);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'1px 6px', lineHeight:1.4 }}>×</button>
                     </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 70px', gap:'7px' }}>
@@ -1054,7 +1054,7 @@ function PageTurni(props) {
               })}
               <button onClick={function(){addStraRiga(t.id);}}
                 style={{ width:'100%', marginTop:'10px', padding:'8px', background:'rgba(249,115,22,0.05)', border:'1px dashed rgba(249,115,22,0.5)', borderRadius:'9px', color:ORANGE, fontFamily:FONT, fontSize:'8px', letterSpacing:'2px', cursor:'pointer' }}>
-                + AGGIUNGI STRAORDINARIO
+                + AGGIUNGI RINFORZO
               </button>
             </Panel>
           );
@@ -1170,7 +1170,7 @@ function PageTurni(props) {
               )}
               {invResult.tipo==='strao' && (
                 <Panel style={{ border:'2px solid '+ORANGE, marginBottom:'8px' }}>
-                  <Lbl color={ORANGE}>⚡ STRAORDINARIO NECESSARIO</Lbl>
+                  <Lbl color={ORANGE}>⚡ RINFORZO NECESSARIO</Lbl>
                   {invResult.strao.map(function(s,i){
                     return (
                       <div key={i} style={{ display:'flex', gap:'12px', alignItems:'center', marginBottom:'8px', background:BG3, borderRadius:'9px', padding:'9px 12px' }}>
@@ -1239,7 +1239,7 @@ function PageDettaglio(props) {
             )}
             <SectionHeader color={MID}>FASCE ORARIE</SectionHeader>
             {rows.map(function(r, i) {
-              var isS = r.isStrao || (r.nome && r.nome.indexOf('strao') >= 0);
+              var isS = r.isStrao || (r.nome && r.nome.indexOf('rinforzo') >= 0);
               var bord = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : BORDER;
               var bg = r.highlight ? 'rgba(16,185,129,0.08)' : isS ? 'rgba(249,115,22,0.07)' : r.anticipo ? 'rgba(167,139,250,0.06)' : r.pausa ? 'rgba(30,34,53,0.5)' : BG2;
               var tc = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : r.pausa ? DIM : TEXT;
@@ -1394,7 +1394,7 @@ function PageSettings(props) {
                     return (
                       <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'9px', marginTop:'6px' }}>
                         <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'6px' }}>
-                          <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ STRAO DEFAULT {ri+1}</div>
+                          <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ RINFORZO DEFAULT {ri+1}</div>
                           <button onClick={function(){delStraDefault(t.id,ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'14px' }}>×</button>
                         </div>
                         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px' }}>
@@ -1406,7 +1406,7 @@ function PageSettings(props) {
                   })}
                   <button onClick={function(){addStraDefault(t.id);}}
                     style={{ width:'100%', marginTop:'9px', padding:'8px', background:'rgba(249,115,22,0.05)', border:'1px dashed rgba(249,115,22,0.4)', borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'8px', letterSpacing:'2px', cursor:'pointer' }}>
-                    + AGGIUNGI RIGA STRAORDINARIO
+                    + AGGIUNGI RIGA RINFORZO
                   </button>
                 </Panel>
               );
@@ -1476,7 +1476,7 @@ function PageSettings(props) {
 
 // ── APP ──
 function App() {
-  var _page = useState('turni'); var page = _page[0]; var setPage = _page[1];
+  var _page = useState('input'); var page = _page[0]; var setPage = _page[1];
   var _turni = useState(function(){return lsg(K.turni, DEF_TURNI);}); var turni = _turni[0]; var setTurniRaw = _turni[1];
   var _stra = useState(function(){return lsg(K.stra, DEF_STRA);}); var stra = _stra[0]; var setStraRaw = _stra[1];
   var _colli = useState(function(){return lsg(K.colli, '');}); var colli = _colli[0]; var setColliRaw = _colli[1];
