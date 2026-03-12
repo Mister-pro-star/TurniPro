@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Turni Magazzino</title>
+  <title>Turni Magazzino v5.1</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -299,7 +299,7 @@ function Login(props) {
           <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
           <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNI MAGAZZINO</div>
           <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>ACCESSO RICHIESTO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v5.1 · ACCESSO RICHIESTO</div>
         </div>
         <div style={{ position:'relative', marginBottom:'14px' }}>
           <input type={show ? 'text' : 'password'} value={pwd}
@@ -323,6 +323,8 @@ function Login(props) {
 
 // ── BOTTOM NAV ──
 function Nav(props) {
+  var fbStatus = props.fbStatus || 'off';
+  var dotColor = fbStatus==='ok'?GREEN : fbStatus==='connecting'?YELLOW : fbStatus==='err'?RED : DIM;
   var tabs = [
     { id:'input',     icon:'✏️', label:'TURNI'    },
     { id:'turni',     icon:'⚡', label:'STRAORD.'  },
@@ -335,7 +337,7 @@ function Nav(props) {
         var active = props.page === t.id;
         return (
           <button key={t.id} onClick={function(){props.setPage(t.id);}}
-            style={{ flex:1, background:'transparent', border:'none', padding:'10px 4px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', transition:'background 0.2s', WebkitTapHighlightColor:'transparent' }}>
+            style={{ flex:1, background:'transparent', border:'none', padding:'10px 4px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', transition:'background 0.2s', WebkitTapHighlightColor:'transparent', position:'relative' }}>
             <div style={{
               width:'44px', height:'30px', borderRadius:'15px',
               background: active ? 'rgba(245,158,11,0.18)' : 'transparent',
@@ -346,6 +348,10 @@ function Nav(props) {
               <span style={{ fontSize:'18px', lineHeight:1, filter: active ? 'drop-shadow(0 0 5px rgba(245,158,11,0.6))' : 'grayscale(0.3) opacity(0.7)', transition:'filter 0.2s' }}>{t.icon}</span>
             </div>
             <div style={{ fontSize:'9px', letterSpacing:'0.5px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
+            {/* Dot Firebase status nel tab settings */}
+            {t.id === 'settings' && fbStatus !== 'off' && (
+              <div style={{ position:'absolute', top:'8px', right:'10px', width:'7px', height:'7px', borderRadius:'50%', background:dotColor, boxShadow: fbStatus==='ok'?'0 0 5px '+dotColor:'none', transition:'background 0.4s' }} />
+            )}
           </button>
         );
       })}
@@ -447,12 +453,12 @@ function PageInput(props) {
 
   var totaleColli = props.turni.reduce(function(s, t) { return s + colliPerTurno(t); }, 0);
 
-  // ── PUNTO SITUAZIONE — ricalcolo automatico ──
+  // ── PUNTO SITUAZIONE — ricalcolo automatico (solo turni base, senza straordinari) ──
   useEffect(function() {
     if (!puntoOra || !puntoRim) { setPuntoRes(null); return; }
     var oraM = tMin(puntoOra); var rim = Number(puntoRim);
     if (!rim) { setPuntoRes(null); return; }
-    var allT = buildAllT(props.turni, props.stra||[], r2);
+    var allT = buildAllT(props.turni, [], r2); // senza straordinari — quelli si vedono nella pagina STRAORD.
     var capRim = 0;
     allT.forEach(function(t) {
       var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
@@ -655,7 +661,10 @@ function PageInput(props) {
             PUNTO SITUAZIONE
             ══════════════════════════════════════════════ */}
         <div style={{ background:BG2, border:'1px solid rgba(16,185,129,0.3)', borderRadius:'14px', padding:'14px', marginBottom:'14px' }}>
-          <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+            <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+            <span style={{ fontSize:'8px', color:DIM, background:BG3, border:'1px solid '+BORDER2, borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px' }}>solo turni base</span>
+          </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
             <div>
@@ -871,7 +880,8 @@ function PageTurni(props) {
   function addStraRiga(tid) { setStra(function(prev){return prev.map(function(sp){ if(sp.id!==tid)return sp; return Object.assign({},sp,{righe:sp.righe.concat([{inizio:'',fine:'',persone:0}])}); });}); }
   function delStraRiga(tid,ri) { setStra(function(prev){return prev.map(function(sp){ if(sp.id!==tid)return sp; return Object.assign({},sp,{righe:sp.righe.filter(function(_,i){return i!==ri;})}); });}); }
   function resetGiornata() {
-    setTurni(function(prev){return prev.map(function(t){return Object.assign({},t,{persone:0,assenti:0});});});
+    // azzera solo assenti e persone rinforzi — le persone dei turni rimangono
+    setTurni(function(prev){return prev.map(function(t){return Object.assign({},t,{assenti:0});});});
     setStra(function(prev){return prev.map(function(sp){return Object.assign({},sp,{righe:(sp.righe||[]).map(function(r){return Object.assign({},r,{persone:0});})});});});
   }
 
@@ -976,7 +986,7 @@ function PageTurni(props) {
       <div style={{ padding:'10px 14px 0' }}>
         <button onClick={resetGiornata}
           style={{ width:'100%', padding:'11px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'11px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', transition:'all 0.2s' }}>
-          ↺ AZZERA PERSONE + RINFORZI
+          ↺ AZZERA ASSENTI + RINFORZI
         </button>
       </div>
 
@@ -1048,14 +1058,13 @@ function PageTurni(props) {
                       <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ RINFORZO{sp.righe.length>1?' '+(ri+1):''}</div>
                       <button onClick={function(){delStraRiga(t.id,ri);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'1px 6px', lineHeight:1.4 }}>×</button>
                     </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 70px', gap:'7px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px', marginBottom:'4px' }}>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>DALLE</div><TimeInput value={rr.inizio} onChange={function(v){setStraRiga(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>ALLE</div><TimeInput value={rr.fine} onChange={function(v){setStraRiga(t.id,ri,'fine',v);}} color={ORANGE} /></div>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>PERS.</div>
-                        <input type="number" value={rr.persone===0?'':rr.persone} placeholder="0"
-                          onChange={function(e){setStraRiga(t.id,ri,'persone',e.target.value===''?0:Math.max(0,Number(e.target.value)));}}
-                          style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN2, fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'5px 4px', outline:'none', textAlign:'center' }} />
-                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:'7px', color:DIM, marginBottom:'5px', letterSpacing:'1px' }}>PERSONE</div>
+                      <NumInput value={rr.persone||0} onChange={function(v){setStraRiga(t.id,ri,'persone',v);}} color={GREEN2} />
                     </div>
                   </div>
                 );
@@ -1090,7 +1099,10 @@ function PageTurni(props) {
 
         {/* PUNTO SITUAZIONE */}
         <div style={{ marginTop:'20px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
-          <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+            <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+            <span style={{ fontSize:'8px', color:ORANGE, background:'rgba(249,115,22,0.1)', border:'1px solid rgba(249,115,22,0.35)', borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px' }}>⚡ incl. rinforzi</span>
+          </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
             <div>
               <Lbl>ORA ATTUALE</Lbl>
@@ -1289,6 +1301,7 @@ function PageSettings(props) {
   var turni = props.turni; var setTurni = props.setTurni;
   var stra = props.stra; var setStra = props.setStra;
   var onLogout = props.onLogout;
+  var fbStatus = props.fbStatus || 'off';
 
   var _tab = useState('turni'); var tab = _tab[0]; var setTab = _tab[1];
   var _op = useState(''); var oldP = _op[0]; var setOldP = _op[1];
@@ -1455,31 +1468,76 @@ function PageSettings(props) {
         )}
 
         {tab === 'sync' && (
-          <Panel style={{ border:'1px solid rgba(56,189,248,0.3)' }}>
-            <SectionHeader color={BLUE} icon="☁️">SINCRONIZZAZIONE FIREBASE</SectionHeader>
-            <div style={{ fontSize:'9px', color:DIM, marginBottom:'12px', lineHeight:1.8, background:BG3, borderRadius:'9px', padding:'10px 12px' }}>
-              1. Vai su <b style={{ color:BLUE }}>firebase.google.com</b><br />
-              2. Crea progetto → Realtime Database<br />
-              3. Copia l'URL del database<br />
-              4. Regole: {'{'}".read":true,".write":true{'}'}
+          <div>
+            {/* STATUS CONNESSIONE */}
+            {(function(){
+              var fbStatus = props.fbStatus || 'off';
+              var cfg = [ ['off','☁️','FIREBASE NON CONFIGURATO',DIM,BG3,BORDER],['connecting','⟳','CONNESSIONE IN CORSO…',YELLOW,'rgba(245,158,11,0.07)','rgba(245,158,11,0.3)'],['ok','●','CONNESSO — SYNC ATTIVO',GREEN,'rgba(16,185,129,0.07)','rgba(16,185,129,0.3)'],['err','✕','ERRORE DI CONNESSIONE',RED,'rgba(239,68,68,0.07)','rgba(239,68,68,0.3)'] ];
+              var c = cfg.find(function(x){return x[0]===fbStatus;})||cfg[0];
+              return (
+                <div style={{ background:c[4], border:'1px solid '+c[5], borderRadius:'12px', padding:'12px 16px', marginBottom:'14px', display:'flex', alignItems:'center', gap:'10px' }}>
+                  <div style={{ fontSize:'18px', color:c[3], animation: fbStatus==='connecting'?'pulse 1s infinite':'' }}>{c[1]}</div>
+                  <div>
+                    <div style={{ fontSize:'9px', fontWeight:'bold', color:c[3], letterSpacing:'2px' }}>{c[2]}</div>
+                    {fbStatus==='ok' && <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>Aggiornamento automatico ogni 8 secondi</div>}
+                    {fbStatus==='err' && <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>Controlla l'URL e le regole Firebase</div>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <Panel style={{ border:'1px solid rgba(56,189,248,0.3)', marginBottom:'12px' }}>
+              <SectionHeader color={BLUE} icon="☁️">CONFIGURAZIONE FIREBASE</SectionHeader>
+              <div style={{ fontSize:'9px', color:DIM, marginBottom:'12px', lineHeight:1.9, background:BG3, borderRadius:'9px', padding:'10px 12px' }}>
+                <b style={{ color:BLUE }}>Come ottenere l'URL:</b><br/>
+                1. Vai su <b style={{ color:TEXT }}>firebase.google.com</b> → Console<br/>
+                2. Crea progetto → <b style={{ color:TEXT }}>Realtime Database</b><br/>
+                3. Clicca <b style={{ color:TEXT }}>"Crea database"</b> → Modalità test<br/>
+                4. Copia l'URL (es. <i>https://mio-progetto-rtdb.firebaseio.com</i>)<br/>
+                5. Regole → imposta <b style={{ color:YELLOW }}>".read":true, ".write":true</b>
+              </div>
+              <Lbl>URL DATABASE FIREBASE</Lbl>
+              <input value={fbUrl} onChange={function(e){setFbUrl(e.target.value);}} placeholder="https://tuo-progetto-rtdb.firebaseio.com"
+                style={{ width:'100%', background:BG3, border:'1px solid '+(fbUrl?'rgba(56,189,248,0.5)':BORDER2), borderRadius:'9px', color:BLUE, fontFamily:FONT, fontSize:'10px', padding:'11px', outline:'none', marginBottom:'10px', transition:'border-color 0.2s' }} />
+              <button onClick={function(){
+                  lss(K.fb,{url:fbUrl});
+                  lss(K.fb+'_ts',0);
+                  setSyncMsg({ok:true,t:'✅ URL salvato! Sincronizzazione avviata.'});
+                  setTimeout(function(){setSyncMsg(null);window.location.reload();},1500);
+                }}
+                style={{ width:'100%', padding:'12px', background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.4)', borderRadius:'9px', color:BLUE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>
+                💾 SALVA E ATTIVA SYNC
+              </button>
+              {fbUrl && (
+                <button onClick={function(){ lss(K.fb,{url:''}); setSyncMsg({ok:false,t:'Firebase disconnesso.'}); setTimeout(function(){setSyncMsg(null);window.location.reload();},1500); }}
+                  style={{ width:'100%', padding:'10px', background:'rgba(239,68,68,0.05)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:'9px', color:RED, fontFamily:FONT, fontSize:'9px', cursor:'pointer', marginTop:'8px' }}>
+                  🔌 DISCONNETTI FIREBASE
+                </button>
+              )}
+            </Panel>
+
+            {syncMsg && <div style={{ fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center', padding:'8px', background:syncMsg.ok?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)', borderRadius:'8px', marginBottom:'10px' }}>{syncMsg.t}</div>}
+
+            <div style={{ fontSize:'8px', color:DIM, textAlign:'center', lineHeight:1.8, padding:'6px' }}>
+              🔒 I dati sono protetti dalla password dell'app.<br/>
+              Chiunque conosca la password e l'URL può sincronizzarsi.
             </div>
-            <Lbl>URL DATABASE</Lbl>
-            <input value={fbUrl} onChange={function(e){setFbUrl(e.target.value);}} placeholder="https://progetto-default-rtdb.firebaseio.com"
-              style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'9px', color:TEXT, fontFamily:FONT, fontSize:'10px', padding:'11px', outline:'none', marginBottom:'9px' }} />
-            <button onClick={function(){lss(K.fb,{url:fbUrl});setSyncMsg({ok:true,t:'URL salvato!'});setTimeout(function(){setSyncMsg(null);},1500);}}
-              style={{ width:'100%', padding:'11px', background:'rgba(56,189,248,0.08)', border:'1px solid rgba(56,189,248,0.4)', borderRadius:'9px', color:BLUE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'9px' }}>
-              💾 SALVA URL
-            </button>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'9px' }}>
-              <button onClick={function(){syncNow('up');}} style={{ padding:'13px', background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>{syncing ? '⟳' : '⬆️ CARICA'}</button>
-              <button onClick={function(){syncNow('down');}} style={{ padding:'13px', background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.4)', borderRadius:'9px', color:ORANGE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>{syncing ? '⟳' : '⬇️ SCARICA'}</button>
-            </div>
-            {syncMsg && <div style={{ marginTop:'10px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
-          </Panel>
+          </div>
         )}
       </div>
     </div>
   );
+}
+
+// ── FIREBASE HELPERS ──
+function fbGetUrl() { try { return (lsg(K.fb,{}).url||'').replace(/\/$/,''); } catch(e){ return ''; } }
+function fbPush(data) {
+  var url = fbGetUrl(); if(!url) return Promise.resolve(null);
+  return fetch(url+'/turni_data.json', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) }).catch(function(){});
+}
+function fbPull() {
+  var url = fbGetUrl(); if(!url) return Promise.resolve(null);
+  return fetch(url+'/turni_data.json').then(function(r){ return r.ok?r.json():null; }).catch(function(){ return null; });
 }
 
 // ── APP ──
@@ -1493,11 +1551,19 @@ function App() {
   var _puntoRim = useState(''); var puntoRim = _puntoRim[0]; var setPuntoRim = _puntoRim[1];
   var _puntoRes = useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
 
+  // ── Firebase stato connessione ──
+  var _fbStatus = useState('off'); var fbStatus = _fbStatus[0]; var setFbStatus = _fbStatus[1];
+  // 'off' = nessun url, 'connecting' = in attesa, 'ok' = connesso, 'err' = errore
+  var fbPushTimer = useRef(null);
+  var fbListenTimer = useRef(null);
+  var isRemoteUpdate = useRef(false); // evita loop push ↔ pull
+
   function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
   function setStra(v)  { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
   function setColli(v) { setColliRaw(v); lss(K.colli, v); }
   function setRate(v)  { setRateRaw(v); lss(K.rate, v); }
 
+  // Mantieni stra allineato ai turni
   useEffect(function() {
     setStra(function(prev) {
       var updated = turni.map(function(t) {
@@ -1507,6 +1573,56 @@ function App() {
       return updated;
     });
   }, [turni.length]);
+
+  // ── AUTO-PUSH su Firebase quando i dati cambiano (debounce 1.5s) ──
+  useEffect(function() {
+    if (isRemoteUpdate.current) return; // non ripubblicare i dati appena ricevuti
+    if (!fbGetUrl()) return;
+    if (fbPushTimer.current) clearTimeout(fbPushTimer.current);
+    fbPushTimer.current = setTimeout(function() {
+      setFbStatus('connecting');
+      var data = { turni:turni, stra:stra, colli:colli, rate:rate, storico:lsg(K.storico,[]), ts:Date.now() };
+      fbPush(data).then(function(res) {
+        setFbStatus(res ? 'ok' : 'err');
+      });
+    }, 1500);
+    return function(){ if(fbPushTimer.current) clearTimeout(fbPushTimer.current); };
+  }, [JSON.stringify(turni), JSON.stringify(stra), colli, rate]);
+
+  // ── POLLING Firebase ogni 8s per ricevere aggiornamenti da altri dispositivi ──
+  useEffect(function() {
+    var url = fbGetUrl();
+    if (!url) { setFbStatus('off'); return; }
+    setFbStatus('connecting');
+    var lastTs = null;
+
+    function poll() {
+      fbPull().then(function(d) {
+        if (!d) { setFbStatus('err'); return; }
+        setFbStatus('ok');
+        // Aggiorna solo se i dati vengono da un altro dispositivo (ts diverso)
+        if (d.ts && d.ts !== lastTs) {
+          lastTs = d.ts;
+          // Controlla se i dati sono diversi da quelli locali
+          var localTs = lsg(K.fb+'_ts', 0);
+          if (d.ts > localTs) {
+            lss(K.fb+'_ts', d.ts);
+            isRemoteUpdate.current = true;
+            if (d.turni) { lss(K.turni, d.turni); setTurniRaw(d.turni); }
+            if (d.stra)  { lss(K.stra, d.stra);   setStraRaw(d.stra); }
+            if (d.colli !== undefined) { lss(K.colli, d.colli); setColliRaw(d.colli); }
+            if (d.rate)  { lss(K.rate, d.rate);   setRateRaw(d.rate); }
+            if (d.storico) lss(K.storico, d.storico);
+            setTimeout(function(){ isRemoteUpdate.current = false; }, 200);
+          }
+        }
+      }).catch(function(){ setFbStatus('err'); });
+    }
+
+    poll(); // prima chiamata immediata
+    fbListenTimer.current = setInterval(poll, 8000);
+    return function(){ clearInterval(fbListenTimer.current); };
+  }, [lsg(K.fb,{}).url]); // riavvia se cambia URL
 
   function logout() { try { sessionStorage.removeItem(K.auth); } catch(e) {} window.location.reload(); }
 
@@ -1518,9 +1634,9 @@ function App() {
         {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni'     && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
-        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
+        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} fbStatus={fbStatus} />}
       </div>
-      <Nav page={page} setPage={setPage} />
+      <Nav page={page} setPage={setPage} fbStatus={fbStatus} />
     </div>
   );
 }
