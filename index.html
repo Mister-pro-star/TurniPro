@@ -324,8 +324,8 @@ function Login(props) {
 // ── BOTTOM NAV ──
 function Nav(props) {
   var tabs = [
-    { id:'input',     icon:'✏️', label:'INPUT'    },
-    { id:'turni',     icon:'📊', label:'TURNI'    },
+    { id:'input',     icon:'✏️', label:'TURNI'    },
+    { id:'turni',     icon:'⚡', label:'STRAORD.'  },
     { id:'dettaglio', icon:'📋', label:'DETTAGLIO'},
     { id:'settings',  icon:'⚙️', label:'CONFIG'   },
   ];
@@ -335,10 +335,17 @@ function Nav(props) {
         var active = props.page === t.id;
         return (
           <button key={t.id} onClick={function(){props.setPage(t.id);}}
-            style={{ flex:1, background: active ? 'rgba(245,158,11,0.05)' : 'transparent', border:'none', padding:'8px 4px 6px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', transition:'background 0.2s' }}>
-            <div style={{ fontSize:'19px', lineHeight:1, filter: active ? 'drop-shadow(0 0 6px rgba(245,158,11,0.5))' : 'none', transition:'filter 0.2s' }}>{t.icon}</div>
-            <div style={{ fontSize:'7px', letterSpacing:'1px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
-            <div style={{ width: active ? '20px' : '0px', height:'2px', background:'linear-gradient(90deg,'+YELLOW2+','+YELLOW+')', borderRadius:'1px', transition:'width 0.25s ease' }} />
+            style={{ flex:1, background:'transparent', border:'none', padding:'10px 4px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', transition:'background 0.2s', WebkitTapHighlightColor:'transparent' }}>
+            <div style={{
+              width:'44px', height:'30px', borderRadius:'15px',
+              background: active ? 'rgba(245,158,11,0.18)' : 'transparent',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'background 0.25s',
+              border: active ? '1px solid rgba(245,158,11,0.35)' : '1px solid transparent'
+            }}>
+              <span style={{ fontSize:'18px', lineHeight:1, filter: active ? 'drop-shadow(0 0 5px rgba(245,158,11,0.6))' : 'grayscale(0.3) opacity(0.7)', transition:'filter 0.2s' }}>{t.icon}</span>
+            </div>
+            <div style={{ fontSize:'9px', letterSpacing:'0.5px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
           </button>
         );
       })}
@@ -410,11 +417,12 @@ function PageInput(props) {
   var totPersone = Object.values(persone).reduce(function(a,b){ return a + Number(b); }, 0);
   var r2 = Number(rate);
 
-  // allT dai persone locali (non ancora committati)
+  // allT dai persone locali (non ancora committati) — include straordinari
   function buildAllTLocal() {
-    return props.turni.map(function(t) {
-      return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0, rate: r2 });
+    var localTurni = props.turni.map(function(t) {
+      return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0 });
     });
+    return buildAllT(localTurni, props.stra || [], r2);
   }
 
   // ── Calcolo chiusura + anticipo in tempo reale ──
@@ -520,7 +528,7 @@ function PageInput(props) {
 
         {/* Riga titolo */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>✏️ INPUT RAPIDO</div>
+          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📦 TURNI</div>
           <SavedBadge show={autoSaved} />
         </div>
 
@@ -640,7 +648,7 @@ function PageInput(props) {
 
         {/* nota straordinari */}
         <div style={{ fontSize:'8px', color:DIM, textAlign:'center', padding:'8px 0', marginBottom:'10px', letterSpacing:'0.5px' }}>
-          Per straordinari → 📊 TURNI
+          Per straordinari → ⚡ STRAORD.
         </div>
 
         {/* ══════════════════════════════════════════════
@@ -955,7 +963,7 @@ function PageTurni(props) {
       {/* HEADER */}
       <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
         <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW, fontFamily:FONT }}>📦 TURNI</div>
+          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW, fontFamily:FONT }}>⚡ TURNI STRAORD.</div>
           <SavedBadge show={anyModified} />
         </div>
         <div style={{ display:'flex', gap:'5px' }}>
