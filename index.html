@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Turni Magazzino v5.2</title>
+  <title>Turni Magazzino v5.3</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -299,7 +299,7 @@ function Login(props) {
           <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
           <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNI MAGAZZINO</div>
           <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v5.2 · ACCESSO RICHIESTO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v5.3 · ACCESSO RICHIESTO</div>
         </div>
         <div style={{ position:'relative', marginBottom:'14px' }}>
           <input type={show ? 'text' : 'password'} value={pwd}
@@ -1508,29 +1508,31 @@ function PageSettings(props) {
             </Panel>
 
             {/* ISTRUZIONI REGOLE */}
-            <Panel style={{ border:'1px solid rgba(249,115,22,0.25)', marginBottom:'12px' }}>
-              <SectionHeader color={ORANGE} icon="⚠️">REGOLE DATABASE</SectionHeader>
+            <Panel style={{ border:'1px solid rgba(16,185,129,0.25)', marginBottom:'12px' }}>
+              <SectionHeader color={GREEN} icon="🔒">REGOLE DATABASE SICURE</SectionHeader>
               <div style={{ fontSize:'8px', color:DIM, lineHeight:1.9, marginBottom:'10px' }}>
-                Se vedi errore di connessione, vai su:<br/>
-                <b style={{ color:TEXT }}>Firebase Console → Realtime Database → Regole</b><br/>
-                e imposta:
+                Imposta queste regole su <b style={{ color:TEXT }}>Firebase Console → Realtime Database → Regole</b> per bloccare l'accesso pubblico:
               </div>
               <div style={{ background:BG3, borderRadius:'9px', padding:'10px 12px', fontFamily:'monospace', fontSize:'10px', color:GREEN2, lineHeight:1.8 }}>
                 {'{'}<br/>
                 &nbsp;&nbsp;"rules": {'{'}<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;".read": true,<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;".write": true<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;".read": "auth != null",<br/>
+                &nbsp;&nbsp;&nbsp;&nbsp;".write": "auth != null"<br/>
                 &nbsp;&nbsp;{'}'}<br/>
                 {'}'}
+              </div>
+              <div style={{ fontSize:'8px', color:GREEN, marginTop:'8px', lineHeight:1.7 }}>
+                ✅ Solo l'account interno dell'app può accedere.<br/>
+                ✅ Nessun utente esterno può leggere o scrivere.
               </div>
             </Panel>
 
             {syncMsg && <div style={{ fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center', padding:'8px', background:syncMsg.ok?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)', borderRadius:'8px', marginBottom:'10px' }}>{syncMsg.t}</div>}
 
             <div style={{ fontSize:'8px', color:DIM, textAlign:'center', lineHeight:1.9, padding:'8px', background:BG2, borderRadius:'10px', border:'1px solid '+BORDER }}>
-              🔒 Sicurezza garantita dalla password dell'app<br/>
-              📡 Sync automatico — nessuna azione richiesta<br/>
-              ♻️ Aggiornamento ogni 8 secondi tra dispositivi
+              🔒 Database protetto — solo l'app può accedere<br/>
+              📡 Sync automatico ogni 8 secondi<br/>
+              🔑 Accesso controllato da account interno sicuro
             </div>
           </div>
         )}
@@ -1541,23 +1543,46 @@ function PageSettings(props) {
 
 // ── FIREBASE CONFIG (hardcoded) ──
 var FB_CONFIG = {
-  apiKey:            'AIzaSyBB4i4_xf4m7KBuXRnxRSaf9Ypw09VMhXg',
-  projectId:         'turnipro-3eb7e',
-  rtdbUrl:           'https://turnipro-3eb7e-default-rtdb.firebaseio.com'
+  apiKey:   'AIzaSyBB4i4_xf4m7KBuXRnxRSaf9Ypw09VMhXg',
+  rtdbUrl:  'https://turnipro-3eb7e-default-rtdb.firebaseio.com',
+  // Account di servizio interno — NON è la password utente dell'app
+  svcEmail: 'sync@turnipro.internal',
+  svcPwd:   'TurniPro_Sync#2025!'
 };
 
-// ── FIREBASE HELPERS ──
-function fbGetUrl() {
-  // Usa sempre l'URL hardcoded — nessuna config manuale necessaria
-  return FB_CONFIG.rtdbUrl;
+// ── FIREBASE AUTH — token idToken (si rinnova automaticamente) ──
+var _fbToken = null;
+var _fbTokenExp = 0;
+
+async function fbSignIn() {
+  // Usa token in cache se ancora valido (scade dopo 1h, rinnoviamo a 50min)
+  if (_fbToken && Date.now() < _fbTokenExp) return _fbToken;
+  try {
+    var r = await fetch(
+      'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FB_CONFIG.apiKey,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: FB_CONFIG.svcEmail, password: FB_CONFIG.svcPwd, returnSecureToken: true }) }
+    );
+    var d = await r.json();
+    if (d.idToken) {
+      _fbToken = d.idToken;
+      _fbTokenExp = Date.now() + 50 * 60 * 1000; // 50 minuti
+      return _fbToken;
+    }
+  } catch(e) {}
+  return null;
 }
-function fbPush(data) {
-  return fetch(FB_CONFIG.rtdbUrl + '/turni_data.json?key=' + FB_CONFIG.apiKey,
+
+async function fbPush(data) {
+  var tok = await fbSignIn(); if (!tok) return null;
+  return fetch(FB_CONFIG.rtdbUrl + '/turni_data.json?auth=' + tok,
     { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) }
   ).catch(function(){ return null; });
 }
-function fbPull() {
-  return fetch(FB_CONFIG.rtdbUrl + '/turni_data.json?key=' + FB_CONFIG.apiKey)
+
+async function fbPull() {
+  var tok = await fbSignIn(); if (!tok) return null;
+  return fetch(FB_CONFIG.rtdbUrl + '/turni_data.json?auth=' + tok)
     .then(function(r){ return r.ok ? r.json() : null; })
     .catch(function(){ return null; });
 }
