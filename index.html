@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Turni Magazzino v5.3</title>
+  <title>Turni Magazzino v6.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -299,7 +299,7 @@ function Login(props) {
           <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
           <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNI MAGAZZINO</div>
           <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v5.3 · ACCESSO RICHIESTO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v6.0 · ACCESSO RICHIESTO</div>
         </div>
         <div style={{ position:'relative', marginBottom:'14px' }}>
           <input type={show ? 'text' : 'password'} value={pwd}
@@ -323,8 +323,6 @@ function Login(props) {
 
 // ── BOTTOM NAV ──
 function Nav(props) {
-  var fbStatus = props.fbStatus || 'off';
-  var dotColor = fbStatus==='ok'?GREEN : fbStatus==='connecting'?YELLOW : fbStatus==='err'?RED : DIM;
   var tabs = [
     { id:'input',     icon:'✏️', label:'TURNI'    },
     { id:'turni',     icon:'⚡', label:'STRAORD.'  },
@@ -332,26 +330,23 @@ function Nav(props) {
     { id:'settings',  icon:'⚙️', label:'CONFIG'   },
   ];
   return (
-    <div style={{ position:'absolute', bottom:0, left:0, right:0, background:BG2, borderTop:'1px solid '+BORDER, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
+    <div style={{ position:'absolute', bottom:0, left:0, right:0, background:BG2, borderTop:'1px solid '+BORDER, display:'flex', zIndex:100, paddingBottom:'max(env(safe-area-inset-bottom), 4px)' }}>
       {tabs.map(function(t) {
         var active = props.page === t.id;
         return (
           <button key={t.id} onClick={function(){props.setPage(t.id);}}
-            style={{ flex:1, background:'transparent', border:'none', padding:'10px 4px 8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', transition:'background 0.2s', WebkitTapHighlightColor:'transparent', position:'relative' }}>
+            style={{ flex:1, background:'transparent', border:'none', paddingTop:'10px', paddingBottom:'8px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'4px', WebkitTapHighlightColor:'transparent', minHeight:'60px' }}>
             <div style={{
               width:'44px', height:'30px', borderRadius:'15px',
               background: active ? 'rgba(245,158,11,0.18)' : 'transparent',
               display:'flex', alignItems:'center', justifyContent:'center',
               transition:'background 0.25s',
-              border: active ? '1px solid rgba(245,158,11,0.35)' : '1px solid transparent'
+              border: active ? '1px solid rgba(245,158,11,0.35)' : '1px solid transparent',
+              flexShrink: 0
             }}>
-              <span style={{ fontSize:'18px', lineHeight:1, filter: active ? 'drop-shadow(0 0 5px rgba(245,158,11,0.6))' : 'grayscale(0.3) opacity(0.7)', transition:'filter 0.2s' }}>{t.icon}</span>
+              <span style={{ fontSize:'18px', lineHeight:'1', display:'block', filter: active ? 'drop-shadow(0 0 5px rgba(245,158,11,0.6))' : 'grayscale(0.3) opacity(0.7)', transition:'filter 0.2s' }}>{t.icon}</span>
             </div>
-            <div style={{ fontSize:'9px', letterSpacing:'0.5px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
-            {/* Dot Firebase status nel tab settings */}
-            {t.id === 'settings' && fbStatus !== 'off' && (
-              <div style={{ position:'absolute', top:'8px', right:'10px', width:'7px', height:'7px', borderRadius:'50%', background:dotColor, boxShadow: fbStatus==='ok'?'0 0 5px '+dotColor:'none', transition:'background 0.4s' }} />
-            )}
+            <span style={{ fontSize:'9px', letterSpacing:'0.5px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s', lineHeight:'1' }}>{t.label}</span>
           </button>
         );
       })}
@@ -1054,17 +1049,18 @@ function PageTurni(props) {
               {sp.righe.map(function(rr, ri) {
                 return (
                   <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'10px', marginTop:'6px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'7px' }}>
-                      <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ RINFORZO{sp.righe.length>1?' '+(ri+1):''}</div>
-                      <button onClick={function(){delStraRiga(t.id,ri);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'1px 6px', lineHeight:1.4 }}>×</button>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'9px' }}>
+                      <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>
+                        👤 STRAORDINARIO{sp.righe.length>1?' '+(ri+1):''}
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                        <NumInput value={rr.persone||0} onChange={function(v){setStraRiga(t.id,ri,'persone',v);}} color={ORANGE} />
+                        <button onClick={function(){delStraRiga(t.id,ri);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'1px 7px', lineHeight:1.5 }}>×</button>
+                      </div>
                     </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px', marginBottom:'4px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px' }}>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>DALLE</div><TimeInput value={rr.inizio} onChange={function(v){setStraRiga(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>ALLE</div><TimeInput value={rr.fine} onChange={function(v){setStraRiga(t.id,ri,'fine',v);}} color={ORANGE} /></div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize:'7px', color:DIM, marginBottom:'5px', letterSpacing:'1px' }}>PERSONE</div>
-                      <NumInput value={rr.persone||0} onChange={function(v){setStraRiga(t.id,ri,'persone',v);}} color={GREEN2} />
                     </div>
                   </div>
                 );
@@ -1096,66 +1092,6 @@ function PageTurni(props) {
             </div>
           </div>
         )}
-
-        {/* PUNTO SITUAZIONE */}
-        <div style={{ marginTop:'20px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-            <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
-            <span style={{ fontSize:'8px', color:ORANGE, background:'rgba(249,115,22,0.1)', border:'1px solid rgba(249,115,22,0.35)', borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px' }}>⚡ incl. rinforzi</span>
-          </div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
-            <div>
-              <Lbl>ORA ATTUALE</Lbl>
-              <input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);}}
-                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoOra?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
-            </div>
-            <div>
-              <Lbl>COLLI RIMANENTI</Lbl>
-              <input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);}} placeholder="es. 5000"
-                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoRim?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
-            </div>
-          </div>
-          {puntoRes && (
-            <div className="fadeup" style={{ marginTop:'10px' }}>
-              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'13px', padding:'16px', marginBottom:'8px', textAlign:'center' }}>
-                <div style={{ fontSize:'8px', letterSpacing:'2px', color: puntoRes.ok ? '#6ee7b7' : '#fca5a5', marginBottom:'8px' }}>{puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}</div>
-                {puntoRes.ok
-                  ? <div><div style={{ fontSize:'40px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{puntoRes.fine||'—'}</div>{puntoRes.anticipo>0&&<div style={{ fontSize:'10px', color:'#6ee7b7', marginTop:'4px' }}>⚡ +{puntoRes.anticipo.toLocaleString('it-IT')} extra</div>}</div>
-                  : <div style={{ fontSize:'24px', fontWeight:'bold', color:RED }}>{puntoRes.manca.toLocaleString('it-IT')} mancanti</div>
-                }
-              </div>
-              {puntoRes.confronto && (
-                <Panel style={{ marginBottom:'8px' }}>
-                  <Lbl>CONFRONTO COLLI</Lbl>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
-                    {[['FATTI',puntoRes.confronto.fatti,TEXT],['PIANO',puntoRes.confronto.piano,BLUE],['DELTA',puntoRes.confronto.delta,puntoRes.confronto.delta>=0?GREEN:RED]].map(function(x){
-                      return <div key={x[0]}><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div><div style={{ fontSize:'17px', fontWeight:'bold', color:x[2] }}>{x[0]==='DELTA'?(x[1]>=0?'+':'')+x[1].toLocaleString('it-IT'):x[1].toLocaleString('it-IT')}</div></div>;
-                    })}
-                  </div>
-                </Panel>
-              )}
-              {puntoRes.persRimanenti && puntoRes.persRimanenti.length > 0 && (
-                <Panel style={{ marginBottom:'8px', border:'1px solid rgba(56,189,248,0.3)' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-                    <SectionHeader color={BLUE} icon="👥">PERSONE RIMANENTI</SectionHeader>
-                    <div style={{ fontSize:'26px', fontWeight:'bold', color:BLUE, marginTop:'-4px' }}>{puntoRes.totPersRim}</div>
-                  </div>
-                  {puntoRes.persRimanenti.map(function(p, i) {
-                    return (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'8px', padding:'7px 11px', marginBottom:'4px' }}>
-                        <div>
-                          <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{p.nome}</div>
-                          <div style={{ fontSize:'8px', color:DIM, marginTop:'1px' }}>fino alle {p.fine}</div>
-                        </div>
-                        <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
-                      </div>
-                    );
-                  })}
-                </Panel>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* OBIETTIVO INVERSO */}
         <div style={{ marginTop:'12px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
@@ -1301,7 +1237,6 @@ function PageSettings(props) {
   var turni = props.turni; var setTurni = props.setTurni;
   var stra = props.stra; var setStra = props.setStra;
   var onLogout = props.onLogout;
-  var fbStatus = props.fbStatus || 'off';
 
   var _tab = useState('turni'); var tab = _tab[0]; var setTab = _tab[1];
   var _op = useState(''); var oldP = _op[0]; var setOldP = _op[1];
@@ -1469,123 +1404,23 @@ function PageSettings(props) {
 
         {tab === 'sync' && (
           <div>
-            {/* STATUS CONNESSIONE */}
-            {(function(){
-              var fbSt = props.fbStatus || 'off';
-              var cfg = [
-                ['off',    '☁️','FIREBASE NON ATTIVO',   DIM,   BG3,                      BORDER],
-                ['connecting','⟳','CONNESSIONE IN CORSO…',YELLOW,'rgba(245,158,11,0.07)', 'rgba(245,158,11,0.3)'],
-                ['ok',     '●', 'CONNESSO — SYNC ATTIVO', GREEN, 'rgba(16,185,129,0.07)', 'rgba(16,185,129,0.3)'],
-                ['err',    '✕', 'ERRORE DI CONNESSIONE',  RED,   'rgba(239,68,68,0.07)',  'rgba(239,68,68,0.3)']
-              ];
-              var c = cfg.find(function(x){return x[0]===fbSt;})||cfg[0];
-              return (
-                <div style={{ background:c[4], border:'2px solid '+c[5], borderRadius:'14px', padding:'16px', marginBottom:'16px', display:'flex', alignItems:'center', gap:'12px' }}>
-                  <div style={{ fontSize:'26px', color:c[3], animation:fbSt==='connecting'?'pulse 1s infinite':'' }}>{c[1]}</div>
-                  <div>
-                    <div style={{ fontSize:'10px', fontWeight:'bold', color:c[3], letterSpacing:'2px' }}>{c[2]}</div>
-                    {fbSt==='ok'  && <div style={{ fontSize:'8px', color:DIM, marginTop:'3px' }}>Aggiornamento automatico ogni 8 secondi</div>}
-                    {fbSt==='err' && <div style={{ fontSize:'8px', color:'#fca5a5', marginTop:'3px' }}>Controlla le regole del database Firebase</div>}
-                    {fbSt==='connecting' && <div style={{ fontSize:'8px', color:DIM, marginTop:'3px' }}>Prima connessione in corso…</div>}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* INFO PROGETTO */}
             <Panel style={{ border:'1px solid rgba(56,189,248,0.25)', marginBottom:'12px' }}>
-              <SectionHeader color={BLUE} icon="🔥">PROGETTO FIREBASE</SectionHeader>
-              <div style={{ display:'flex', flexDirection:'column', gap:'7px' }}>
-                {[['PROGETTO', FB_CONFIG.projectId, BLUE],['DATABASE', FB_CONFIG.rtdbUrl.replace('https://',''), TEAL]].map(function(row){
-                  return (
-                    <div key={row[0]} style={{ background:BG3, borderRadius:'9px', padding:'9px 12px' }}>
-                      <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>{row[0]}</div>
-                      <div style={{ fontSize:'9px', color:row[2], fontWeight:'bold', wordBreak:'break-all' }}>{row[1]}</div>
-                    </div>
-                  );
-                })}
+              <SectionHeader color={BLUE} icon="💾">SALVATAGGIO LOCALE</SectionHeader>
+              <div style={{ fontSize:'9px', color:DIM, lineHeight:1.9 }}>
+                Tutti i dati vengono salvati automaticamente sul <b style={{ color:TEXT }}>dispositivo</b> tramite localStorage.<br/><br/>
+                Non è necessaria nessuna connessione internet.
               </div>
             </Panel>
-
-            {/* ISTRUZIONI REGOLE */}
-            <Panel style={{ border:'1px solid rgba(16,185,129,0.25)', marginBottom:'12px' }}>
-              <SectionHeader color={GREEN} icon="🔒">REGOLE DATABASE SICURE</SectionHeader>
-              <div style={{ fontSize:'8px', color:DIM, lineHeight:1.9, marginBottom:'10px' }}>
-                Imposta queste regole su <b style={{ color:TEXT }}>Firebase Console → Realtime Database → Regole</b> per bloccare l'accesso pubblico:
-              </div>
-              <div style={{ background:BG3, borderRadius:'9px', padding:'10px 12px', fontFamily:'monospace', fontSize:'10px', color:GREEN2, lineHeight:1.8 }}>
-                {'{'}<br/>
-                &nbsp;&nbsp;"rules": {'{'}<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;".read": "auth != null",<br/>
-                &nbsp;&nbsp;&nbsp;&nbsp;".write": "auth != null"<br/>
-                &nbsp;&nbsp;{'}'}<br/>
-                {'}'}
-              </div>
-              <div style={{ fontSize:'8px', color:GREEN, marginTop:'8px', lineHeight:1.7 }}>
-                ✅ Solo l'account interno dell'app può accedere.<br/>
-                ✅ Nessun utente esterno può leggere o scrivere.
-              </div>
-            </Panel>
-
-            {syncMsg && <div style={{ fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center', padding:'8px', background:syncMsg.ok?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)', borderRadius:'8px', marginBottom:'10px' }}>{syncMsg.t}</div>}
-
-            <div style={{ fontSize:'8px', color:DIM, textAlign:'center', lineHeight:1.9, padding:'8px', background:BG2, borderRadius:'10px', border:'1px solid '+BORDER }}>
-              🔒 Database protetto — solo l'app può accedere<br/>
-              📡 Sync automatico ogni 8 secondi<br/>
-              🔑 Accesso controllato da account interno sicuro
+            <div style={{ fontSize:'8px', color:DIM, textAlign:'center', lineHeight:1.9, padding:'10px', background:BG2, borderRadius:'10px', border:'1px solid '+BORDER }}>
+              💾 Salvataggio automatico ad ogni modifica<br/>
+              📵 Funziona anche senza internet<br/>
+              🔒 Dati privati sul dispositivo
             </div>
           </div>
         )}
       </div>
     </div>
   );
-}
-
-// ── FIREBASE CONFIG (hardcoded) ──
-var FB_CONFIG = {
-  apiKey:   'AIzaSyBB4i4_xf4m7KBuXRnxRSaf9Ypw09VMhXg',
-  rtdbUrl:  'https://turnipro-3eb7e-default-rtdb.firebaseio.com',
-  // Account di servizio interno — NON è la password utente dell'app
-  svcEmail: 'sync@turnipro.internal',
-  svcPwd:   'TurniPro_Sync#2025!'
-};
-
-// ── FIREBASE AUTH — token idToken (si rinnova automaticamente) ──
-var _fbToken = null;
-var _fbTokenExp = 0;
-
-async function fbSignIn() {
-  // Usa token in cache se ancora valido (scade dopo 1h, rinnoviamo a 50min)
-  if (_fbToken && Date.now() < _fbTokenExp) return _fbToken;
-  try {
-    var r = await fetch(
-      'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FB_CONFIG.apiKey,
-      { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email: FB_CONFIG.svcEmail, password: FB_CONFIG.svcPwd, returnSecureToken: true }) }
-    );
-    var d = await r.json();
-    if (d.idToken) {
-      _fbToken = d.idToken;
-      _fbTokenExp = Date.now() + 50 * 60 * 1000; // 50 minuti
-      return _fbToken;
-    }
-  } catch(e) {}
-  return null;
-}
-
-async function fbPush(data) {
-  var tok = await fbSignIn();
-  var url = FB_CONFIG.rtdbUrl + '/turni_data.json' + (tok ? '?auth=' + tok : '');
-  return fetch(url, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) })
-    .catch(function(){ return null; });
-}
-
-async function fbPull() {
-  var tok = await fbSignIn();
-  var url = FB_CONFIG.rtdbUrl + '/turni_data.json' + (tok ? '?auth=' + tok : '');
-  return fetch(url)
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .catch(function(){ return null; });
 }
 
 // ── APP ──
@@ -1599,19 +1434,11 @@ function App() {
   var _puntoRim = useState(''); var puntoRim = _puntoRim[0]; var setPuntoRim = _puntoRim[1];
   var _puntoRes = useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
 
-  // ── Firebase stato connessione ──
-  var _fbStatus = useState('off'); var fbStatus = _fbStatus[0]; var setFbStatus = _fbStatus[1];
-  // 'off' = nessun url, 'connecting' = in attesa, 'ok' = connesso, 'err' = errore
-  var fbPushTimer = useRef(null);
-  var fbListenTimer = useRef(null);
-  var isRemoteUpdate = useRef(false); // evita loop push ↔ pull
-
   function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
   function setStra(v)  { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
   function setColli(v) { setColliRaw(v); lss(K.colli, v); }
   function setRate(v)  { setRateRaw(v); lss(K.rate, v); }
 
-  // Mantieni stra allineato ai turni
   useEffect(function() {
     setStra(function(prev) {
       var updated = turni.map(function(t) {
@@ -1621,52 +1448,6 @@ function App() {
       return updated;
     });
   }, [turni.length]);
-
-  // ── AUTO-PUSH su Firebase quando i dati cambiano (debounce 1.5s) ──
-  useEffect(function() {
-    if (isRemoteUpdate.current) return; // non ripubblicare i dati appena ricevuti
-    if (!fbGetUrl()) return;
-    if (fbPushTimer.current) clearTimeout(fbPushTimer.current);
-    fbPushTimer.current = setTimeout(function() {
-      setFbStatus('connecting');
-      var data = { turni:turni, stra:stra, colli:colli, rate:rate, storico:lsg(K.storico,[]), ts:Date.now() };
-      fbPush(data).then(function(res) {
-        setFbStatus(res ? 'ok' : 'err');
-      });
-    }, 1500);
-    return function(){ if(fbPushTimer.current) clearTimeout(fbPushTimer.current); };
-  }, [JSON.stringify(turni), JSON.stringify(stra), colli, rate]);
-
-  // ── POLLING Firebase ogni 8s per ricevere aggiornamenti da altri dispositivi ──
-  useEffect(function() {
-    setFbStatus('connecting');
-    var lastTs = null;
-
-    function poll() {
-      fbPull().then(function(d) {
-        if (!d) { setFbStatus('err'); return; }
-        setFbStatus('ok');
-        if (d.ts && d.ts !== lastTs) {
-          lastTs = d.ts;
-          var localTs = lsg(K.fb+'_ts', 0);
-          if (d.ts > localTs) {
-            lss(K.fb+'_ts', d.ts);
-            isRemoteUpdate.current = true;
-            if (d.turni) { lss(K.turni, d.turni); setTurniRaw(d.turni); }
-            if (d.stra)  { lss(K.stra, d.stra);   setStraRaw(d.stra); }
-            if (d.colli !== undefined) { lss(K.colli, d.colli); setColliRaw(d.colli); }
-            if (d.rate)  { lss(K.rate, d.rate);   setRateRaw(d.rate); }
-            if (d.storico) lss(K.storico, d.storico);
-            setTimeout(function(){ isRemoteUpdate.current = false; }, 200);
-          }
-        }
-      }).catch(function(){ setFbStatus('err'); });
-    }
-
-    poll();
-    var timer = setInterval(poll, 8000);
-    return function(){ clearInterval(timer); };
-  }, []); // avvia una volta sola — Firebase è sempre configurato
 
   function logout() { try { sessionStorage.removeItem(K.auth); } catch(e) {} window.location.reload(); }
 
@@ -1678,9 +1459,9 @@ function App() {
         {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni'     && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
-        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} fbStatus={fbStatus} />}
+        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
       </div>
-      <Nav page={page} setPage={setPage} fbStatus={fbStatus} />
+      <Nav page={page} setPage={setPage} />
     </div>
   );
 }
