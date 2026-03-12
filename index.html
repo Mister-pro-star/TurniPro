@@ -16,10 +16,16 @@
     input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
     input,button,select{-webkit-appearance:none}
     ::-webkit-scrollbar{width:0}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes fadeIn{from{opacity:0}to{opacity:1}}
     @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    @keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+    @keyframes savedPop{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
     .fadeup{animation:fadeUp 0.3s ease}
+    .slidein{animation:slideIn 0.25s ease}
+    .savedpop{animation:savedPop 0.3s ease}
+    button:active{opacity:0.75;transform:scale(0.97)}
   </style>
 </head>
 <body>
@@ -29,28 +35,30 @@
 const { useState, useCallback, useEffect, useRef, useMemo } = React;
 
 // ── COLORI ──
-var BG = '#0a0c12';
-var BG2 = '#12141e';
-var BG3 = '#1a1d2a';
-var BORDER = '#1e2235';
+var BG    = '#080a11';
+var BG2   = '#10121c';
+var BG3   = '#181b28';
+var BG4   = '#1e2235';
+var BORDER  = '#1e2235';
 var BORDER2 = '#2a2d3f';
-var YELLOW = '#f59e0b';
+var YELLOW  = '#f59e0b';
 var YELLOW2 = '#fbbf24';
-var PURPLE = '#a78bfa';
-var GREEN = '#10b981';
-var GREEN2 = '#34d399';
-var RED = '#ef4444';
-var ORANGE = '#f97316';
-var BLUE = '#38bdf8';
-var TEXT = '#e8e8e0';
-var DIM = '#555';
-var MID = '#888';
-var FONT = "'Courier New',Consolas,monospace";
+var PURPLE  = '#a78bfa';
+var GREEN   = '#10b981';
+var GREEN2  = '#34d399';
+var RED     = '#ef4444';
+var ORANGE  = '#f97316';
+var BLUE    = '#38bdf8';
+var TEAL    = '#2dd4bf';
+var TEXT    = '#e2e2d8';
+var DIM     = '#4a4a5e';
+var MID     = '#7a7a90';
+var FONT    = "'Courier New',Consolas,monospace";
 
 // ── STORAGE ──
 var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb' };
-// SHA-256 hash di "Naturasi2026" — nel codice non si vede mai la password vera
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
+
 async function sha256(str) {
   var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
@@ -105,7 +113,6 @@ function calcRows(colliN, allT, rate) {
   });
   var ev = Object.keys(evS).map(Number).sort(function(a,b){return a-b;});
   var cum = 0; var rows = []; var finished = false;
-
   for (var i = 0; i < ev.length - 1; i++) {
     var frm = ev[i]; var to = ev[i+1];
     var totalR = 0; var pers = 0; var nome = ''; var isStrao = false;
@@ -120,27 +127,24 @@ function calcRows(colliN, allT, rate) {
     var dur = to - frm;
     var prod = totalR * dur / 60;
     var colliH = Math.round(totalR);
-
     if (pers === 0) {
-      rows.push({ frm: mToT(frm), to: mToT(to), pers: 0, colliH: 0, dur: dur, prod: 0, cum: Math.round(cum), rim: Math.round(Math.max(0, colliN - cum)), pausa: true });
+      rows.push({ frm:mToT(frm), to:mToT(to), pers:0, colliH:0, dur:dur, prod:0, cum:Math.round(cum), rim:Math.round(Math.max(0,colliN-cum)), pausa:true });
       continue;
     }
-
     if (finished) {
-      rows.push({ frm: mToT(frm), to: mToT(to), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prod), cum: colliN, rim: 0, anticipo: true, nome: nome, isStrao: isStrao });
+      rows.push({ frm:mToT(frm), to:mToT(to), pers:pers, colliH:colliH, dur:dur, prod:Math.round(prod), cum:colliN, rim:0, anticipo:true, nome:nome, isStrao:isStrao });
       continue;
     }
-
     if (cum + prod >= colliN) {
       var fineMin = frm + (colliN - cum) / totalR * 60;
       var prodFatta = colliN - cum; cum = colliN; finished = true;
-      rows.push({ frm: mToT(frm), to: mToT(to), fineEx: mToT(fineMin), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prodFatta), cum: colliN, rim: 0, highlight: true, nome: nome, isStrao: isStrao });
+      rows.push({ frm:mToT(frm), to:mToT(to), fineEx:mToT(fineMin), pers:pers, colliH:colliH, dur:dur, prod:Math.round(prodFatta), cum:colliN, rim:0, highlight:true, nome:nome, isStrao:isStrao });
     } else {
       cum += prod;
-      rows.push({ frm: mToT(frm), to: mToT(to), pers: pers, colliH: colliH, dur: dur, prod: Math.round(prod), cum: Math.round(cum), rim: Math.round(Math.max(0, colliN - cum)), nome: nome, isStrao: isStrao });
+      rows.push({ frm:mToT(frm), to:mToT(to), pers:pers, colliH:colliH, dur:dur, prod:Math.round(prod), cum:Math.round(cum), rim:Math.round(Math.max(0,colliN-cum)), nome:nome, isStrao:isStrao });
     }
   }
-  return { ok: finished, rows: rows, cum: Math.round(cum), fineEx: finished ? rows.find(function(r){return r.highlight;}).fineEx : null };
+  return { ok:finished, rows:rows, cum:Math.round(cum), fineEx:finished ? rows.find(function(r){return r.highlight;}).fineEx : null };
 }
 
 function calcAnticipo(allT, fineStr, rate) {
@@ -165,32 +169,97 @@ function calcAnticipo(allT, fineStr, rate) {
   return Math.round(tot);
 }
 
+// ── HOOK AUTO-SAVE con indicatore ──
+function useAutoSave(key, value, delay) {
+  delay = delay || 400;
+  var _saved = useState(false); var saved = _saved[0]; var setSaved = _saved[1];
+  var timerRef = useRef(null);
+  var isFirst = useRef(true);
+  useEffect(function() {
+    if (isFirst.current) { isFirst.current = false; return; }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(function() {
+      lss(key, value);
+      setSaved(true);
+      setTimeout(function() { setSaved(false); }, 1200);
+    }, delay);
+    return function() { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [JSON.stringify(value)]);
+  return saved;
+}
+
+// ── INDICATORE SALVATAGGIO ──
+function SavedBadge(props) {
+  if (!props.show) return null;
+  return (
+    <span className="savedpop" style={{ fontSize:'8px', color:GREEN, letterSpacing:'1px', background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:'5px', padding:'2px 6px', marginLeft:'6px' }}>
+      ✓ SALVATO
+    </span>
+  );
+}
+
 // ── UI BASE ──
 function Panel(props) {
-  var s = Object.assign({ background: BG2, border: '1px solid ' + BORDER, borderRadius: '12px', padding: '12px 14px' }, props.style || {});
+  var s = Object.assign({
+    background: BG2,
+    border: '1px solid ' + BORDER,
+    borderRadius: '14px',
+    padding: '13px 14px',
+    transition: 'border-color 0.2s'
+  }, props.style || {});
   return React.createElement('div', { style: s }, props.children);
 }
-function Lbl(props) {
-  return React.createElement('div', { style: { fontSize: '9px', letterSpacing: '2px', color: props.color || DIM, marginBottom: '5px' } }, props.children);
+
+function SectionHeader(props) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px', marginTop: props.mt || '4px' }}>
+      <div style={{ width:'3px', height:'16px', background:props.color||YELLOW, borderRadius:'2px' }} />
+      <div style={{ fontSize:'9px', letterSpacing:'2.5px', color:props.color||YELLOW, fontWeight:'bold', fontFamily:FONT }}>
+        {props.icon && props.icon + ' '}{props.children}
+      </div>
+    </div>
+  );
 }
+
+function Lbl(props) {
+  return React.createElement('div', {
+    style: { fontSize:'8px', letterSpacing:'2px', color:props.color||DIM, marginBottom:'5px', fontFamily:FONT }
+  }, props.children);
+}
+
 function NumInput(props) {
   var color = props.color || GREEN;
   var displayVal = (props.value === 0 || props.value === '0') ? '' : props.value;
   return (
     <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-      <button onClick={function(){props.onChange(Math.max(0, Number(props.value)-1));}} style={{ width:'28px', height:'28px', borderRadius:'7px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'17px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-      <input type="number" value={displayVal} placeholder="0" onChange={function(e){props.onChange(e.target.value===''?0:Math.max(0,Number(e.target.value)));}} style={{ width:'40px', textAlign:'center', background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:color, fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'4px 2px', outline:'none' }} />
-      <button onClick={function(){props.onChange(Number(props.value)+1);}} style={{ width:'28px', height:'28px', borderRadius:'7px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'17px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+      <button onClick={function(){props.onChange(Math.max(0, Number(props.value)-1));}}
+        style={{ width:'30px', height:'30px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>−</button>
+      <input type="number" value={displayVal} placeholder="0"
+        onChange={function(e){props.onChange(e.target.value===''?0:Math.max(0,Number(e.target.value)));}}
+        style={{ width:'42px', textAlign:'center', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:color, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
+      <button onClick={function(){props.onChange(Number(props.value)+1);}}
+        style={{ width:'30px', height:'30px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:color, fontFamily:FONT, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>+</button>
     </div>
   );
 }
+
 function TimeInput(props) {
-  return <input type="time" value={props.value || ''} onChange={function(e){props.onChange(e.target.value);}} style={{ background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:props.color||TEXT, fontFamily:FONT, fontSize:'12px', padding:'5px 7px', outline:'none', width:'100%' }} />;
+  return <input type="time" value={props.value || ''} onChange={function(e){props.onChange(e.target.value);}}
+    style={{ background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:props.color||TEXT, fontFamily:FONT, fontSize:'12px', padding:'6px 8px', outline:'none', width:'100%', transition:'border-color 0.2s' }} />;
 }
-function Btn(props) {
-  var bg = props.bg || 'rgba(245,158,11,0.1)';
-  var border = '1px solid ' + (props.color || YELLOW);
-  return <button onClick={props.onClick} style={{ width: props.full ? '100%' : 'auto', padding: props.small ? '7px 10px' : '12px 14px', background:bg, border:border, borderRadius:'10px', color:props.color||YELLOW, fontFamily:FONT, fontSize: props.small ? '9px' : '10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>{props.children}</button>;
+
+function ActionBtn(props) {
+  var active = props.active;
+  return (
+    <button onClick={props.onClick}
+      style={{ padding: props.small ? '6px 10px' : '10px 14px', background: active ? 'rgba(16,185,129,0.15)' : (props.bg || ('rgba('+hexToRgb(props.color||YELLOW)+',0.07)')), border:'1px solid '+(active?GREEN:(props.color||YELLOW)), borderRadius:'9px', color:active?GREEN:(props.color||YELLOW), fontFamily:FONT, fontSize: props.small ? '8px' : '9px', fontWeight:'bold', letterSpacing:'1.5px', cursor:'pointer', transition:'all 0.2s', whiteSpace:'nowrap' }}>
+      {active ? (props.activeLabel || props.children) : props.children}
+    </button>
+  );
+}
+function hexToRgb(hex) {
+  var r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? parseInt(r[1],16)+','+parseInt(r[2],16)+','+parseInt(r[3],16) : '255,255,255';
 }
 
 // ── LOGIN ──
@@ -207,63 +276,46 @@ function Login(props) {
     var h = await sha256(pwd);
     var saved = lsg(K.pwd, null);
     var ok = false;
-    if (!saved) {
-      // Prima volta: nessuna password salvata, usa default Naturasi2026
-      ok = (h === PWD_DEFAULT_HASH);
-    } else if (saved === h) {
-      // Password salvata come hash — confronto normale
-      ok = true;
-    } else if (saved === pwd) {
-      // Vecchio sistema: password salvata in chiaro — migra automaticamente a hash
-      ok = true;
-      lss(K.pwd, h); // salva come hash da adesso
-    }
+    if (!saved) { ok = (h === PWD_DEFAULT_HASH); }
+    else if (saved === h) { ok = true; }
+    else if (saved === pwd) { ok = true; lss(K.pwd, h); }
     if (ok) {
       try { sessionStorage.setItem(K.auth, '1'); } catch(e) {}
       props.onLogin();
     } else {
       setErr('✗ PASSWORD ERRATA');
-      setShake(true);
-      setPwd('');
+      setShake(true); setPwd('');
       setTimeout(function(){setShake(false);}, 500);
       setTimeout(function(){setErr('');}, 2500);
     }
     setLoading(false);
   }
-
   function onKey(e) { if (e.key === 'Enter') doLogin(); }
 
   return (
-    <div style={{ minHeight:'100dvh', background:BG, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:FONT, padding:'20px' }}>
-      <div style={{ width:'100%', maxWidth:'300px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.4s ease' }}>
-        <div style={{ textAlign:'center', marginBottom:'36px' }}>
-          <div style={{ fontSize:'52px', marginBottom:'10px' }}>📦</div>
-          <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'4px', color:YELLOW }}>TURNI MAGAZZINO</div>
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px', marginTop:'4px' }}>INSERISCI LA PASSWORD</div>
+    <div style={{ minHeight:'100dvh', background:'radial-gradient(ellipse at 50% 0%, #0f1220 0%, '+BG+' 70%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:FONT, padding:'20px' }}>
+      <div style={{ width:'100%', maxWidth:'300px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.5s ease' }}>
+        <div style={{ textAlign:'center', marginBottom:'40px' }}>
+          <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
+          <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNI MAGAZZINO</div>
+          <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>ACCESSO RICHIESTO</div>
         </div>
-
         <div style={{ position:'relative', marginBottom:'14px' }}>
-          <input
-            type={show ? 'text' : 'password'}
-            value={pwd}
+          <input type={show ? 'text' : 'password'} value={pwd}
             onChange={function(e){setPwd(e.target.value); setErr('');}}
-            onKeyDown={onKey}
-            placeholder="Password"
-            autoFocus
-            style={{ width:'100%', background:BG2, border:'2px solid '+(err?RED:BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'18px', padding:'14px 46px 14px 16px', outline:'none', letterSpacing:'2px', boxSizing:'border-box', transition:'border-color 0.2s' }}
-          />
-          <button onClick={function(){setShow(!show);}} style={{ position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', color:DIM, padding:'4px' }}>
+            onKeyDown={onKey} placeholder="Password" autoFocus
+            style={{ width:'100%', background:BG2, border:'2px solid '+(err?RED:pwd?YELLOW:BORDER2), borderRadius:'13px', color:TEXT, fontFamily:FONT, fontSize:'18px', padding:'15px 48px 15px 18px', outline:'none', letterSpacing:'2px', boxSizing:'border-box', transition:'border-color 0.25s' }} />
+          <button onClick={function(){setShow(!show);}}
+            style={{ position:'absolute', right:'14px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', fontSize:'18px', color:DIM, padding:'4px' }}>
             {show ? '🙈' : '👁️'}
           </button>
         </div>
-
-        <button onClick={doLogin} disabled={loading || !pwd} style={{ width:'100%', padding:'14px', background: pwd ? 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')' : BG3, border:'none', borderRadius:'12px', color: pwd ? '#000' : DIM, fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor: pwd ? 'pointer' : 'default', transition:'all 0.2s' }}>
-          {loading ? '...' : 'ENTRA →'}
+        <button onClick={doLogin} disabled={loading || !pwd}
+          style={{ width:'100%', padding:'15px', background: pwd ? 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')' : BG3, border:'none', borderRadius:'13px', color: pwd ? '#000' : DIM, fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor: pwd ? 'pointer' : 'default', transition:'all 0.25s', boxShadow: pwd ? '0 4px 20px rgba(245,158,11,0.25)' : 'none' }}>
+          {loading ? '· · ·' : 'ENTRA →'}
         </button>
-
-        {err && (
-          <div style={{ textAlign:'center', color:RED, fontSize:'10px', letterSpacing:'2px', marginTop:'14px' }}>{err}</div>
-        )}
+        {err && <div style={{ textAlign:'center', color:RED, fontSize:'10px', letterSpacing:'2px', marginTop:'14px', animation:'fadeIn 0.2s ease' }}>{err}</div>}
       </div>
     </div>
   );
@@ -272,28 +324,27 @@ function Login(props) {
 // ── BOTTOM NAV ──
 function Nav(props) {
   var tabs = [
-    { id:'input', icon:'✏️', label:'INPUT' },
-    { id:'input', icon:'✏️', label:'INPUT' },
-    { id:'turni', icon:'📊', label:'TURNI' },
-    { id:'dettaglio', icon:'📋', label:'DETTAGLIO' },
-    { id:'settings', icon:'⚙️', label:'CONFIG' },
+    { id:'input',     icon:'✏️', label:'INPUT'    },
+    { id:'turni',     icon:'📊', label:'TURNI'    },
+    { id:'dettaglio', icon:'📋', label:'DETTAGLIO'},
+    { id:'settings',  icon:'⚙️', label:'CONFIG'   },
   ];
   return (
     <div style={{ position:'absolute', bottom:0, left:0, right:0, background:BG2, borderTop:'1px solid '+BORDER, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
       {tabs.map(function(t) {
         var active = props.page === t.id;
         return (
-          <button key={t.id} onClick={function(){props.setPage(t.id);}} style={{ flex:1, background:'transparent', border:'none', padding:'7px 4px 5px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
-            <div style={{ fontSize:'18px', lineHeight:1 }}>{t.icon}</div>
-            <div style={{ fontSize:'7px', letterSpacing:'1px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal' }}>{t.label}</div>
-            {active && <div style={{ width:'18px', height:'2px', background:YELLOW, borderRadius:'1px' }} />}
+          <button key={t.id} onClick={function(){props.setPage(t.id);}}
+            style={{ flex:1, background: active ? 'rgba(245,158,11,0.05)' : 'transparent', border:'none', padding:'8px 4px 6px', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:'3px', transition:'background 0.2s' }}>
+            <div style={{ fontSize:'19px', lineHeight:1, filter: active ? 'drop-shadow(0 0 6px rgba(245,158,11,0.5))' : 'none', transition:'filter 0.2s' }}>{t.icon}</div>
+            <div style={{ fontSize:'7px', letterSpacing:'1px', fontFamily:FONT, color: active ? YELLOW : DIM, fontWeight: active ? 'bold' : 'normal', transition:'color 0.2s' }}>{t.label}</div>
+            <div style={{ width: active ? '20px' : '0px', height:'2px', background:'linear-gradient(90deg,'+YELLOW2+','+YELLOW+')', borderRadius:'1px', transition:'width 0.25s ease' }} />
           </button>
         );
       })}
     </div>
   );
 }
-
 
 // ── PAGE INPUT RAPIDO ──
 function PageInput(props) {
@@ -302,9 +353,6 @@ function PageInput(props) {
   var rate = props.rate; var setRate = props.setRate;
   var setPage = props.setPage;
 
-  var _ok = React.useState(false); var confermato = _ok[0]; var setConfermato = _ok[1];
-
-  // Persone locali per ogni turno (inizializzate dai turni esistenti)
   var _pers = React.useState(function() {
     var m = {};
     props.turni.forEach(function(t){ m[t.id] = t.persone || 0; });
@@ -315,13 +363,48 @@ function PageInput(props) {
   var _colliInput = React.useState(colli || '');
   var colliInput = _colliInput[0]; var setColliInput = _colliInput[1];
 
+  var _ok = React.useState(false); var confermato = _ok[0]; var setConfermato = _ok[1];
+  var _autoSaved = React.useState(false); var autoSaved = _autoSaved[0]; var setAutoSaved = _autoSaved[1];
+  var autoSaveTimer = useRef(null);
+
+  // Sincronizza persone con turni quando cambiano dall'esterno
+  useEffect(function() {
+    setPersone(function(prev) {
+      var m = Object.assign({}, prev);
+      props.turni.forEach(function(t) { if (!(t.id in m)) m[t.id] = t.persone || 0; });
+      return m;
+    });
+  }, [props.turni.length]);
+
+  // AUTO-SAVE istantaneo: ogni modifica a persone o colliInput salva subito
+  function triggerAutoSave(newPersone, newColli) {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(function() {
+      // Applica silenziosamente
+      setTurni(function(prev) {
+        return prev.map(function(t) {
+          return Object.assign({}, t, { persone: (newPersone||persone)[t.id] || 0 });
+        });
+      });
+      if (newColli !== undefined) setColli(newColli);
+      setAutoSaved(true);
+      setTimeout(function() { setAutoSaved(false); }, 1500);
+    }, 600);
+  }
+
   function setPers(id, v) {
-    setPersone(function(prev){ var n = Object.assign({}, prev); n[id] = Math.max(0, v); return n; });
+    var newP = Object.assign({}, persone); newP[id] = Math.max(0, v);
+    setPersone(newP);
+    triggerAutoSave(newP, undefined);
+  }
+
+  function handleColliChange(v) {
+    setColliInput(v);
+    triggerAutoSave(undefined, v);
   }
 
   var totPersone = Object.values(persone).reduce(function(a,b){ return a + Number(b); }, 0);
 
-  // Calcolo rapido chiusura stimata
   var chiusuraStimata = (function() {
     if (!colliInput || totPersone === 0) return null;
     var colliN = Number(colliInput);
@@ -330,7 +413,7 @@ function PageInput(props) {
       return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0, rate: r });
     });
     var evS = {};
-    allT.forEach(function(t){ evS[tMin(t.inizio)] = true; evS[tMin(t.fine)] = true; if(t.pIn&&t.pOut){evS[tMin(t.pIn)]=true;evS[tMin(t.pOut)]=true;} });
+    allT.forEach(function(t){ evS[tMin(t.inizio)]=true; evS[tMin(t.fine)]=true; if(t.pIn&&t.pOut){evS[tMin(t.pIn)]=true;evS[tMin(t.pOut)]=true;} });
     var ev = Object.keys(evS).map(Number).sort(function(a,b){return a-b;});
     var cum = 0;
     for (var i = 0; i < ev.length - 1; i++) {
@@ -338,48 +421,57 @@ function PageInput(props) {
       allT.forEach(function(t) {
         var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
         var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-        if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut))
-          tR += t.persone * t.rate;
+        if (frm >= tIn && to <= tOut && !(pIn !== null && frm >= pIn && to <= pOut)) tR += t.persone * t.rate;
       });
       if (tR === 0) continue;
       var prod = tR * (to - frm) / 60;
-      if (cum + prod >= colliN) {
-        return mToT(frm + (colliN - cum) / tR * 60);
-      }
+      if (cum + prod >= colliN) return mToT(frm + (colliN - cum) / tR * 60);
       cum += prod;
     }
     return null;
   })();
 
   function conferma() {
-    // Applica le persone ai turni
     setTurni(function(prev) {
-      return prev.map(function(t) {
-        return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0 });
-      });
+      return prev.map(function(t) { return Object.assign({}, t, { persone: persone[t.id] || 0, assenti: 0 }); });
     });
-    // Applica i colli
     setColli(colliInput);
     setConfermato(true);
-    setTimeout(function() { setConfermato(false); setPage('turni'); }, 1200);
+    setTimeout(function() { setConfermato(false); setPage('turni'); }, 1000);
   }
+
+  var r2 = Number(props.rate);
+  var righeRiep = [];
+  props.turni.forEach(function(t) {
+    var pers = persone[t.id] || 0;
+    if (!pers) return;
+    var min2 = tMin(t.fine) - tMin(t.inizio);
+    if (t.pIn && t.pOut) min2 -= (tMin(t.pOut) - tMin(t.pIn));
+    righeRiep.push({ nome:t.nome, pers:pers, colli:Math.round(pers*r2*min2/60), color:tColor(t.nome) });
+  });
+  var totaleRiep = righeRiep.reduce(function(s,x){return s+x.colli;},0);
+  var storico = lsg(K.storico, []).slice(0, 7);
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'80px', fontFamily:FONT }}>
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 14px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>✏️ INPUT RAPIDO</div>
-        <div style={{ fontSize:'9px', color:DIM, marginTop:'2px', letterSpacing:'1px' }}>Inserisci persone e colli — si compila tutto in automatico</div>
+      {/* HEADER */}
+      <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'12px 16px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>✏️ INPUT RAPIDO</div>
+            <div style={{ fontSize:'8px', color:DIM, marginTop:'2px', letterSpacing:'1px' }}>Inserisci persone e colli</div>
+          </div>
+          <SavedBadge show={autoSaved} />
+        </div>
       </div>
 
-      <div style={{ padding:'12px' }}>
-
+      <div style={{ padding:'14px' }}>
         {/* COLLI + RATE */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'14px' }}>
-          <Panel>
-            <Lbl color={YELLOW}>📦 COLLI DA FARE</Lbl>
-            <input type="number" value={colliInput} onChange={function(e){setColliInput(e.target.value);}}
-              placeholder="es. 12000"
-              style={{ width:'100%', background:'transparent', border:'none', color:YELLOW, fontFamily:FONT, fontSize:'28px', fontWeight:'bold', outline:'none', padding:0 }} />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'16px' }}>
+          <Panel style={{ border: colliInput ? '1px solid rgba(245,158,11,0.4)' : '1px solid '+BORDER }}>
+            <Lbl color={YELLOW}>📦 COLLI</Lbl>
+            <input type="number" value={colliInput} onChange={function(e){handleColliChange(e.target.value);}} placeholder="es. 12000"
+              style={{ width:'100%', background:'transparent', border:'none', color:YELLOW, fontFamily:FONT, fontSize:'26px', fontWeight:'bold', outline:'none', padding:0 }} />
           </Panel>
           <Panel>
             <Lbl color={PURPLE}>COLLI / ORA</Lbl>
@@ -387,7 +479,7 @@ function PageInput(props) {
               {[90,100].map(function(v) {
                 return (
                   <button key={v} onClick={function(){setRate(v);}}
-                    style={{ flex:1, padding:'8px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', cursor:'pointer' }}>
+                    style={{ flex:1, padding:'10px 4px', borderRadius:'9px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'17px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>
                     {v}
                   </button>
                 );
@@ -397,16 +489,16 @@ function PageInput(props) {
         </div>
 
         {/* PERSONE PER TURNO */}
-        <Lbl color={YELLOW}>👥 PERSONE PER TURNO</Lbl>
+        <SectionHeader color={YELLOW} icon="👥">PERSONE PER TURNO</SectionHeader>
         {props.turni.map(function(t) {
           var cl = tColor(t.nome);
           var p = persone[t.id] || 0;
           return (
-            <Panel key={t.id} style={{ marginBottom:'8px' }}>
+            <Panel key={t.id} style={{ marginBottom:'8px', border: p > 0 ? '1px solid rgba('+hexToRgb(cl)+',0.3)' : '1px solid '+BORDER }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:'11px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
-                  <div style={{ fontSize:'9px', color:DIM, marginTop:'2px' }}>{t.inizio} → {t.fine}</div>
+                  <div style={{ fontSize:'9px', color:DIM, marginTop:'2px' }}>{t.inizio} – {t.fine}</div>
                 </div>
                 <NumInput value={p} onChange={function(v){setPers(t.id, v);}} color={cl} />
               </div>
@@ -414,102 +506,84 @@ function PageInput(props) {
           );
         })}
 
-        {/* TOTALE */}
+        {/* TOTALE PERSONE */}
         {totPersone > 0 && (
-          <Panel style={{ marginBottom:'14px', border:'1px solid '+BORDER2, textAlign:'center' }}>
-            <Lbl>TOTALE PERSONE</Lbl>
-            <div style={{ fontSize:'32px', fontWeight:'bold', color:TEXT }}>{totPersone}</div>
-          </Panel>
+          <div style={{ background:'linear-gradient(135deg,#0f1520,#14192a)', border:'1px solid '+BORDER2, borderRadius:'12px', padding:'12px 16px', marginBottom:'14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>TOTALE IN TURNO</div>
+            <div style={{ fontSize:'30px', fontWeight:'bold', color:TEXT }}>{totPersone}</div>
+          </div>
         )}
 
-        {/* CHIUSURA STIMATA PREVIEW */}
+        {/* PREVIEW CHIUSURA */}
         {chiusuraStimata && (
-          <div style={{ background:'linear-gradient(135deg,#064e3b,#065f46)', border:'2px solid '+GREEN, borderRadius:'14px', padding:'16px', textAlign:'center', marginBottom:'14px' }}>
-            <div style={{ fontSize:'9px', letterSpacing:'3px', color:'#6ee7b7', marginBottom:'6px' }}>✅ CHIUSURA STIMATA</div>
-            <div style={{ fontSize:'48px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{chiusuraStimata}</div>
+          <div style={{ background:'linear-gradient(135deg,#064e3b,#065f46)', border:'2px solid '+GREEN, borderRadius:'16px', padding:'18px', textAlign:'center', marginBottom:'14px', boxShadow:'0 4px 20px rgba(16,185,129,0.15)' }}>
+            <div style={{ fontSize:'8px', letterSpacing:'3px', color:'#6ee7b7', marginBottom:'8px' }}>✅ CHIUSURA STIMATA</div>
+            <div style={{ fontSize:'52px', fontWeight:'bold', color:GREEN, lineHeight:1, letterSpacing:'-1px' }}>{chiusuraStimata}</div>
           </div>
         )}
         {colliInput && totPersone > 0 && !chiusuraStimata && (
-          <div style={{ background:'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+RED, borderRadius:'14px', padding:'16px', textAlign:'center', marginBottom:'14px' }}>
-            <div style={{ fontSize:'9px', letterSpacing:'3px', color:'#fca5a5', marginBottom:'4px' }}>🔴 TURNI INSUFFICIENTI</div>
+          <div style={{ background:'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+RED, borderRadius:'16px', padding:'16px', textAlign:'center', marginBottom:'14px' }}>
+            <div style={{ fontSize:'8px', letterSpacing:'3px', color:'#fca5a5', marginBottom:'4px' }}>🔴 TURNI INSUFFICIENTI</div>
             <div style={{ fontSize:'11px', color:'#fca5a5' }}>Aggiungi più persone o straordinari</div>
           </div>
         )}
 
         {/* BOTTONE CONFERMA */}
         <button onClick={conferma}
-          style={{ width:'100%', padding:'16px', background: confermato ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border: confermato ? '2px solid '+GREEN : 'none', borderRadius:'14px', color: confermato ? GREEN : '#000', fontFamily:FONT, fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', transition:'all 0.3s', marginBottom:'20px' }}>
+          style={{ width:'100%', padding:'16px', background: confermato ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg,'+YELLOW+','+YELLOW2+')', border: confermato ? '2px solid '+GREEN : '2px solid transparent', borderRadius:'14px', color: confermato ? GREEN : '#000', fontFamily:FONT, fontSize:'12px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', transition:'all 0.3s', marginBottom:'20px', boxShadow: confermato ? 'none' : '0 4px 16px rgba(245,158,11,0.2)' }}>
           {confermato ? '✅ APPLICATO!' : '✅ APPLICA E VAI AI TURNI'}
         </button>
 
-        {/* RIEPILOGO STORICO */}
-        {(function() {
-          var r2 = Number(props.rate);
-          var righe = [];
-          props.turni.forEach(function(t) {
-            var pers = persone[t.id] || 0;
-            if (!pers) return;
-            var tIn2 = tMin(t.inizio); var tOut2 = tMin(t.fine);
-            var pIn2 = t.pIn ? tMin(t.pIn) : null; var pOut2 = t.pOut ? tMin(t.pOut) : null;
-            var min2 = tOut2 - tIn2;
-            if (pIn2 && pOut2) min2 -= (pOut2 - pIn2);
-            righe.push({ nome:t.nome, pers:pers, colli:Math.round(pers*r2*min2/60), color:tColor(t.nome) });
-          });
-          var totale = righe.reduce(function(s,x){return s+x.colli;},0);
-          var storico = lsg(K.storico, []).slice(0, 7);
-          return (
-            <div>
-              {righe.length > 0 && (
-                <Panel style={{ marginBottom:'12px', border:'1px solid '+YELLOW }}>
-                  <Lbl color={YELLOW}>📦 COLLI PREVISTI / TURNO</Lbl>
-                  {righe.map(function(x, i) {
-                    return (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
-                        <div style={{ fontSize:'10px', color:x.color, fontWeight:'bold' }}>{x.nome}</div>
-                        <div style={{ display:'flex', gap:'12px', alignItems:'center' }}>
-                          <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
-                          <div style={{ fontSize:'14px', fontWeight:'bold', color:GREEN, minWidth:'70px', textAlign:'right' }}>{fmt(x.colli)}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:'10px' }}>
-                    <div style={{ fontSize:'10px', fontWeight:'bold', color:TEXT, letterSpacing:'2px' }}>TOTALE</div>
-                    <div style={{ fontSize:'18px', fontWeight:'bold', color:YELLOW }}>{totale.toLocaleString('it-IT')}</div>
+        {/* RIEPILOGO COLLI */}
+        {righeRiep.length > 0 && (
+          <Panel style={{ marginBottom:'12px', border:'1px solid rgba(245,158,11,0.3)' }}>
+            <SectionHeader color={YELLOW} icon="📦">COLLI PREVISTI / TURNO</SectionHeader>
+            {righeRiep.map(function(x, i) {
+              return (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid '+BORDER }}>
+                  <div style={{ fontSize:'10px', color:x.color, fontWeight:'bold' }}>{x.nome}</div>
+                  <div style={{ display:'flex', gap:'12px', alignItems:'center' }}>
+                    <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
+                    <div style={{ fontSize:'15px', fontWeight:'bold', color:GREEN, minWidth:'70px', textAlign:'right' }}>{fmt(x.colli)}</div>
                   </div>
-                  {Number(colliInput) > 0 && (
-                    <div style={{ marginTop:'8px', paddingTop:'8px', borderTop:'1px solid '+BORDER, display:'flex', justifyContent:'space-between' }}>
-                      <div style={{ fontSize:'9px', color:DIM }}>vs obiettivo</div>
-                      <div style={{ fontSize:'11px', fontWeight:'bold', color: totale>=Number(colliInput)?GREEN:RED }}>
-                        {totale>=Number(colliInput) ? '✅ OK +' + (totale-Number(colliInput)) : '⚠️ mancano '+fmt(Number(colliInput)-totale)}
-                      </div>
-                    </div>
-                  )}
-                </Panel>
-              )}
-              {storico.length > 0 && (
-                <Panel>
-                  <Lbl color={PURPLE}>📋 ULTIME 7 GIORNATE</Lbl>
-                  {storico.map(function(e, i) {
-                    return (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
-                        <div>
-                          <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{e.data}</div>
-                          <div style={{ fontSize:'9px', color:DIM }}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
-                        </div>
-                        <div style={{ textAlign:'right' }}>
-                          <div style={{ fontSize:'14px', fontWeight:'bold', color: e.ok ? GREEN : RED }}>{e.chiusura||'—'}</div>
-                          {e.anticipo > 0 && <div style={{ fontSize:'9px', color:GREEN }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </Panel>
-              )}
+                </div>
+              );
+            })}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:'10px' }}>
+              <div style={{ fontSize:'9px', fontWeight:'bold', color:TEXT, letterSpacing:'2px' }}>TOTALE</div>
+              <div style={{ fontSize:'20px', fontWeight:'bold', color:YELLOW }}>{totaleRiep.toLocaleString('it-IT')}</div>
             </div>
-          );
-        })()}
+            {Number(colliInput) > 0 && (
+              <div style={{ marginTop:'8px', paddingTop:'8px', borderTop:'1px solid '+BORDER, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ fontSize:'9px', color:DIM }}>vs obiettivo</div>
+                <div style={{ fontSize:'11px', fontWeight:'bold', color: totaleRiep>=Number(colliInput)?GREEN:RED }}>
+                  {totaleRiep>=Number(colliInput) ? '✅ +'+fmt(totaleRiep-Number(colliInput)) : '⚠️ −'+fmt(Number(colliInput)-totaleRiep)}
+                </div>
+              </div>
+            )}
+          </Panel>
+        )}
 
+        {/* STORICO */}
+        {storico.length > 0 && (
+          <Panel>
+            <SectionHeader color={PURPLE} icon="📋">ULTIME GIORNATE</SectionHeader>
+            {storico.map(function(e, i) {
+              return (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom: i<storico.length-1 ? '1px solid '+BORDER : 'none' }}>
+                  <div>
+                    <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{e.data}</div>
+                    <div style={{ fontSize:'8px', color:DIM, marginTop:'1px' }}>{e.colli.toLocaleString('it-IT')} colli · {e.rate} c/h</div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:'15px', fontWeight:'bold', color: e.ok ? GREEN : RED }}>{e.chiusura||'—'}</div>
+                    {e.anticipo > 0 && <div style={{ fontSize:'8px', color:GREEN2 }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </Panel>
+        )}
       </div>
     </div>
   );
@@ -531,6 +605,10 @@ function PageTurni(props) {
   var _sv = useState(false); var salvato = _sv[0]; var setSalvato = _sv[1];
   var _cp = useState(false); var copiato = _cp[0]; var setCopiato = _cp[1];
 
+  // Auto-save indicatori
+  var turniSaved = useAutoSave(K.turni, turni);
+  var straSaved = useAutoSave(K.stra, stra);
+
   useEffect(function() {
     var colliN = Number(colli);
     if (!colliN) { setRisultato(null); return; }
@@ -541,7 +619,6 @@ function PageTurni(props) {
     setRisultato(res);
   }, [colli, rate, JSON.stringify(turni), JSON.stringify(stra)]);
 
-  // Ricalcola automaticamente il punto situazione se i campi sono già compilati
   useEffect(function() {
     if (!puntoOra || !puntoRim) return;
     var r = Number(rate); var oraM = tMin(puntoOra); var rim = Number(puntoRim);
@@ -565,7 +642,7 @@ function PageTurni(props) {
       allT.forEach(function(t) {
         if (tMin(t.fine) > oraM) {
           evS2[Math.max(oraM, tMin(t.inizio))] = true; evS2[tMin(t.fine)] = true;
-          if (t.pIn && t.pOut) { if (tMin(t.pIn)>oraM) evS2[tMin(t.pIn)]=true; if (tMin(t.pOut)>oraM) evS2[tMin(t.pOut)]=true; }
+          if (t.pIn && t.pOut) { if(tMin(t.pIn)>oraM)evS2[tMin(t.pIn)]=true; if(tMin(t.pOut)>oraM)evS2[tMin(t.pOut)]=true; }
         }
       });
       var sorted = Object.keys(evS2).map(Number).sort(function(a,b){return a-b;});
@@ -577,8 +654,7 @@ function PageTurni(props) {
         allT.forEach(function(t) {
           var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
           var pIn2 = t.pIn ? tMin(t.pIn) : null; var pOut2 = t.pOut ? tMin(t.pOut) : null;
-          if (f2 >= tIn && t2 <= tOut && !(pIn2 !== null && f2 >= pIn2 && t2 <= pOut2))
-            tR2 += t.persone * t.rate;
+          if (f2 >= tIn && t2 <= tOut && !(pIn2 !== null && f2 >= pIn2 && t2 <= pOut2)) tR2 += t.persone * t.rate;
         });
         if (tR2 === 0) continue;
         var p2 = tR2 * (t2 - f2) / 60;
@@ -589,12 +665,10 @@ function PageTurni(props) {
     var anticipo2 = ok && fineStimata ? calcAnticipo(allT, fineStimata, r) : 0;
     var persRimanenti = [];
     allT.forEach(function(t) {
-      var tOut = tMin(t.fine);
-      if (tOut > oraM && t.persone > 0) {
-        persRimanenti.push({ nome: t.isStrao ? (t.nome + ' ⚡') : t.nome, persone: t.persone, fine: mToT(tOut) });
-      }
+      if (tMin(t.fine) > oraM && t.persone > 0)
+        persRimanenti.push({ nome: t.isStrao ? t.nome+' ⚡' : t.nome, persone: t.persone, fine: mToT(tMin(t.fine)) });
     });
-    var totPersRim = persRimanenti.reduce(function(acc, x){ return acc + x.persone; }, 0);
+    var totPersRim = persRimanenti.reduce(function(acc,x){ return acc+x.persone; }, 0);
     var confronto = null;
     if (colli) {
       var fatti = Math.max(0, Number(colli) - rim);
@@ -614,104 +688,33 @@ function PageTurni(props) {
 
   function setP(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{persone:Math.max(0,v)}) : t;});}); }
   function setA(id, v) { setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{assenti:Math.max(0,v)}) : t;});}); }
-  function setStraRiga(tid, ri, field, val) {
-    setStra(function(prev){return prev.map(function(sp){
-      if (sp.id !== tid) return sp;
-      return Object.assign({}, sp, { righe: sp.righe.map(function(r,i){ return i===ri ? Object.assign({},r,{[field]:val}) : r; }) });
-    });});
-  }
-  function addStraRiga(tid) {
-    setStra(function(prev){return prev.map(function(sp){
-      if (sp.id !== tid) return sp;
-      return Object.assign({}, sp, { righe: sp.righe.concat([{inizio:'',fine:'',persone:0}]) });
-    });});
-  }
-  function delStraRiga(tid, ri) {
-    setStra(function(prev){return prev.map(function(sp){
-      if (sp.id !== tid) return sp;
-      return Object.assign({}, sp, { righe: sp.righe.filter(function(_,i){return i!==ri;}) });
-    });});
-  }
-
+  function setStraRiga(tid,ri,field,val) { setStra(function(prev){return prev.map(function(sp){ if(sp.id!==tid)return sp; return Object.assign({},sp,{righe:sp.righe.map(function(r,i){return i===ri?Object.assign({},r,{[field]:val}):r;})}); });}); }
+  function addStraRiga(tid) { setStra(function(prev){return prev.map(function(sp){ if(sp.id!==tid)return sp; return Object.assign({},sp,{righe:sp.righe.concat([{inizio:'',fine:'',persone:0}])}); });}); }
+  function delStraRiga(tid,ri) { setStra(function(prev){return prev.map(function(sp){ if(sp.id!==tid)return sp; return Object.assign({},sp,{righe:sp.righe.filter(function(_,i){return i!==ri;})}); });}); }
   function resetGiornata() {
     setTurni(function(prev){return prev.map(function(t){return Object.assign({},t,{persone:0,assenti:0});});});
     setStra(function(prev){return prev.map(function(sp){return Object.assign({},sp,{righe:(sp.righe||[]).map(function(r){return Object.assign({},r,{persone:0});})});});});
   }
 
-  function calcolaPunto() {
-    if (!puntoOra || !puntoRim) return;
-    var r = Number(rate); var oraM = tMin(puntoOra); var rim = Number(puntoRim);
-    var allT = buildAllT(turni, stra, r);
-    var capRim = 0;
-    allT.forEach(function(t) {
-      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
-      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-      var start = Math.max(oraM, tIn);
-      if (start >= tOut) return;
-      var min = tOut - start;
-      if (pIn !== null && pOut > start && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,start);
-      if (min <= 0) return;
-      capRim += Math.round(min / 60 * t.rate * t.persone);
-    });
-    var ok = capRim >= rim;
-    var fineStimata = null;
-    if (ok) {
-      var evS2 = {}; evS2[oraM] = true;
-      allT.forEach(function(t) {
-        if (tMin(t.fine) > oraM) {
-          evS2[Math.max(oraM, tMin(t.inizio))] = true; evS2[tMin(t.fine)] = true;
-          if (t.pIn && t.pOut) { if (tMin(t.pIn)>oraM) evS2[tMin(t.pIn)]=true; if (tMin(t.pOut)>oraM) evS2[tMin(t.pOut)]=true; }
-        }
-      });
-      var sorted = Object.keys(evS2).map(Number).sort(function(a,b){return a-b;});
-      var cum2 = 0;
-      for (var ii = 0; ii < sorted.length-1; ii++) {
-        var f2 = sorted[ii]; var t2 = sorted[ii+1];
-        if (f2 < oraM) continue;
-        var tR2 = 0;
-        allT.forEach(function(t) {
-          var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
-          var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-          if (f2 >= tIn && t2 <= tOut && !(pIn !== null && f2 >= pIn && t2 <= pOut))
-            tR2 += t.persone * t.rate;
-        });
-        if (tR2 === 0) continue;
-        var p2 = tR2 * (t2 - f2) / 60;
-        if (cum2 + p2 >= rim) { fineStimata = mToT(f2 + (rim - cum2) / tR2 * 60); break; }
-        cum2 += p2;
-      }
-    }
-    var anticipo2 = ok && fineStimata ? calcAnticipo(allT, fineStimata, r) : 0;
-    // Persone rimanenti dopo l'ora inserita
-    var persRimanenti = [];
-    allT.forEach(function(t) {
-      var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
-      var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-      // turno ancora attivo dopo oraM
-      if (tOut > oraM && t.persone > 0) {
-        var etichetta = t.isStrao ? (t.nome + ' ⚡') : t.nome;
-        persRimanenti.push({ nome: etichetta, persone: t.persone, fine: mToT(tOut) });
-      }
-    });
-    var totPersRim = persRimanenti.reduce(function(acc, x){ return acc + x.persone; }, 0);
+  function salvaStorico() {
+    var storico = lsg(K.storico, []);
+    var ant = risultato ? (risultato.anticipo||0) : 0;
+    var entry = { id:Date.now(), data:oggi(), colli:Number(colli), rate:Number(rate), turni:turni.map(function(t){return{nome:t.nome,persone:t.persone||0,assenti:t.assenti||0};}), chiusura:risultato?risultato.fineEx:null, anticipo:ant, ok:risultato?risultato.ok:false };
+    lss(K.storico, [entry].concat(storico.slice(0,29)));
+    setSalvato(true); setTimeout(function(){setSalvato(false);}, 2500);
+  }
 
-    var confronto = null;
-    if (colli) {
-      // colli fatti REALI = totale - rimanenti (inseriti dall'utente)
-      var fatti = Math.max(0, Number(colli) - rim);
-      // colli pianificati fino all'ora = quanto avrebbero dovuto fare i turni fino ad adesso
-      var colliPian = 0;
-      allT.forEach(function(t) {
-        var tIn = tMin(t.inizio); var tOut = Math.min(oraM, tMin(t.fine));
-        if (tIn >= oraM || tOut <= tIn) return;
-        var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-        var min = tOut - tIn;
-        if (pIn !== null && pOut > tIn && pIn < tOut) min -= Math.min(pOut,tOut) - Math.max(pIn,tIn);
-        if (min > 0) colliPian += t.persone * t.rate * min / 60;
-      });
-      confronto = { fatti:fatti, piano:Math.round(colliPian), delta:fatti-Math.round(colliPian) };
+  function copiaPian() {
+    var lines = ['📦 TURNI MAGAZZINO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
+    turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
+    var hasS=false;
+    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','STRAORDINARI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
+    if (risultato) {
+      lines.push('','RISULTATO','────────────────────────────');
+      if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')); }
+      else lines.push('🔴 Mancano: '+(Number(colli)-risultato.cum).toLocaleString('it-IT'));
     }
-    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto, persRimanenti:persRimanenti, totPersRim:totPersRim });
+    navigator.clipboard.writeText(lines.join('\n')).then(function(){setCopiato(true);setTimeout(function(){setCopiato(false);},2500);}).catch(function(){prompt('Copia:',lines.join('\n'));});
   }
 
   function calcolaInverso() {
@@ -732,8 +735,7 @@ function PageTurni(props) {
     stra.forEach(function(sp){
       var t = turni.find(function(x){return x.id===sp.id;});
       (sp.righe||[]).forEach(function(rr){
-        if(rr.inizio&&rr.fine&&Number(rr.persone)>0)
-          straV.push({id:sp.id,nome:(t?t.nome:'')+'(strao)',inizio:rr.inizio,fine:rr.fine,pIn:'',pOut:'',persone:Number(rr.persone),rate:r,isStrao:true});
+        if(rr.inizio&&rr.fine&&Number(rr.persone)>0) straV.push({id:sp.id,nome:(t?t.nome:'')+'(strao)',inizio:rr.inizio,fine:rr.fine,pIn:'',pOut:'',persone:Number(rr.persone),rate:r,isStrao:true});
       });
     });
     var mat = turniEff.find(function(t){return /mattina/i.test(t.nome);});
@@ -774,51 +776,36 @@ function PageTurni(props) {
     setInvResult({tipo:'impossibile',fineAtt:fineAttStr});
   }
 
-  function salvaStorico() {
-    var storico = lsg(K.storico, []);
-    var ant = risultato ? (risultato.anticipo||0) : 0;
-    var entry = { id:Date.now(), data:oggi(), colli:Number(colli), rate:Number(rate), turni:turni.map(function(t){return{nome:t.nome,persone:t.persone||0,assenti:t.assenti||0};}), chiusura:risultato?risultato.fineEx:null, anticipo:ant, ok:risultato?risultato.ok:false };
-    lss(K.storico, [entry].concat(storico.slice(0,29)));
-    setSalvato(true); setTimeout(function(){setSalvato(false);}, 2500);
-  }
-
-  function copiaPian() {
-    var lines = ['📦 TURNI MAGAZZINO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
-    turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
-    var hasS=false;
-    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','STRAORDINARI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
-    if (risultato) {
-      lines.push('','RISULTATO','────────────────────────────');
-      if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')); }
-      else lines.push('🔴 Mancano: '+(Number(colli)-risultato.cum).toLocaleString('it-IT'));
-    }
-    var txt = lines.join('\n');
-    navigator.clipboard.writeText(txt).then(function(){setCopiato(true);setTimeout(function(){setCopiato(false);},2500);}).catch(function(){prompt('Copia:',txt);});
-  }
-
   var isOk = risultato && risultato.ok;
+  var anyModified = turniSaved || straSaved;
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px' }}>
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW, fontFamily:FONT }}>📦 TURNI</div>
+      {/* HEADER */}
+      <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW, fontFamily:FONT }}>📦 TURNI</div>
+          <SavedBadge show={anyModified} />
+        </div>
         <div style={{ display:'flex', gap:'5px' }}>
-          <button onClick={copiaPian} style={{ background: copiato?'rgba(16,185,129,0.15)':'rgba(167,139,250,0.1)', border:'1px solid '+(copiato?GREEN:PURPLE), borderRadius:'7px', color:copiato?GREEN:PURPLE, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>{copiato?'✅ COPIATO':'📋 COPIA'}</button>
-          {risultato && <button onClick={salvaStorico} style={{ background:salvato?'rgba(16,185,129,0.15)':'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'7px', color:GREEN, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>{salvato?'✅ SALVATO':'💾 SALVA'}</button>}
-          <button onClick={function(){setTurni(DEF_TURNI);setStra(DEF_STRA);setColli('');}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'7px', color:RED, fontFamily:FONT, fontSize:'9px', padding:'5px 8px', cursor:'pointer' }}>↺ TUTTO</button>
+          <ActionBtn onClick={copiaPian} color={PURPLE} active={copiato} activeLabel="✅ COPIATO" small>📋 COPIA</ActionBtn>
+          {risultato && <ActionBtn onClick={salvaStorico} color={GREEN} active={salvato} activeLabel="✅ SALVATO" small>💾 SALVA</ActionBtn>}
+          <ActionBtn onClick={function(){setTurni(DEF_TURNI);setStra(DEF_STRA);setColli('');}} color={RED} small>↺ RESET</ActionBtn>
         </div>
       </div>
 
-      <div style={{ padding:'10px 12px 0' }}>
-        <button onClick={resetGiornata} style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.07)', border:'2px solid '+RED, borderRadius:'12px', color:RED, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer' }}>
-          ↺ RESET PERSONE + STRAORDINARI
+      <div style={{ padding:'10px 14px 0' }}>
+        <button onClick={resetGiornata}
+          style={{ width:'100%', padding:'11px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'11px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', transition:'all 0.2s' }}>
+          ↺ AZZERA PERSONE + STRAORDINARI
         </button>
       </div>
 
-      <div style={{ padding:'12px', fontFamily:FONT }}>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
-          <Panel>
-            <Lbl color={YELLOW}>COLLI</Lbl>
+      <div style={{ padding:'14px', fontFamily:FONT }}>
+        {/* COLLI + RATE */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'14px' }}>
+          <Panel style={{ border: colli ? '1px solid rgba(245,158,11,0.4)' : '1px solid '+BORDER }}>
+            <Lbl color={YELLOW}>COLLI TARGET</Lbl>
             <input type="number" value={colli} onChange={function(e){setColli(e.target.value);}} placeholder="0"
               style={{ width:'100%', background:'transparent', border:'none', color:YELLOW, fontFamily:FONT, fontSize:'30px', fontWeight:'bold', outline:'none', padding:0 }} />
           </Panel>
@@ -826,134 +813,150 @@ function PageTurni(props) {
             <Lbl color={PURPLE}>COLLI / ORA</Lbl>
             <div style={{ display:'flex', gap:'6px' }}>
               {[90,100].map(function(v) {
-                return <button key={v} onClick={function(){setRate(v);}} style={{ flex:1, padding:'8px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', cursor:'pointer' }}>{v}</button>;
+                return <button key={v} onClick={function(){setRate(v);}} style={{ flex:1, padding:'10px 4px', borderRadius:'9px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.15)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'17px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>{v}</button>;
               })}
             </div>
           </Panel>
         </div>
 
-        <Lbl color={YELLOW}>TURNI DI LAVORO</Lbl>
+        <SectionHeader color={YELLOW}>TURNI DI LAVORO</SectionHeader>
         {turni.map(function(t) {
           var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
           var cl = tColor(t.nome);
           var sp = stra.find(function(s){return s.id===t.id;}) || { righe:[] };
           return (
-            <Panel key={t.id} style={{ marginBottom:'8px' }}>
+            <Panel key={t.id} style={{ marginBottom:'10px', border: eff > 0 ? '1px solid rgba('+hexToRgb(cl)+',0.35)' : '1px solid '+BORDER }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
                 <div>
-                  <div style={{ fontSize:'10px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
-                  <div style={{ fontSize:'9px', color:DIM, marginTop:'1px' }}>{t.inizio} → {t.fine} · pausa {t.pIn}-{t.pOut}</div>
+                  <div style={{ fontSize:'11px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
+                  <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>{t.inizio} – {t.fine} · pausa {t.pIn}–{t.pOut}</div>
                 </div>
-                {eff > 0 && <div style={{ fontSize:'9px', color:GREEN, background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'6px', padding:'2px 7px' }}>{eff} eff.</div>}
+                {eff > 0 && (
+                  <div style={{ fontSize:'10px', fontWeight:'bold', color:GREEN, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:'8px', padding:'4px 10px', letterSpacing:'0.5px' }}>
+                    {eff} eff.
+                  </div>
+                )}
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom: sp.righe.length > 0 ? '8px' : 0 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom: eff > 0 ? '8px' : 0 }}>
                 <div><Lbl>👥 PERSONE</Lbl><NumInput value={t.persone||0} onChange={function(v){setP(t.id,v);}} color={cl} /></div>
                 <div><Lbl>🚫 ASSENTI</Lbl><NumInput value={t.assenti||0} onChange={function(v){setA(t.id,v);}} color={RED} /></div>
               </div>
               {(function(){
-                var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
                 if (eff === 0) return null;
-                var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
-                var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-                var min = tOut - tIn;
-                if (pIn && pOut) min -= (pOut - pIn);
-                var colliTurno = Math.round(eff * Number(rate) * min / 60);
+                var tIn2 = tMin(t.inizio); var tOut2 = tMin(t.fine);
+                var pIn2 = t.pIn ? tMin(t.pIn) : null; var pOut2 = t.pOut ? tMin(t.pOut) : null;
+                var min2 = tOut2 - tIn2;
+                if (pIn2 && pOut2) min2 -= (pOut2 - pIn2);
+                var colliTurno = Math.round(eff * Number(rate) * min2 / 60);
                 var colliStrao = 0;
                 (sp.righe||[]).forEach(function(rr){
-                  if(rr.inizio&&rr.fine&&Number(rr.persone)>0)
-                    colliStrao += Math.round(Number(rr.persone)*Number(rate)*(tMin(rr.fine)-tMin(rr.inizio))/60);
+                  if(rr.inizio&&rr.fine&&Number(rr.persone)>0) colliStrao += Math.round(Number(rr.persone)*Number(rate)*(tMin(rr.fine)-tMin(rr.inizio))/60);
                 });
                 return (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'8px', padding:'7px 10px', marginBottom:'8px', marginTop:'2px' }}>
-                    <div style={{ fontSize:'9px', color:DIM, letterSpacing:'1px' }}>📦 COLLI TURNO</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'9px', padding:'8px 12px', marginBottom:'10px' }}>
+                    <div style={{ fontSize:'8px', color:DIM, letterSpacing:'1.5px' }}>📦 COLLI TURNO</div>
                     <div style={{ display:'flex', gap:'10px', alignItems:'center' }}>
-                      <div style={{ fontSize:'14px', fontWeight:'bold', color:cl }}>{colliTurno.toLocaleString('it-IT')}</div>
-                      {colliStrao > 0 && <div style={{ fontSize:'11px', color:ORANGE }}>+{colliStrao.toLocaleString('it-IT')} strao</div>}
+                      <div style={{ fontSize:'16px', fontWeight:'bold', color:cl }}>{colliTurno.toLocaleString('it-IT')}</div>
+                      {colliStrao > 0 && <div style={{ fontSize:'11px', color:ORANGE, fontWeight:'bold' }}>+{colliStrao.toLocaleString('it-IT')}</div>}
                     </div>
                   </div>
                 );
               })()}
               {sp.righe.map(function(rr, ri) {
                 return (
-                  <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'8px', marginTop:'6px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'6px' }}>
-                      <Lbl color={ORANGE}>⚡ STRAORDINARIO{sp.righe.length > 1 ? ' '+(ri+1) : ''}</Lbl>
-                      <button onClick={function(){delStraRiga(t.id, ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'16px', padding:'0 4px' }}>×</button>
+                  <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'10px', marginTop:'6px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'7px' }}>
+                      <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ STRAORDINARIO{sp.righe.length>1?' '+(ri+1):''}</div>
+                      <button onClick={function(){delStraRiga(t.id,ri);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'1px 6px', lineHeight:1.4 }}>×</button>
                     </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 70px', gap:'6px' }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 70px', gap:'7px' }}>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>DALLE</div><TimeInput value={rr.inizio} onChange={function(v){setStraRiga(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
                       <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>ALLE</div><TimeInput value={rr.fine} onChange={function(v){setStraRiga(t.id,ri,'fine',v);}} color={ORANGE} /></div>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>PERS.</div><input type="number" value={rr.persone===0?'':`${rr.persone}`} placeholder="0" onChange={function(e){setStraRiga(t.id,ri,'persone',e.target.value===''?0:Math.max(0,Number(e.target.value)));}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'7px', color:'#4ade80', fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'4px 4px', outline:'none', textAlign:'center' }} /></div>
+                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>PERS.</div>
+                        <input type="number" value={rr.persone===0?'':rr.persone} placeholder="0"
+                          onChange={function(e){setStraRiga(t.id,ri,'persone',e.target.value===''?0:Math.max(0,Number(e.target.value)));}}
+                          style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN2, fontFamily:FONT, fontSize:'15px', fontWeight:'bold', padding:'5px 4px', outline:'none', textAlign:'center' }} />
+                      </div>
                     </div>
                   </div>
                 );
               })}
-              <button onClick={function(){addStraRiga(t.id);}} style={{ width:'100%', marginTop:'8px', padding:'7px', background:'rgba(249,115,22,0.06)', border:'1px dashed '+ORANGE, borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer' }}>+ AGGIUNGI STRAORDINARIO</button>
+              <button onClick={function(){addStraRiga(t.id);}}
+                style={{ width:'100%', marginTop:'10px', padding:'8px', background:'rgba(249,115,22,0.05)', border:'1px dashed rgba(249,115,22,0.5)', borderRadius:'9px', color:ORANGE, fontFamily:FONT, fontSize:'8px', letterSpacing:'2px', cursor:'pointer' }}>
+                + AGGIUNGI STRAORDINARIO
+              </button>
             </Panel>
           );
         })}
 
+        {/* RISULTATO */}
         {risultato && (
-          <div className="fadeup" style={{ marginTop:'12px' }}>
-            <div style={{ background: isOk ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(isOk?GREEN:RED), borderRadius:'14px', padding:'20px', textAlign:'center' }}>
-              <div style={{ fontSize:'9px', letterSpacing:'3px', color: isOk ? '#6ee7b7' : '#fca5a5', marginBottom:'8px' }}>{isOk ? '✅ CHIUSURA PREVISTA' : '🔴 TURNI INSUFFICIENTI'}</div>
+          <div className="fadeup" style={{ marginTop:'14px' }}>
+            <div style={{ background: isOk ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(isOk?GREEN:RED), borderRadius:'16px', padding:'22px', textAlign:'center', boxShadow: isOk ? '0 6px 24px rgba(16,185,129,0.15)' : '0 6px 24px rgba(239,68,68,0.1)' }}>
+              <div style={{ fontSize:'8px', letterSpacing:'3px', color: isOk ? '#6ee7b7' : '#fca5a5', marginBottom:'10px' }}>{isOk ? '✅ CHIUSURA PREVISTA' : '🔴 TURNI INSUFFICIENTI'}</div>
               {isOk ? (
                 <div>
-                  <div style={{ fontSize:'52px', fontWeight:'bold', color:GREEN, lineHeight:1, marginBottom:'6px' }}>{risultato.fineEx}</div>
-                  {risultato.anticipo > 0 && <div style={{ fontSize:'11px', color:'#6ee7b7' }}>⚡ Anticipo: <b style={{ color:GREEN2 }}>+{risultato.anticipo.toLocaleString('it-IT')} colli</b></div>}
+                  <div style={{ fontSize:'56px', fontWeight:'bold', color:GREEN, lineHeight:1, marginBottom:'8px', letterSpacing:'-2px', textShadow:'0 0 30px rgba(16,185,129,0.4)' }}>{risultato.fineEx}</div>
+                  {risultato.anticipo > 0 && <div style={{ fontSize:'11px', color:'#6ee7b7' }}>⚡ Anticipo: <b style={{ color:GREEN2, fontSize:'13px' }}>+{risultato.anticipo.toLocaleString('it-IT')}</b> colli</div>}
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize:'32px', fontWeight:'bold', color:RED, marginBottom:'4px' }}>{(Number(colli)-risultato.cum).toLocaleString('it-IT')}</div>
-                  <div style={{ fontSize:'10px', color:'#fca5a5' }}>colli mancanti · Prodotti: {risultato.cum.toLocaleString('it-IT')}</div>
+                  <div style={{ fontSize:'36px', fontWeight:'bold', color:RED, marginBottom:'6px' }}>{(Number(colli)-risultato.cum).toLocaleString('it-IT')}</div>
+                  <div style={{ fontSize:'10px', color:'#fca5a5' }}>colli mancanti · prodotti: {risultato.cum.toLocaleString('it-IT')}</div>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <div style={{ marginTop:'16px', borderTop:'1px solid '+BORDER, paddingTop:'14px' }}>
-          <Lbl color={GREEN}>📍 PUNTO SITUAZIONE</Lbl>
+        {/* PUNTO SITUAZIONE */}
+        <div style={{ marginTop:'20px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
+          <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
-            <div><Lbl>ORA ATTUALE</Lbl><input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);}} style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
-            <div><Lbl>COLLI RIMANENTI</Lbl><input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);}} placeholder="es. 5000" style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'18px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
+            <div>
+              <Lbl>ORA ATTUALE</Lbl>
+              <input type="time" value={puntoOra} onChange={function(e){setPuntoOra(e.target.value);}}
+                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoOra?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
+            </div>
+            <div>
+              <Lbl>COLLI RIMANENTI</Lbl>
+              <input type="number" value={puntoRim} onChange={function(e){setPuntoRim(e.target.value);}} placeholder="es. 5000"
+                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoRim?'rgba(16,185,129,0.4)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'19px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
+            </div>
           </div>
-          <button onClick={calcolaPunto} style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.1)', border:'2px solid '+GREEN, borderRadius:'10px', color:GREEN, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>📍 CALCOLA</button>
           {puntoRes && (
             <div className="fadeup" style={{ marginTop:'10px' }}>
-              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'12px', padding:'16px', marginBottom:'8px', textAlign:'center' }}>
-                <div style={{ fontSize:'9px', letterSpacing:'2px', color: puntoRes.ok ? '#6ee7b7' : '#fca5a5', marginBottom:'6px' }}>{puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}</div>
-                {puntoRes.ok ? (
-                  <div>
-                    <div style={{ fontSize:'36px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{puntoRes.fine || '—'}</div>
-                    {puntoRes.anticipo > 0 && <div style={{ fontSize:'10px', color:'#6ee7b7', marginTop:'4px' }}>⚡ +{puntoRes.anticipo.toLocaleString('it-IT')}</div>}
-                  </div>
-                ) : <div style={{ fontSize:'22px', fontWeight:'bold', color:RED }}>{puntoRes.manca.toLocaleString('it-IT')} colli mancanti</div>}
+              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#064e3b,#065f46)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'13px', padding:'16px', marginBottom:'8px', textAlign:'center' }}>
+                <div style={{ fontSize:'8px', letterSpacing:'2px', color: puntoRes.ok ? '#6ee7b7' : '#fca5a5', marginBottom:'8px' }}>{puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}</div>
+                {puntoRes.ok
+                  ? <div><div style={{ fontSize:'40px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{puntoRes.fine||'—'}</div>{puntoRes.anticipo>0&&<div style={{ fontSize:'10px', color:'#6ee7b7', marginTop:'4px' }}>⚡ +{puntoRes.anticipo.toLocaleString('it-IT')} extra</div>}</div>
+                  : <div style={{ fontSize:'24px', fontWeight:'bold', color:RED }}>{puntoRes.manca.toLocaleString('it-IT')} mancanti</div>
+                }
               </div>
               {puntoRes.confronto && (
                 <Panel style={{ marginBottom:'8px' }}>
                   <Lbl>CONFRONTO COLLI</Lbl>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', textAlign:'center' }}>
-                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>FATTI</div><div style={{ fontSize:'16px', fontWeight:'bold', color:TEXT }}>{puntoRes.confronto.fatti.toLocaleString('it-IT')}</div></div>
-                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>PIANO</div><div style={{ fontSize:'16px', fontWeight:'bold', color:BLUE }}>{puntoRes.confronto.piano.toLocaleString('it-IT')}</div></div>
-                    <div><div style={{ fontSize:'8px', color:DIM, marginBottom:'2px' }}>DELTA</div><div style={{ fontSize:'16px', fontWeight:'bold', color: puntoRes.confronto.delta>=0?GREEN:RED }}>{puntoRes.confronto.delta>=0?'+':''}{puntoRes.confronto.delta.toLocaleString('it-IT')}</div></div>
+                    {[['FATTI',puntoRes.confronto.fatti,TEXT],['PIANO',puntoRes.confronto.piano,BLUE],['DELTA',puntoRes.confronto.delta,puntoRes.confronto.delta>=0?GREEN:RED]].map(function(x){
+                      return <div key={x[0]}><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div><div style={{ fontSize:'17px', fontWeight:'bold', color:x[2] }}>{x[0]==='DELTA'?(x[1]>=0?'+':'')+x[1].toLocaleString('it-IT'):x[1].toLocaleString('it-IT')}</div></div>;
+                    })}
                   </div>
                 </Panel>
               )}
               {puntoRes.persRimanenti && puntoRes.persRimanenti.length > 0 && (
-                <Panel style={{ marginBottom:'8px', border:'1px solid '+BLUE }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-                    <Lbl color={BLUE}>👥 PERSONE RIMANENTI</Lbl>
-                    <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{puntoRes.totPersRim}</div>
+                <Panel style={{ marginBottom:'8px', border:'1px solid rgba(56,189,248,0.3)' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+                    <SectionHeader color={BLUE} icon="👥">PERSONE RIMANENTI</SectionHeader>
+                    <div style={{ fontSize:'26px', fontWeight:'bold', color:BLUE, marginTop:'-4px' }}>{puntoRes.totPersRim}</div>
                   </div>
                   {puntoRes.persRimanenti.map(function(p, i) {
                     return (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'7px', padding:'6px 10px', marginBottom:'4px' }}>
+                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'8px', padding:'7px 11px', marginBottom:'4px' }}>
                         <div>
                           <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{p.nome}</div>
                           <div style={{ fontSize:'8px', color:DIM, marginTop:'1px' }}>fino alle {p.fine}</div>
                         </div>
-                        <div style={{ fontSize:'20px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
+                        <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
                       </div>
                     );
                   })}
@@ -963,42 +966,50 @@ function PageTurni(props) {
           )}
         </div>
 
-        <div style={{ marginTop:'16px', borderTop:'1px solid '+BORDER, paddingTop:'14px' }}>
-          <Lbl color={PURPLE}>🎯 OBIETTIVO INVERSO</Lbl>
-          <div style={{ display:'flex', gap:'10px', alignItems:'flex-end', marginBottom:'10px', flexWrap:'wrap' }}>
-            <div style={{ flex:1 }}><Lbl>CHIUSURA DESIDERATA</Lbl><input type="time" value={oraTarget} onChange={function(e){setOraTarget(e.target.value);setInvResult(null);}} style={{ width:'100%', background:BG3, border:'2px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', padding:'9px', outline:'none' }} /></div>
-            <button onClick={calcolaInverso} style={{ padding:'11px 16px', background:'rgba(167,139,250,0.1)', border:'2px solid '+PURPLE, borderRadius:'10px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>🎯 CALCOLA</button>
+        {/* OBIETTIVO INVERSO */}
+        <div style={{ marginTop:'12px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
+          <SectionHeader color={PURPLE} icon="🎯">OBIETTIVO INVERSO</SectionHeader>
+          <div style={{ display:'flex', gap:'10px', alignItems:'flex-end', marginBottom:'10px' }}>
+            <div style={{ flex:1 }}>
+              <Lbl>CHIUSURA DESIDERATA</Lbl>
+              <input type="time" value={oraTarget} onChange={function(e){setOraTarget(e.target.value);setInvResult(null);}}
+                style={{ width:'100%', background:BG3, border:'2px solid rgba(167,139,250,0.5)', borderRadius:'9px', color:PURPLE, fontFamily:FONT, fontSize:'22px', fontWeight:'bold', padding:'9px', outline:'none' }} />
+            </div>
+            <button onClick={calcolaInverso}
+              style={{ padding:'11px 16px', background:'rgba(167,139,250,0.1)', border:'2px solid '+PURPLE, borderRadius:'10px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', whiteSpace:'nowrap' }}>
+              🎯 CALCOLA
+            </button>
           </div>
           {invResult && (
             <div className="fadeup">
-              {invResult.tipo === 'ok' && <Panel style={{ border:'2px solid '+GREEN, textAlign:'center', marginBottom:'8px' }}><Lbl color={GREEN}>✅ GIÀ OK</Lbl><div style={{ fontSize:'36px', fontWeight:'bold', color:GREEN }}>{invResult.fine}</div></Panel>}
-              {invResult.tipo === 'impossibile' && <Panel style={{ border:'2px solid '+RED, marginBottom:'8px' }}><Lbl color={RED}>🔴 IMPOSSIBILE</Lbl><div style={{ fontSize:'11px', color:'#fca5a5' }}>Nessuna soluzione trovata</div></Panel>}
-              {invResult.tipo === 'sposta' && (
+              {invResult.tipo==='ok' && <Panel style={{ border:'2px solid '+GREEN, textAlign:'center', marginBottom:'8px' }}><Lbl color={GREEN}>✅ GIÀ IN ORARIO</Lbl><div style={{ fontSize:'40px', fontWeight:'bold', color:GREEN }}>{invResult.fine}</div></Panel>}
+              {invResult.tipo==='impossibile' && <Panel style={{ border:'2px solid '+RED, marginBottom:'8px' }}><Lbl color={RED}>🔴 IMPOSSIBILE</Lbl><div style={{ fontSize:'11px', color:'#fca5a5' }}>Nessuna soluzione trovata con le risorse disponibili.</div></Panel>}
+              {invResult.tipo==='sposta' && (
                 <Panel style={{ border:'2px solid '+PURPLE, marginBottom:'8px' }}>
                   <Lbl color={PURPLE}>🔀 SPOSTA PERSONE</Lbl>
-                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'8px', alignItems:'center' }}>
-                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>DA</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.da}</div></div>
-                    <div style={{ fontSize:'18px', color:PURPLE }}>→</div>
-                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>A</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.a}</div></div>
-                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>QUANTE</div><div style={{ fontSize:'26px', fontWeight:'bold', color:PURPLE, lineHeight:1 }}>{invResult.quante}</div></div>
-                    <div style={{ background:BG3, borderRadius:'8px', padding:'7px 10px', textAlign:'center' }}><div style={{ fontSize:'8px', color:DIM }}>CHIUSURA</div><div style={{ fontSize:'20px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{invResult.fineNuova}</div></div>
+                  <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', marginBottom:'10px', alignItems:'center' }}>
+                    <div style={{ background:BG3, borderRadius:'9px', padding:'8px 12px', textAlign:'center' }}><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>DA</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.da}</div></div>
+                    <div style={{ fontSize:'20px', color:PURPLE }}>→</div>
+                    <div style={{ background:BG3, borderRadius:'9px', padding:'8px 12px', textAlign:'center' }}><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>A</div><div style={{ fontSize:'10px', color:'#c4b5fd', fontWeight:'bold' }}>{invResult.a}</div></div>
+                    <div style={{ background:BG3, borderRadius:'9px', padding:'8px 12px', textAlign:'center' }}><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>QUANTE</div><div style={{ fontSize:'28px', fontWeight:'bold', color:PURPLE, lineHeight:1 }}>{invResult.quante}</div></div>
+                    <div style={{ background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:'9px', padding:'8px 12px', textAlign:'center' }}><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>CHIUSURA</div><div style={{ fontSize:'22px', fontWeight:'bold', color:GREEN, lineHeight:1 }}>{invResult.fineNuova}</div></div>
                   </div>
-                  <div style={{ fontSize:'10px', color:MID }}>Mattina → <b style={{ color:TEXT }}>{invResult.matNew}</b> · Pomeriggio → <b style={{ color:TEXT }}>{invResult.pomNew}</b></div>
+                  <div style={{ fontSize:'10px', color:MID }}>Mat → <b style={{ color:TEXT }}>{invResult.matNew}</b> · Pom → <b style={{ color:TEXT }}>{invResult.pomNew}</b></div>
                 </Panel>
               )}
-              {invResult.tipo === 'strao' && (
+              {invResult.tipo==='strao' && (
                 <Panel style={{ border:'2px solid '+ORANGE, marginBottom:'8px' }}>
                   <Lbl color={ORANGE}>⚡ STRAORDINARIO NECESSARIO</Lbl>
-                  {invResult.strao.map(function(s, i) {
+                  {invResult.strao.map(function(s,i){
                     return (
-                      <div key={i} style={{ display:'flex', gap:'10px', alignItems:'center', marginBottom:'8px' }}>
-                        <div style={{ background:BG3, borderRadius:'8px', padding:'6px 10px' }}><div style={{ fontSize:'8px', color:DIM }}>{s.nome}</div><div style={{ fontSize:'12px', color:ORANGE, fontWeight:'bold' }}>{s.inizio}→{s.fine}</div></div>
-                        <div style={{ fontSize:'26px', fontWeight:'bold', color:ORANGE }}>{s.persone}</div>
-                        <div style={{ fontSize:'10px', color:DIM }}>pers.</div>
+                      <div key={i} style={{ display:'flex', gap:'12px', alignItems:'center', marginBottom:'8px', background:BG3, borderRadius:'9px', padding:'9px 12px' }}>
+                        <div><div style={{ fontSize:'8px', color:DIM }}>{s.nome}</div><div style={{ fontSize:'13px', color:ORANGE, fontWeight:'bold' }}>{s.inizio}→{s.fine}</div></div>
+                        <div style={{ fontSize:'28px', fontWeight:'bold', color:ORANGE }}>{s.persone}</div>
+                        <div style={{ fontSize:'10px', color:DIM }}>persone</div>
                       </div>
                     );
                   })}
-                  <div style={{ fontSize:'11px', color:MID }}>Chiusura: <b style={{ color:GREEN, fontSize:'14px' }}>{invResult.fineNuova}</b> · Attuale: {invResult.fineAtt}</div>
+                  <div style={{ fontSize:'11px', color:MID }}>Chiusura: <b style={{ color:GREEN, fontSize:'15px' }}>{invResult.fineNuova}</b> <span style={{ color:DIM }}>· attuale: {invResult.fineAtt}</span></div>
                 </Panel>
               )}
             </div>
@@ -1027,149 +1038,67 @@ function PageDettaglio(props) {
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📋 DETTAGLIO FASCE</div>
+      <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'11px 14px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📋 DETTAGLIO FASCE</div>
       </div>
-      <div style={{ padding:'12px' }}>
+      <div style={{ padding:'14px' }}>
         {!Number(colli) ? (
           <div style={{ textAlign:'center', color:DIM, fontSize:'11px', marginTop:'60px', letterSpacing:'2px' }}>
-            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📋</div>
+            <div style={{ fontSize:'36px', marginBottom:'14px', opacity:0.4 }}>📋</div>
             INSERISCI I COLLI<br />
-            <span style={{ fontSize:'9px' }}>nella pagina TURNI</span>
+            <span style={{ fontSize:'9px' }}>nella pagina TURNI o INPUT</span>
           </div>
         ) : (
           <div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
-              <Panel style={{ textAlign:'center' }}><Lbl>COLLI</Lbl><div style={{ fontSize:'24px', fontWeight:'bold', color:YELLOW }}>{Number(colli).toLocaleString('it-IT')}</div></Panel>
-              <Panel style={{ border:'2px solid '+(chiusura?GREEN:RED), textAlign:'center' }}><Lbl>CHIUSURA</Lbl><div style={{ fontSize:'24px', fontWeight:'bold', color:chiusura?GREEN:RED }}>{chiusura||'—'}</div></Panel>
+              <Panel style={{ textAlign:'center' }}>
+                <Lbl>COLLI TARGET</Lbl>
+                <div style={{ fontSize:'26px', fontWeight:'bold', color:YELLOW }}>{Number(colli).toLocaleString('it-IT')}</div>
+              </Panel>
+              <Panel style={{ border:'2px solid '+(chiusura?GREEN:RED), textAlign:'center', background: chiusura ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)' }}>
+                <Lbl>CHIUSURA</Lbl>
+                <div style={{ fontSize:'26px', fontWeight:'bold', color:chiusura?GREEN:RED }}>{chiusura||'—'}</div>
+              </Panel>
             </div>
-            {anticipo > 0 && <Panel style={{ border:'1px solid '+PURPLE, textAlign:'center', marginBottom:'12px' }}><Lbl color={PURPLE}>⚡ ANTICIPO</Lbl><div style={{ fontSize:'20px', fontWeight:'bold', color:'#c4b5fd' }}>+{anticipo.toLocaleString('it-IT')} colli</div></Panel>}
-            <Lbl>FASCE ORARIE</Lbl>
+            {anticipo > 0 && (
+              <Panel style={{ border:'1px solid rgba(167,139,250,0.4)', textAlign:'center', marginBottom:'12px', background:'rgba(167,139,250,0.04)' }}>
+                <Lbl color={PURPLE}>⚡ ANTICIPO TOTALE</Lbl>
+                <div style={{ fontSize:'22px', fontWeight:'bold', color:'#c4b5fd' }}>+{anticipo.toLocaleString('it-IT')} colli</div>
+              </Panel>
+            )}
+            <SectionHeader color={MID}>FASCE ORARIE</SectionHeader>
             {rows.map(function(r, i) {
               var isS = r.isStrao || (r.nome && r.nome.indexOf('strao') >= 0);
               var bord = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : BORDER;
-              var bg = r.highlight ? 'rgba(16,185,129,0.08)' : isS ? 'rgba(249,115,22,0.08)' : r.anticipo ? 'rgba(167,139,250,0.06)' : r.pausa ? 'rgba(239,68,68,0.04)' : BG2;
-              var tc = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : r.pausa ? RED : TEXT;
+              var bg = r.highlight ? 'rgba(16,185,129,0.08)' : isS ? 'rgba(249,115,22,0.07)' : r.anticipo ? 'rgba(167,139,250,0.06)' : r.pausa ? 'rgba(30,34,53,0.5)' : BG2;
+              var tc = r.highlight ? GREEN : isS ? ORANGE : r.anticipo ? PURPLE : r.pausa ? DIM : TEXT;
               return (
-                <div key={i} style={{ background:bg, border:'1px solid '+bord, borderRadius:'10px', padding:'10px 12px', marginBottom:'6px' }}>
+                <div key={i} style={{ background:bg, border:'1px solid '+bord, borderRadius:'11px', padding:'10px 13px', marginBottom:'6px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: r.pausa ? 0 : '8px' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                      {isS && <span>⚡</span>}
+                    <div style={{ display:'flex', alignItems:'center', gap:'7px' }}>
+                      {isS && <span style={{ fontSize:'13px' }}>⚡</span>}
                       <div style={{ fontSize:'13px', fontWeight:'bold', color:tc }}>
                         {r.frm} → {r.highlight ? r.fineEx : r.to}
-                        {r.highlight && <span style={{ marginLeft:'8px', fontSize:'9px', background:GREEN, color:'#000', borderRadius:'4px', padding:'1px 6px' }}>FINE ✓</span>}
-                        {r.anticipo && <span style={{ marginLeft:'6px', fontSize:'9px', color:PURPLE }}> anticipo</span>}
+                        {r.highlight && <span style={{ marginLeft:'8px', fontSize:'8px', background:GREEN, color:'#000', borderRadius:'4px', padding:'2px 6px', fontWeight:'bold' }}>FINE ✓</span>}
+                        {r.anticipo && <span style={{ marginLeft:'6px', fontSize:'8px', color:PURPLE }}> ANTICIPO</span>}
                       </div>
-                      {isS && <span style={{ fontSize:'8px', background:'rgba(249,115,22,0.2)', color:ORANGE, borderRadius:'4px', padding:'1px 5px' }}>STRAO</span>}
+                      {isS && <span style={{ fontSize:'7px', background:'rgba(249,115,22,0.2)', color:ORANGE, borderRadius:'4px', padding:'2px 6px', fontWeight:'bold' }}>STRAO</span>}
                     </div>
-                    <div style={{ fontSize:'9px', color:DIM }}>{r.dur}min</div>
+                    <div style={{ fontSize:'8px', color:DIM }}>{r.dur}min</div>
                   </div>
                   {r.pausa ? (
-                    <div style={{ fontSize:'9px', color:RED, textAlign:'center', letterSpacing:'2px' }}>— PAUSA —</div>
+                    <div style={{ fontSize:'8px', color:DIM, textAlign:'center', letterSpacing:'2px', paddingTop:'2px' }}>— PAUSA —</div>
                   ) : (
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:'4px', textAlign:'center' }}>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>PERS.</div><div style={{ fontSize:'12px', fontWeight:'bold', color:TEXT }}>{r.pers}</div></div>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>C/H</div><div style={{ fontSize:'12px', fontWeight:'bold', color:MID }}>{r.colliH||'—'}</div></div>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>{r.anticipo?'ANTICIPO':'PROD.'}</div><div style={{ fontSize:'12px', fontWeight:'bold', color: r.highlight?GREEN:isS?ORANGE:r.anticipo?PURPLE:TEXT }}>{r.prod>0 ? '+'+r.prod.toLocaleString('it-IT') : '—'}</div></div>
-                      <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'2px' }}>{r.anticipo?'CUM.':'RIM.'}</div><div style={{ fontSize:'12px', fontWeight:'bold', color: r.rim===0?GREEN:r.anticipo?PURPLE:YELLOW }}>{r.rim.toLocaleString('it-IT')}</div></div>
+                      {[['PERS.',r.pers,TEXT],['C/H',r.colliH||'—',MID],[r.anticipo?'ANTICIPO':'PROD.',r.prod>0?'+'+r.prod.toLocaleString('it-IT'):'—',r.highlight?GREEN:isS?ORANGE:r.anticipo?PURPLE:TEXT],[r.anticipo?'CUM.':'RIM.',r.rim.toLocaleString('it-IT'),r.rim===0?GREEN:r.anticipo?PURPLE:YELLOW]].map(function(x,xi){
+                        return <div key={xi}><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div><div style={{ fontSize:'13px', fontWeight:'bold', color:x[2] }}>{x[1]}</div></div>;
+                      })}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── PAGE RIEPILOGO ──
-function PageRiepilogo(props) {
-  var turni = props.turni; var stra = props.stra;
-  var rate = props.rate; var colli = props.colli;
-  var r = Number(rate);
-
-  var righe = [];
-  turni.forEach(function(t) {
-    var pers = Math.max(0, (t.persone||0) - (t.assenti||0));
-    if (!pers) return;
-    var tIn = tMin(t.inizio); var tOut = tMin(t.fine);
-    var pIn = t.pIn ? tMin(t.pIn) : null; var pOut = t.pOut ? tMin(t.pOut) : null;
-    var min = tOut - tIn;
-    if (pIn && pOut) min -= (pOut - pIn);
-    righe.push({ nome:t.nome, pers:pers, colli:Math.round(pers*r*min/60), isStrao:false, color:tColor(t.nome) });
-    var sp = stra.find(function(s){return s.id===t.id;});
-    if (sp) {
-      (sp.righe||[]).filter(function(rr){return rr.inizio&&rr.fine&&Number(rr.persone)>0;}).forEach(function(rr) {
-        var sMin = tMin(rr.fine) - tMin(rr.inizio);
-        righe.push({ nome:'⚡ '+t.nome.split(' ')[0], pers:Number(rr.persone), colli:Math.round(Number(rr.persone)*r*sMin/60), isStrao:true, color:ORANGE });
-      });
-    }
-  });
-  var totale = righe.reduce(function(s,x){return s+x.colli;}, 0);
-  var storico = lsg(K.storico, []).slice(0, 7);
-
-  return (
-    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📦 RIEPILOGO</div>
-      </div>
-      <div style={{ padding:'12px' }}>
-        {righe.length > 0 ? (
-          <Panel style={{ marginBottom:'12px', border:'1px solid '+YELLOW }}>
-            <Lbl color={YELLOW}>📦 COLLI / TURNO</Lbl>
-            {righe.map(function(x, i) {
-              return (
-                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid '+BORDER }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                    {x.isStrao && <span style={{ fontSize:'11px' }}>⚡</span>}
-                    <div style={{ fontSize:'10px', color:x.color, fontWeight: x.isStrao ? 'normal' : 'bold' }}>{x.nome}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:'14px', alignItems:'center' }}>
-                    <div style={{ fontSize:'9px', color:DIM }}>{x.pers} pers</div>
-                    <div style={{ fontSize:'14px', fontWeight:'bold', color: x.isStrao ? ORANGE : GREEN, minWidth:'75px', textAlign:'right' }}>{fmt(x.colli)}</div>
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:'10px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'bold', color:TEXT, letterSpacing:'2px' }}>TOTALE</div>
-              <div style={{ fontSize:'18px', fontWeight:'bold', color:YELLOW }}>{totale.toLocaleString('it-IT')}</div>
-            </div>
-            {Number(colli) > 0 && (
-              <div style={{ marginTop:'8px', paddingTop:'8px', borderTop:'1px solid '+BORDER, display:'flex', justifyContent:'space-between' }}>
-                <div style={{ fontSize:'9px', color:DIM }}>vs obiettivo</div>
-                <div style={{ fontSize:'11px', fontWeight:'bold', color: totale>=Number(colli)?GREEN:RED }}>{totale>=Number(colli) ? '✅ OK +' + (totale-Number(colli)).toLocaleString('it-IT') : '⚠️ mancano '+(Number(colli)-totale).toLocaleString('it-IT')}</div>
-              </div>
-            )}
-          </Panel>
-        ) : (
-          <div style={{ textAlign:'center', color:DIM, fontSize:'11px', marginTop:'40px', letterSpacing:'2px', marginBottom:'20px' }}>
-            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📦</div>
-            INSERISCI LE PERSONE<br />
-            <span style={{ fontSize:'9px' }}>nella pagina TURNI</span>
-          </div>
-        )}
-
-        {storico.length > 0 && (
-          <Panel>
-            <Lbl color={PURPLE}>📋 ULTIME 7 GIORNATE</Lbl>
-            {storico.map(function(e, i) {
-              return (
-                <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid '+BORDER }}>
-                  <div>
-                    <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{e.data}</div>
-                    <div style={{ fontSize:'9px', color:DIM }}>{e.colli.toLocaleString('it-IT')} colli</div>
-                  </div>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontSize:'14px', fontWeight:'bold', color: e.ok ? GREEN : RED }}>{e.chiusura||'—'}</div>
-                    {e.anticipo > 0 && <div style={{ fontSize:'9px', color:GREEN }}>+{e.anticipo.toLocaleString('it-IT')}</div>}
-                  </div>
-                </div>
-              );
-            })}
-          </Panel>
         )}
       </div>
     </div>
@@ -1191,25 +1120,20 @@ function PageSettings(props) {
   var _sm = useState(null); var syncMsg = _sm[0]; var setSyncMsg = _sm[1];
   var _sy = useState(false); var syncing = _sy[0]; var setSyncing = _sy[1];
 
-  function aggiornaTurno(id, field, val) {
-    setTurni(function(prev){return prev.map(function(t){return t.id===id ? Object.assign({},t,{[field]:val}) : t;});});
-  }
+  // Auto-save config turni
+  var turniSaved = useAutoSave(K.turni, turni);
+  var straSaved = useAutoSave(K.stra, stra);
+
+  function aggiornaTurno(id, field, val) { setTurni(function(prev){return prev.map(function(t){return t.id===id?Object.assign({},t,{[field]:val}):t;});}); }
   function aggiungiTurno() {
     var id = newId();
     setTurni(function(prev){return prev.concat([{id:id,nome:'Nuovo Turno',inizio:'06:00',fine:'14:00',pIn:'10:00',pOut:'10:20',persone:0,assenti:0}]);});
     setStra(function(prev){return prev.concat([{id:id,righe:[]}]);});
   }
-  function eliminaTurno(id) {
-    setTurni(function(prev){return prev.filter(function(t){return t.id!==id;});});
-    setStra(function(prev){return prev.filter(function(s){return s.id!==id;});});
-  }
-  function addStraDefault(tid) {
-    setStra(function(prev){return prev.map(function(sp){return sp.id===tid ? Object.assign({},sp,{righe:(sp.righe||[]).concat([{inizio:'',fine:'',persone:0}])}) : sp;});});
-  }
-  function delStraDefault(tid, ri) {
-    setStra(function(prev){return prev.map(function(sp){return sp.id===tid ? Object.assign({},sp,{righe:sp.righe.filter(function(_,i){return i!==ri;})}) : sp;});});
-  }
-  function setStraDefault(tid, ri, field, val) {
+  function eliminaTurno(id) { setTurni(function(prev){return prev.filter(function(t){return t.id!==id;});}); setStra(function(prev){return prev.filter(function(s){return s.id!==id;});}); }
+  function addStraDefault(tid) { setStra(function(prev){return prev.map(function(sp){return sp.id===tid?Object.assign({},sp,{righe:(sp.righe||[]).concat([{inizio:'',fine:'',persone:0}])}):sp;});}); }
+  function delStraDefault(tid,ri) { setStra(function(prev){return prev.map(function(sp){return sp.id===tid?Object.assign({},sp,{righe:sp.righe.filter(function(_,i){return i!==ri;})}):sp;});}); }
+  function setStraDefault(tid,ri,field,val) {
     setStra(function(prev){return prev.map(function(sp){
       if(sp.id!==tid)return sp;
       return Object.assign({},sp,{righe:sp.righe.map(function(r,i){return i===ri?Object.assign({},r,{[field]:val}):r;})});
@@ -1222,14 +1146,8 @@ function PageSettings(props) {
     if (oldHash !== curHash) { setMsg({ok:false,t:'Password attuale errata'}); return; }
     if (newP.length < 4) { setMsg({ok:false,t:'Minimo 4 caratteri'}); return; }
     if (newP !== conf) { setMsg({ok:false,t:'Le password non coincidono'}); return; }
-    var newHash = await sha256(newP);
-    lss(K.pwd, newHash); setMsg({ok:true,t:'✅ Password cambiata!'}); setOldP(''); setNewP(''); setConf('');
+    lss(K.pwd, await sha256(newP)); setMsg({ok:true,t:'✅ Password cambiata!'}); setOldP(''); setNewP(''); setConf('');
     setTimeout(function(){setMsg(null);}, 2500);
-  }
-
-  function salvaDefault() {
-    lss('tm_def_stra', stra);
-    setSyncMsg({ok:true,t:'✅ Salvato come default!'}); setTimeout(function(){setSyncMsg(null);}, 2000);
   }
 
   function syncNow(dir) {
@@ -1243,8 +1161,7 @@ function PageSettings(props) {
         .then(function(res){ setSyncing(false); setSyncMsg(res.ok?{ok:true,t:'✅ Dati caricati!'}:{ok:false,t:'Errore HTTP '+res.status}); setTimeout(function(){setSyncMsg(null);},4000); })
         .catch(function(e){ setSyncing(false); setSyncMsg({ok:false,t:'Errore: '+e.message}); setTimeout(function(){setSyncMsg(null);},4000); });
     } else {
-      fetch(url)
-        .then(function(res){ return res.json(); })
+      fetch(url).then(function(res){return res.json();})
         .then(function(d){ if(d.turni)lss(K.turni,d.turni); if(d.stra)lss(K.stra,d.stra); if(d.colli!==undefined)lss(K.colli,d.colli); if(d.rate)lss(K.rate,d.rate); if(d.storico)lss(K.storico,d.storico); setSyncing(false); setSyncMsg({ok:true,t:'✅ Scaricato! Ricarica.'}); setTimeout(function(){setSyncMsg(null);},4000); })
         .catch(function(e){ setSyncing(false); setSyncMsg({ok:false,t:'Errore: '+e.message}); setTimeout(function(){setSyncMsg(null);},4000); });
     }
@@ -1254,83 +1171,114 @@ function PageSettings(props) {
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 12px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>⚙️ IMPOSTAZIONI</div>
+      <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'11px 14px', position:'sticky', top:0, zIndex:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+          <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>⚙️ CONFIGURAZIONE</div>
+          <SavedBadge show={turniSaved || straSaved} />
+        </div>
       </div>
+
+      {/* SUB-TABS */}
       <div style={{ display:'flex', background:BG2, borderBottom:'1px solid '+BORDER }}>
         {tabs.map(function(t) {
-          return <button key={t.id} onClick={function(){setTab(t.id);}} style={{ flex:1, background:'transparent', border:'none', borderBottom:'2px solid '+(tab===t.id?YELLOW:'transparent'), padding:'10px 4px', color:tab===t.id?YELLOW:DIM, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer', fontWeight:tab===t.id?'bold':'normal' }}>{t.label}</button>;
+          var active = tab === t.id;
+          return (
+            <button key={t.id} onClick={function(){setTab(t.id);}}
+              style={{ flex:1, background: active ? 'rgba(245,158,11,0.05)' : 'transparent', border:'none', borderBottom:'2px solid '+(active?YELLOW:'transparent'), padding:'11px 4px', color:active?YELLOW:DIM, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer', fontWeight:active?'bold':'normal', transition:'all 0.2s' }}>
+              {t.label}
+            </button>
+          );
         })}
       </div>
 
-      <div style={{ padding:'12px' }}>
+      <div style={{ padding:'14px' }}>
         {tab === 'turni' && (
           <div>
-            <div style={{ fontSize:'10px', color:MID, marginBottom:'12px', lineHeight:1.6 }}>Modifica gli orari dei turni e i default degli straordinari.</div>
+            <div style={{ fontSize:'9px', color:MID, marginBottom:'14px', lineHeight:1.7, background:BG2, border:'1px solid '+BORDER, borderRadius:'10px', padding:'10px 12px' }}>
+              💡 Modifica nome, orari e pause di ogni turno. Le modifiche vengono salvate in automatico.
+            </div>
             {turni.map(function(t) {
               var sp = stra.find(function(s){return s.id===t.id;}) || {righe:[]};
               var cl = tColor(t.nome);
               return (
-                <Panel key={t.id} style={{ marginBottom:'10px', border:'1px solid '+cl }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-                    <input value={t.nome} onChange={function(e){aggiornaTurno(t.id,'nome',e.target.value);}}
-                      style={{ background:'transparent', border:'none', color:cl, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', outline:'none', letterSpacing:'1px', flex:1 }} />
-                    <button onClick={function(){eliminaTurno(t.id);}} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'6px', color:RED, fontFamily:FONT, fontSize:'9px', padding:'3px 8px', cursor:'pointer' }}>× ELIMINA</button>
+                <Panel key={t.id} style={{ marginBottom:'10px', border:'1px solid rgba('+hexToRgb(cl)+',0.35)' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                      <div style={{ width:'3px', height:'14px', background:cl, borderRadius:'2px' }} />
+                      <input value={t.nome} onChange={function(e){aggiornaTurno(t.id,'nome',e.target.value);}}
+                        style={{ background:'transparent', border:'none', color:cl, fontFamily:FONT, fontSize:'11px', fontWeight:'bold', outline:'none', letterSpacing:'1px' }} />
+                    </div>
+                    <button onClick={function(){eliminaTurno(t.id);}}
+                      style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'7px', color:RED, fontFamily:FONT, fontSize:'8px', padding:'4px 9px', cursor:'pointer' }}>
+                      × ELIMINA
+                    </button>
                   </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'8px' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'9px', marginBottom:'9px' }}>
                     <div><Lbl>INIZIO</Lbl><TimeInput value={t.inizio} onChange={function(v){aggiornaTurno(t.id,'inizio',v);}} /></div>
                     <div><Lbl>FINE</Lbl><TimeInput value={t.fine} onChange={function(v){aggiornaTurno(t.id,'fine',v);}} /></div>
-                    <div><Lbl>PAUSA INIZIO</Lbl><TimeInput value={t.pIn} onChange={function(v){aggiornaTurno(t.id,'pIn',v);}} color={MID} /></div>
-                    <div><Lbl>PAUSA FINE</Lbl><TimeInput value={t.pOut} onChange={function(v){aggiornaTurno(t.id,'pOut',v);}} color={MID} /></div>
+                    <div><Lbl color={MID}>PAUSA INIZIO</Lbl><TimeInput value={t.pIn} onChange={function(v){aggiornaTurno(t.id,'pIn',v);}} color={MID} /></div>
+                    <div><Lbl color={MID}>PAUSA FINE</Lbl><TimeInput value={t.pOut} onChange={function(v){aggiornaTurno(t.id,'pOut',v);}} color={MID} /></div>
                   </div>
-                  {(sp.righe||[]).map(function(rr, ri) {
+                  {(sp.righe||[]).map(function(rr,ri){
                     return (
-                      <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'8px', marginTop:'4px' }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'5px' }}>
-                          <Lbl color={ORANGE}>⚡ STRAO DEFAULT {ri+1}</Lbl>
-                          <button onClick={function(){delStraDefault(t.id,ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'13px' }}>×</button>
+                      <div key={ri} style={{ borderTop:'1px solid '+BORDER, paddingTop:'9px', marginTop:'6px' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'6px' }}>
+                          <div style={{ fontSize:'8px', color:ORANGE, letterSpacing:'2px', fontWeight:'bold' }}>⚡ STRAO DEFAULT {ri+1}</div>
+                          <button onClick={function(){delStraDefault(t.id,ri);}} style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'14px' }}>×</button>
                         </div>
-                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px' }}>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px' }}>
                           <div><Lbl>DALLE</Lbl><TimeInput value={rr.inizio} onChange={function(v){setStraDefault(t.id,ri,'inizio',v);}} color={ORANGE} /></div>
                           <div><Lbl>ALLE</Lbl><TimeInput value={rr.fine} onChange={function(v){setStraDefault(t.id,ri,'fine',v);}} color={ORANGE} /></div>
                         </div>
                       </div>
                     );
                   })}
-                  <button onClick={function(){addStraDefault(t.id);}} style={{ width:'100%', marginTop:'8px', padding:'7px', background:'rgba(249,115,22,0.06)', border:'1px dashed '+ORANGE, borderRadius:'7px', color:ORANGE, fontFamily:FONT, fontSize:'9px', letterSpacing:'2px', cursor:'pointer' }}>+ AGGIUNGI RIGA STRAORDINARIO</button>
+                  <button onClick={function(){addStraDefault(t.id);}}
+                    style={{ width:'100%', marginTop:'9px', padding:'8px', background:'rgba(249,115,22,0.05)', border:'1px dashed rgba(249,115,22,0.4)', borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'8px', letterSpacing:'2px', cursor:'pointer' }}>
+                    + AGGIUNGI RIGA STRAORDINARIO
+                  </button>
                 </Panel>
               );
             })}
-            <button onClick={aggiungiTurno} style={{ width:'100%', padding:'13px', background:'rgba(245,158,11,0.06)', border:'2px dashed '+YELLOW, borderRadius:'12px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', marginBottom:'10px' }}>+ AGGIUNGI TURNO</button>
-            <button onClick={salvaDefault} style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'10px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>💾 SALVA COME DEFAULT</button>
+            <button onClick={aggiungiTurno}
+              style={{ width:'100%', padding:'14px', background:'rgba(245,158,11,0.05)', border:'2px dashed rgba(245,158,11,0.4)', borderRadius:'13px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'3px', cursor:'pointer', marginBottom:'10px' }}>
+              + AGGIUNGI TURNO
+            </button>
+            <button onClick={function(){lss('tm_def_stra',stra);setSyncMsg({ok:true,t:'✅ Salvato!'});setTimeout(function(){setSyncMsg(null);},1500);}}
+              style={{ width:'100%', padding:'12px', background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:'11px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>
+              💾 SALVA COME DEFAULT
+            </button>
             {syncMsg && <div style={{ marginTop:'8px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
           </div>
         )}
 
         {tab === 'pwd' && (
           <Panel>
-            <Lbl color={PURPLE}>🔐 CAMBIA PASSWORD</Lbl>
-            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.6 }}>La password attuale è richiesta per confermarne una nuova. Minimo 4 caratteri.</div>
+            <SectionHeader color={PURPLE} icon="🔐">CAMBIA PASSWORD</SectionHeader>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'12px', lineHeight:1.7 }}>La password attuale è richiesta per impostarne una nuova. Minimo 4 caratteri.</div>
             {[['PASSWORD ATTUALE',oldP,setOldP],['NUOVA PASSWORD',newP,setNewP],['CONFERMA PASSWORD',conf,setConf]].map(function(item) {
               return (
-                <div key={item[0]} style={{ marginBottom:'8px' }}>
-                  <div style={{ fontSize:'8px', color:DIM, marginBottom:'3px', letterSpacing:'1px' }}>{item[0]}</div>
+                <div key={item[0]} style={{ marginBottom:'10px' }}>
+                  <div style={{ fontSize:'8px', color:DIM, marginBottom:'4px', letterSpacing:'1.5px' }}>{item[0]}</div>
                   <input type="password" value={item[1]} onChange={function(e){item[2](e.target.value);}}
-                    style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'16px', padding:'10px 12px', outline:'none' }} />
+                    style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'9px', color:TEXT, fontFamily:FONT, fontSize:'16px', padding:'11px 14px', outline:'none' }} />
                 </div>
               );
             })}
-            {msg && <div style={{ fontSize:'10px', color:msg.ok?GREEN:RED, textAlign:'center', marginBottom:'8px' }}>{msg.t}</div>}
-            <button onClick={cambiaPwd} style={{ width:'100%', padding:'12px', background:'rgba(167,139,250,0.1)', border:'1px solid '+PURPLE, borderRadius:'8px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>SALVA NUOVA PASSWORD</button>
-            <button onClick={onLogout} style={{ width:'100%', padding:'12px', background:'rgba(245,158,11,0.1)', border:'1px solid '+YELLOW, borderRadius:'8px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>🚪 ESCI</button>
-            <button onClick={function(){if(window.confirm('Cancellare tutti i dati?')){[K.turni,K.stra,K.colli,K.rate,K.storico].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});window.location.reload();}}} style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.1)', border:'1px solid '+RED, borderRadius:'8px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>🗑 CANCELLA TUTTI I DATI</button>
+            {msg && <div style={{ fontSize:'10px', color:msg.ok?GREEN:RED, textAlign:'center', marginBottom:'10px', padding:'8px', background: msg.ok?'rgba(16,185,129,0.08)':'rgba(239,68,68,0.08)', borderRadius:'8px' }}>{msg.t}</div>}
+            <button onClick={cambiaPwd} style={{ width:'100%', padding:'13px', background:'rgba(167,139,250,0.1)', border:'1px solid rgba(167,139,250,0.4)', borderRadius:'10px', color:PURPLE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'10px' }}>SALVA NUOVA PASSWORD</button>
+            <button onClick={onLogout} style={{ width:'100%', padding:'12px', background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'10px', color:YELLOW, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>🚪 ESCI</button>
+            <button onClick={function(){if(window.confirm('Cancellare tutti i dati? Questa azione non può essere annullata.')){[K.turni,K.stra,K.colli,K.rate,K.storico].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});window.location.reload();}}}
+              style={{ width:'100%', padding:'12px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.35)', borderRadius:'10px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer' }}>
+              🗑 CANCELLA TUTTI I DATI
+            </button>
           </Panel>
         )}
 
         {tab === 'sync' && (
-          <Panel style={{ border:'1px solid '+BLUE }}>
-            <Lbl color={BLUE}>☁️ SINCRONIZZAZIONE FIREBASE</Lbl>
-            <div style={{ fontSize:'9px', color:DIM, marginBottom:'10px', lineHeight:1.7 }}>
+          <Panel style={{ border:'1px solid rgba(56,189,248,0.3)' }}>
+            <SectionHeader color={BLUE} icon="☁️">SINCRONIZZAZIONE FIREBASE</SectionHeader>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'12px', lineHeight:1.8, background:BG3, borderRadius:'9px', padding:'10px 12px' }}>
               1. Vai su <b style={{ color:BLUE }}>firebase.google.com</b><br />
               2. Crea progetto → Realtime Database<br />
               3. Copia l'URL del database<br />
@@ -1338,13 +1286,16 @@ function PageSettings(props) {
             </div>
             <Lbl>URL DATABASE</Lbl>
             <input value={fbUrl} onChange={function(e){setFbUrl(e.target.value);}} placeholder="https://progetto-default-rtdb.firebaseio.com"
-              style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'10px', padding:'10px', outline:'none', marginBottom:'8px' }} />
-            <button onClick={function(){lss(K.fb,{url:fbUrl});setSyncMsg({ok:true,t:'URL salvato!'});setTimeout(function(){setSyncMsg(null);},1500);}} style={{ width:'100%', padding:'10px', background:'rgba(56,189,248,0.1)', border:'1px solid '+BLUE, borderRadius:'8px', color:BLUE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'8px' }}>💾 SALVA URL</button>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px' }}>
-              <button onClick={function(){syncNow('up');}} style={{ padding:'12px', background:'rgba(16,185,129,0.1)', border:'1px solid '+GREEN, borderRadius:'8px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer' }}>{syncing ? '⟳' : '⬆️ CARICA'}</button>
-              <button onClick={function(){syncNow('down');}} style={{ padding:'12px', background:'rgba(249,115,22,0.1)', border:'1px solid '+ORANGE, borderRadius:'8px', color:ORANGE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer' }}>{syncing ? '⟳' : '⬇️ SCARICA'}</button>
+              style={{ width:'100%', background:BG3, border:'1px solid '+BORDER2, borderRadius:'9px', color:TEXT, fontFamily:FONT, fontSize:'10px', padding:'11px', outline:'none', marginBottom:'9px' }} />
+            <button onClick={function(){lss(K.fb,{url:fbUrl});setSyncMsg({ok:true,t:'URL salvato!'});setTimeout(function(){setSyncMsg(null);},1500);}}
+              style={{ width:'100%', padding:'11px', background:'rgba(56,189,248,0.08)', border:'1px solid rgba(56,189,248,0.4)', borderRadius:'9px', color:BLUE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', marginBottom:'9px' }}>
+              💾 SALVA URL
+            </button>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'9px' }}>
+              <button onClick={function(){syncNow('up');}} style={{ padding:'13px', background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.4)', borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>{syncing ? '⟳' : '⬆️ CARICA'}</button>
+              <button onClick={function(){syncNow('down');}} style={{ padding:'13px', background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.4)', borderRadius:'9px', color:ORANGE, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s' }}>{syncing ? '⟳' : '⬇️ SCARICA'}</button>
             </div>
-            {syncMsg && <div style={{ marginTop:'8px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
+            {syncMsg && <div style={{ marginTop:'10px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
           </Panel>
         )}
       </div>
@@ -1364,9 +1315,9 @@ function App() {
   var _puntoRes = useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
 
   function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
-  function setStra(v) { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
+  function setStra(v)  { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
   function setColli(v) { setColliRaw(v); lss(K.colli, v); }
-  function setRate(v) { setRateRaw(v); lss(K.rate, v); }
+  function setRate(v)  { setRateRaw(v); lss(K.rate, v); }
 
   useEffect(function() {
     setStra(function(prev) {
@@ -1384,12 +1335,11 @@ function App() {
 
   return (
     <div style={{ height:'100vh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
-      <div key={page} style={{ flex:1, overflow:'hidden', animation:'fadeUp 0.2s ease' }}>
-        {page === 'input' && <PageInput {...pageProps} setPage={setPage} />}
-        {page === 'input' && <PageInput {...pageProps} setPage={setPage} />}
-        {page === 'turni' && <PageTurni {...pageProps} />}
+      <div key={page} style={{ flex:1, overflow:'hidden', animation:'fadeUp 0.22s ease' }}>
+        {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
+        {page === 'turni'     && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
-        {page === 'settings' && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
+        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
       </div>
       <Nav page={page} setPage={setPage} />
     </div>
@@ -1403,7 +1353,6 @@ function Root() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
-
 </script>
 </body>
 </html>
