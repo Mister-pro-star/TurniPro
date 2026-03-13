@@ -57,7 +57,7 @@ var MID     = '#7a7a90';
 var FONT    = "'Courier New',Consolas,monospace";
 
 // ── STORAGE ──
-var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb' };
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit' };
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
 
 async function sha256(str) {
@@ -398,6 +398,42 @@ function PageInput(props) {
   var _puntoRim = React.useState(''); var puntoRim = _puntoRim[0]; var setPuntoRim = _puntoRim[1];
   var _puntoRes = React.useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
 
+  // Punti situazione salvati — auto-elimina giorni precedenti al caricamento
+  var _pSt = React.useState(function(){
+    var tutti = lsg(K.puntiSit, []);
+    var soloOggi = tutti.filter(function(p){ return p.data === oggi(); });
+    if (soloOggi.length !== tutti.length) lss(K.puntiSit, soloOggi); // pulisce vecchi giorni
+    return soloOggi;
+  });
+  var puntiStoico = _pSt[0]; var setPuntiStoico = _pSt[1];
+  var _pSaved = React.useState(false); var pSaved = _pSaved[0]; var setPSaved = _pSaved[1];
+  var autoSavePuntoTimer = useRef(null);
+
+  function _doSavePunto(res, isAuto) {
+    if (!res) return;
+    var entry = {
+      id: Date.now(),
+      data: oggi(),
+      ora: puntoOra,
+      colliRim: Number(puntoRim),
+      ok: res.ok,
+      fine: res.fine || null,
+      anticipo: res.anticipo || 0,
+      manca: res.manca || 0,
+      persone: res.totPersRim || 0,
+      auto: !!isAuto,
+    };
+    // Evita duplicati: non salvare se ora e colli uguali all'ultimo
+    var prev = lsg(K.puntiSit, []).filter(function(p){ return p.data === oggi(); });
+    if (prev.length > 0 && prev[0].ora === entry.ora && prev[0].colliRim === entry.colliRim) return;
+    var updated = [entry].concat(prev.slice(0, 19));
+    lss(K.puntiSit, updated);
+    setPuntiStoico(updated);
+    if (!isAuto) { setPSaved(true); setTimeout(function(){ setPSaved(false); }, 2000); }
+  }
+
+  function salvaPuntoManuale() { _doSavePunto(puntoRes, false); }
+
   // Sincronizza persone con turni quando cambiano dall'esterno
   useEffect(function() {
     setPersone(function(prev) {
@@ -531,7 +567,14 @@ function PageInput(props) {
       });
       confronto = { fatti:fatti, piano:Math.round(piano), delta:fatti-Math.round(piano) };
     }
-    setPuntoRes({ ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto, persRim:persRim, totPersRim:totPersRim });
+    var newRes = { ok:ok, capRim:Math.round(capRim), rim:rim, manca:Math.abs(rim-capRim), fine:fineStimata, anticipo:anticipo2, confronto:confronto, persRim:persRim, totPersRim:totPersRim };
+    setPuntoRes(newRes);
+
+    // Auto-save dopo 3 secondi di stabilità
+    if (autoSavePuntoTimer.current) clearTimeout(autoSavePuntoTimer.current);
+    autoSavePuntoTimer.current = setTimeout(function() {
+      _doSavePunto(newRes, true);
+    }, 3000);
   }, [puntoOra, puntoRim, colli, r2, JSON.stringify(props.turni), JSON.stringify(props.stra)]);
 
   var storico = lsg(K.storico, []).slice(0, 5);
@@ -541,19 +584,43 @@ function PageInput(props) {
     <div style={{ height:'100%', display:'flex', flexDirection:'column', fontFamily:FONT }}>
 
       {/* ══════════════════════════════════════════════════
-          STICKY HEADER — Titolo + Colli/Rate + Chiusura
+          STICKY HEADER — compatto
           ══════════════════════════════════════════════════ */}
-      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 14px 12px', flexShrink:0 }}>
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 14px 10px', flexShrink:0 }}>
 
-        {/* Riga titolo */}
+        {/* Riga titolo + chiusura stimata inline */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-          <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📦 TURNI</div>
-          <SavedBadge show={autoSaved} />
+          <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+            <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:YELLOW }}>📦 TURNI</div>
+            <SavedBadge show={autoSaved} />
+          </div>
+
+          {/* CHIUSURA STIMATA — compact pill a destra del titolo */}
+          {chiusuraInfo && chiusuraInfo.ok && (
+            <div style={{ background:'linear-gradient(135deg,#052e20,#064e3b)', border:'1px solid rgba(16,185,129,0.5)', borderRadius:'12px', padding:'6px 12px', display:'flex', alignItems:'center', gap:'10px' }}>
+              <div style={{ textAlign:'right' }}>
+                <div style={{ fontSize:'7px', letterSpacing:'1.5px', color:'#6ee7b7' }}>✅ CHIUSURA STIMATA</div>
+                <div style={{ fontSize:'7px', color:'rgba(110,231,183,0.5)', lineHeight:1.5 }}>{totPersone} pers · {fmt(totaleColli)} colli</div>
+                {chiusuraInfo.anticipo > 0 && <div style={{ fontSize:'9px', fontWeight:'bold', color:GREEN2 }}>✅ +{chiusuraInfo.anticipo.toLocaleString('it-IT')}</div>}
+              </div>
+              <div style={{ fontSize:'30px', fontWeight:'bold', color:GREEN, lineHeight:1, letterSpacing:'-2px', textShadow:'0 0 16px rgba(16,185,129,0.5)' }}>
+                {chiusuraInfo.fine}
+              </div>
+            </div>
+          )}
+          {hasData && chiusuraInfo && !chiusuraInfo.ok && (
+            <div style={{ background:'rgba(127,29,29,0.4)', border:'1px solid rgba(239,68,68,0.45)', borderRadius:'10px', padding:'6px 12px' }}>
+              <div style={{ fontSize:'8px', color:'#fca5a5', letterSpacing:'1px' }}>🔴 insufficienti</div>
+            </div>
+          )}
+          {!hasData && (
+            <div style={{ fontSize:'22px', fontWeight:'bold', color:DIM, letterSpacing:'-1px' }}>--:--</div>
+          )}
         </div>
 
         {/* Colli + Rate — sempre visibili */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'10px', alignItems:'center', marginBottom:'10px' }}>
-          <div style={{ position:'relative' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'10px', alignItems:'center' }}>
+          <div>
             <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>📦 COLLI TARGET</div>
             <input
               type="number"
@@ -578,37 +645,6 @@ function PageInput(props) {
           </div>
         </div>
 
-        {/* ── CHIUSURA STIMATA GRANDE con anticipo ── */}
-        {chiusuraInfo && chiusuraInfo.ok && (
-          <div style={{ background:'linear-gradient(135deg,#052e20,#064e3b)', border:'1px solid rgba(16,185,129,0.55)', borderRadius:'13px', padding:'11px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <div>
-              <div style={{ fontSize:'7px', letterSpacing:'2.5px', color:'#6ee7b7', marginBottom:'4px' }}>✅ CHIUSURA STIMATA</div>
-              <div style={{ fontSize:'7px', color:'rgba(110,231,183,0.55)', lineHeight:1.6 }}>
-                {totPersone} pers · {fmt(totaleColli)} colli
-              </div>
-              {chiusuraInfo.anticipo > 0 && (
-                <div style={{ fontSize:'11px', fontWeight:'bold', color:GREEN2, marginTop:'3px' }}>
-                  ✅ +{chiusuraInfo.anticipo.toLocaleString('it-IT')}
-                </div>
-              )}
-            </div>
-            <div style={{ fontSize:'48px', fontWeight:'bold', color:GREEN, lineHeight:1, letterSpacing:'-3px', textShadow:'0 0 24px rgba(16,185,129,0.45)' }}>
-              {chiusuraInfo.fine}
-            </div>
-          </div>
-        )}
-        {hasData && chiusuraInfo && !chiusuraInfo.ok && (
-          <div style={{ background:'rgba(127,29,29,0.45)', border:'1px solid rgba(239,68,68,0.5)', borderRadius:'12px', padding:'10px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div style={{ fontSize:'8px', letterSpacing:'2px', color:'#fca5a5' }}>🔴 TURNI INSUFFICIENTI</div>
-            <div style={{ fontSize:'11px', color:'#fca5a5', fontWeight:'bold' }}>aggiungi persone</div>
-          </div>
-        )}
-        {!hasData && (
-          <div style={{ background:BG3, border:'1px solid '+BORDER, borderRadius:'12px', padding:'10px 16px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div style={{ fontSize:'8px', color:DIM, letterSpacing:'1px' }}>Inserisci colli e persone</div>
-            <div style={{ fontSize:'32px', fontWeight:'bold', color:DIM, lineHeight:1, letterSpacing:'-2px' }}>--:--</div>
-          </div>
-        )}
       </div>
 
       {/* ══════════════════════════════════════════════════
@@ -673,96 +709,148 @@ function PageInput(props) {
         {/* ══════════════════════════════════════════════
             PUNTO SITUAZIONE
             ══════════════════════════════════════════════ */}
-        <div style={{ background:BG2, border:'1px solid rgba(16,185,129,0.3)', borderRadius:'14px', padding:'14px', marginBottom:'14px' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-            <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
-            <span style={{ fontSize:'8px', color:DIM, background:BG3, border:'1px solid '+BORDER2, borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px' }}>solo turni base</span>
-          </div>
-
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
-            <div>
-              <Lbl>ORA ATTUALE</Lbl>
-              <input type="time" value={puntoOra}
-                onChange={function(e){ setPuntoOra(e.target.value); }}
-                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoOra?'rgba(16,185,129,0.5)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'20px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
-            </div>
-            <div>
-              <Lbl>COLLI RIMANENTI</Lbl>
-              <input type="number" value={puntoRim}
-                onChange={function(e){ setPuntoRim(e.target.value); }}
-                placeholder="es. 5000"
-                style={{ width:'100%', background:BG3, border:'1px solid '+(puntoRim?'rgba(16,185,129,0.5)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'20px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
-            </div>
-          </div>
-
-          {!puntoOra && !puntoRim && (
-            <div style={{ textAlign:'center', color:DIM, fontSize:'8px', letterSpacing:'1px', padding:'6px 0 2px' }}>
-              Inserisci ora e colli rimanenti → risultato automatico
-            </div>
-          )}
-
-          {puntoRes && (
-            <div className="fadeup">
-              {/* RISULTATO PRINCIPALE */}
-              <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#052e20,#064e3b)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'13px', padding:'14px 16px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div>
-                  <div style={{ fontSize:'8px', letterSpacing:'2px', color: puntoRes.ok?'#6ee7b7':'#fca5a5', marginBottom:'5px' }}>
-                    {puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}
-                  </div>
-                  {puntoRes.ok && puntoRes.anticipo > 0 && (
-                    <div style={{ fontSize:'11px', fontWeight:'bold', color:GREEN2 }}>✅ +{puntoRes.anticipo.toLocaleString('it-IT')} extra</div>
-                  )}
-                  {!puntoRes.ok && (
-                    <div style={{ fontSize:'11px', color:'#fca5a5', fontWeight:'bold' }}>
-                      −{puntoRes.manca.toLocaleString('it-IT')} capacità
-                    </div>
-                  )}
+        {(function() {
+          var puntiOggi = puntiStoico.filter(function(p){ return p.data === oggi(); });
+          return (
+            <div style={{ background:BG2, border:'1px solid rgba(16,185,129,0.3)', borderRadius:'14px', padding:'14px', marginBottom:'14px' }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                  <SectionHeader color={GREEN} icon="📍">PUNTO SITUAZIONE</SectionHeader>
+                  <span style={{ fontSize:'8px', color:BLUE, background:'rgba(56,189,248,0.1)', border:'1px solid rgba(56,189,248,0.35)', borderRadius:'5px', padding:'2px 7px', letterSpacing:'0.5px', fontWeight:'bold' }}>🕐 orari normali</span>
                 </div>
-                <div style={{ fontSize:'40px', fontWeight:'bold', color:puntoRes.ok?GREEN:RED, lineHeight:1, letterSpacing:'-2px', textShadow: puntoRes.ok?'0 0 20px rgba(16,185,129,0.4)':'none' }}>
-                  {puntoRes.ok ? (puntoRes.fine||'—') : '✗'}
+                {puntoRes && (
+                  <button onClick={salvaPuntoManuale}
+                    style={{ padding:'5px 11px', background: pSaved?'rgba(16,185,129,0.2)':'rgba(16,185,129,0.08)', border:'1px solid '+(pSaved?GREEN:'rgba(16,185,129,0.4)'), borderRadius:'8px', color:pSaved?GREEN:GREEN2, fontFamily:FONT, fontSize:'8px', fontWeight:'bold', letterSpacing:'1.5px', cursor:'pointer', transition:'all 0.2s' }}>
+                    {pSaved ? '✅ SALVATO' : '💾 SALVA ORA'}
+                  </button>
+                )}
+              </div>
+
+              {/* Input ora + colli */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
+                <div>
+                  <Lbl>ORA ATTUALE</Lbl>
+                  <input type="time" value={puntoOra}
+                    onChange={function(e){ setPuntoOra(e.target.value); }}
+                    style={{ width:'100%', background:BG3, border:'1px solid '+(puntoOra?'rgba(16,185,129,0.5)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'20px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
+                </div>
+                <div>
+                  <Lbl>COLLI RIMANENTI</Lbl>
+                  <input type="number" value={puntoRim}
+                    onChange={function(e){ setPuntoRim(e.target.value); }}
+                    placeholder="es. 5000"
+                    style={{ width:'100%', background:BG3, border:'1px solid '+(puntoRim?'rgba(16,185,129,0.5)':BORDER2), borderRadius:'9px', color:GREEN, fontFamily:FONT, fontSize:'20px', fontWeight:'bold', padding:'9px', outline:'none', transition:'border-color 0.2s' }} />
                 </div>
               </div>
 
-              {/* CONFRONTO PIANO / FATTI */}
-              {puntoRes.confronto && (
-                <div style={{ background:BG3, border:'1px solid '+BORDER2, borderRadius:'11px', padding:'10px 14px', marginBottom:'8px' }}>
-                  <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'8px' }}>CONFRONTO PRODUZIONE</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px', textAlign:'center' }}>
-                    {[['FATTI',puntoRes.confronto.fatti,TEXT],['PIANO',puntoRes.confronto.piano,BLUE],['DELTA',(puntoRes.confronto.delta>=0?'+':'')+puntoRes.confronto.delta.toLocaleString('it-IT'),puntoRes.confronto.delta>=0?GREEN:RED]].map(function(x,xi){
-                      return (
-                        <div key={xi} style={{ background:BG2, borderRadius:'8px', padding:'7px 4px' }}>
-                          <div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div>
-                          <div style={{ fontSize:'16px', fontWeight:'bold', color:x[2] }}>{xi<2?x[1].toLocaleString('it-IT'):x[1]}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {!puntoOra && !puntoRim && (
+                <div style={{ textAlign:'center', color:DIM, fontSize:'8px', letterSpacing:'1px', padding:'6px 0 2px' }}>
+                  Inserisci ora e colli rimanenti → risultato automatico
                 </div>
               )}
 
-              {/* PERSONE IN TURNO */}
-              {puntoRes.persRim && puntoRes.persRim.length > 0 && (
-                <div style={{ background:BG3, border:'1px solid rgba(56,189,248,0.25)', borderRadius:'11px', padding:'10px 14px' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-                    <div style={{ fontSize:'8px', color:BLUE, letterSpacing:'2px', fontWeight:'bold' }}>👥 ANCORA IN TURNO</div>
-                    <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{puntoRes.totPersRim}</div>
-                  </div>
-                  {puntoRes.persRim.map(function(p, i) {
-                    return (
-                      <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG2, borderRadius:'8px', padding:'6px 10px', marginBottom:'4px' }}>
-                        <div>
-                          <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{p.nome}</div>
-                          <div style={{ fontSize:'8px', color:DIM }}>fino alle {p.fine}</div>
+              {puntoRes && (
+                <div className="fadeup">
+                  {/* RISULTATO PRINCIPALE */}
+                  <div style={{ background: puntoRes.ok ? 'linear-gradient(135deg,#052e20,#064e3b)' : 'linear-gradient(135deg,#450a0a,#7f1d1d)', border:'2px solid '+(puntoRes.ok?GREEN:RED), borderRadius:'13px', padding:'14px 16px', marginBottom:'8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <div style={{ fontSize:'8px', letterSpacing:'2px', color: puntoRes.ok?'#6ee7b7':'#fca5a5', marginBottom:'5px' }}>
+                        {puntoRes.ok ? '✅ CE LA FACCIAMO' : '🔴 NON CE LA FACCIAMO'}
+                      </div>
+                      {puntoRes.ok && puntoRes.anticipo > 0 && (
+                        <div style={{ fontSize:'11px', fontWeight:'bold', color:GREEN2 }}>✅ +{puntoRes.anticipo.toLocaleString('it-IT')} extra</div>
+                      )}
+                      {!puntoRes.ok && (
+                        <div style={{ fontSize:'11px', color:'#fca5a5', fontWeight:'bold' }}>
+                          −{puntoRes.manca.toLocaleString('it-IT')} capacità
                         </div>
-                        <div style={{ fontSize:'20px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
+                      )}
+                    </div>
+                    <div style={{ fontSize:'40px', fontWeight:'bold', color:puntoRes.ok?GREEN:RED, lineHeight:1, letterSpacing:'-2px', textShadow: puntoRes.ok?'0 0 20px rgba(16,185,129,0.4)':'none' }}>
+                      {puntoRes.ok ? (puntoRes.fine||'—') : '✗'}
+                    </div>
+                  </div>
+
+                  {/* CONFRONTO PIANO / FATTI */}
+                  {puntoRes.confronto && (
+                    <div style={{ background:BG3, border:'1px solid '+BORDER2, borderRadius:'11px', padding:'10px 14px', marginBottom:'8px' }}>
+                      <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'8px' }}>CONFRONTO PRODUZIONE</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'6px', textAlign:'center' }}>
+                        {[['FATTI',puntoRes.confronto.fatti,TEXT],['PIANO',puntoRes.confronto.piano,BLUE],['DELTA',(puntoRes.confronto.delta>=0?'+':'')+puntoRes.confronto.delta.toLocaleString('it-IT'),puntoRes.confronto.delta>=0?GREEN:RED]].map(function(x,xi){
+                          return (
+                            <div key={xi} style={{ background:BG2, borderRadius:'8px', padding:'7px 4px' }}>
+                              <div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>{x[0]}</div>
+                              <div style={{ fontSize:'16px', fontWeight:'bold', color:x[2] }}>{xi<2?x[1].toLocaleString('it-IT'):x[1]}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PERSONE IN TURNO */}
+                  {puntoRes.persRim && puntoRes.persRim.length > 0 && (
+                    <div style={{ background:BG3, border:'1px solid rgba(56,189,248,0.25)', borderRadius:'11px', padding:'10px 14px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                        <div style={{ fontSize:'8px', color:BLUE, letterSpacing:'2px', fontWeight:'bold' }}>👥 ANCORA IN TURNO</div>
+                        <div style={{ fontSize:'22px', fontWeight:'bold', color:BLUE }}>{puntoRes.totPersRim}</div>
+                      </div>
+                      {puntoRes.persRim.map(function(p, i) {
+                        return (
+                          <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG2, borderRadius:'8px', padding:'6px 10px', marginBottom:'4px' }}>
+                            <div>
+                              <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{p.nome}</div>
+                              <div style={{ fontSize:'8px', color:DIM }}>fino alle {p.fine}</div>
+                            </div>
+                            <div style={{ fontSize:'20px', fontWeight:'bold', color:BLUE }}>{p.persone}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── STORICO PUNTI DI OGGI ── */}
+              {puntiOggi.length > 0 && (
+                <div style={{ marginTop:'14px', borderTop:'1px solid '+BORDER, paddingTop:'12px' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
+                    <div style={{ fontSize:'8px', color:PURPLE, letterSpacing:'2px', fontWeight:'bold' }}>📋 PUNTI SALVATI OGGI</div>
+                    <button onClick={function(){
+                      if(window.confirm('Cancellare tutti i punti di oggi?')){
+                        var updated = lsg(K.puntiSit,[]).filter(function(p){return p.data!==oggi();});
+                        lss(K.puntiSit, updated); setPuntiStoico(updated);
+                      }
+                    }} style={{ fontSize:'8px', color:RED, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:'5px', padding:'2px 7px', cursor:'pointer' }}>
+                      × cancella
+                    </button>
+                  </div>
+                  {puntiOggi.map(function(p) {
+                    return (
+                      <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:BG3, borderRadius:'9px', padding:'8px 12px', marginBottom:'5px', border:'1px solid '+(p.ok?'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)') }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                          <div style={{ fontSize:'14px', fontWeight:'bold', color:TEAL, letterSpacing:'-0.5px', minWidth:'38px' }}>{p.ora}</div>
+                          <div>
+                            <div style={{ fontSize:'9px', color:DIM }}>
+                              {p.colliRim.toLocaleString('it-IT')} rim · {p.persone} pers
+                              {p.auto && <span style={{ marginLeft:'5px', fontSize:'7px', color:MID, background:BG4, borderRadius:'3px', padding:'1px 4px' }}>AUTO</span>}
+                            </div>
+                            {p.ok && p.anticipo > 0 && <div style={{ fontSize:'8px', color:GREEN2 }}>+{p.anticipo.toLocaleString('it-IT')} extra</div>}
+                            {!p.ok && <div style={{ fontSize:'8px', color:'#fca5a5' }}>−{p.manca.toLocaleString('it-IT')}</div>}
+                          </div>
+                        </div>
+                        <div style={{ fontSize:'22px', fontWeight:'bold', color:p.ok?GREEN:RED, letterSpacing:'-1px' }}>
+                          {p.ok ? (p.fine||'—') : '✗'}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* ── STORICO ── */}
         {storico.length > 0 && (
