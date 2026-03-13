@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Turni Magazzino v6.0</title>
+  <title>TurniPro v6.6</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -298,9 +298,9 @@ function Login(props) {
       <div style={{ width:'100%', maxWidth:'300px', animation: shake ? 'shake 0.4s ease' : 'fadeIn 0.5s ease' }}>
         <div style={{ textAlign:'center', marginBottom:'40px' }}>
           <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
-          <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNI MAGAZZINO</div>
+          <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNIPRO</div>
           <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v6.0 · ACCESSO RICHIESTO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v6.6 · ACCESSO RICHIESTO</div>
         </div>
         <div style={{ position:'relative', marginBottom:'14px' }}>
           <input type={show ? 'text' : 'password'} value={pwd}
@@ -618,32 +618,61 @@ function PageInput(props) {
           )}
         </div>
 
-        {/* Colli + Rate — sempre visibili */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:'10px', alignItems:'center' }}>
-          <div>
-            <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>📦 COLLI TARGET</div>
-            <input
-              type="number"
-              value={colliInput}
-              onChange={function(e){handleColliChange(e.target.value);}}
-              placeholder="es. 12000"
-              style={{ width:'100%', background:BG3, border:'1px solid '+(colliInput?'rgba(245,158,11,0.5)':BORDER2), borderRadius:'10px', color:YELLOW, fontFamily:FONT, fontSize:'28px', fontWeight:'bold', outline:'none', padding:'6px 10px', transition:'border-color 0.2s' }}
-            />
-          </div>
-          <div>
-            <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>C/ORA</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-              {[90,100].map(function(v) {
-                return (
-                  <button key={v} onClick={function(){setRate(v);}}
-                    style={{ width:'52px', padding:'6px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.2)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'14px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s', textAlign:'center' }}>
-                    {v}
-                  </button>
-                );
-              })}
+        {/* Colli + Straordinari + Rate — sempre visibili */}
+        {(function(){
+          // Calcola totale ore-persona straordinari
+          var totOreStrao = 0;
+          var totPersStrao = 0;
+          (props.stra||[]).forEach(function(sp){
+            (sp.righe||[]).forEach(function(r){
+              if(r.inizio&&r.fine&&Number(r.persone)>0){
+                var mins = tMin(r.fine) - tMin(r.inizio);
+                if(mins>0){ totOreStrao += mins/60 * Number(r.persone); totPersStrao += Number(r.persone); }
+              }
+            });
+          });
+          var oreInt = Math.floor(totOreStrao);
+          var oreMin = Math.round((totOreStrao - oreInt)*60);
+          var oreLabel = totOreStrao > 0 ? (oreInt > 0 ? oreInt+'h' : '') + (oreMin > 0 ? (oreInt>0?' ':'')+oreMin+'m' : '') : '—';
+          var hasStrao = totOreStrao > 0;
+
+          return (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto', gap:'8px', alignItems:'center' }}>
+              <div>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>📦 COLLI TARGET</div>
+                <input
+                  type="number"
+                  value={colliInput}
+                  onChange={function(e){handleColliChange(e.target.value);}}
+                  placeholder="es. 12000"
+                  style={{ width:'100%', background:BG3, border:'1px solid '+(colliInput?'rgba(245,158,11,0.5)':BORDER2), borderRadius:'10px', color:YELLOW, fontFamily:FONT, fontSize:'28px', fontWeight:'bold', outline:'none', padding:'6px 10px', transition:'border-color 0.2s' }}
+                />
+              </div>
+              {/* ── TOTALE ORE STRAORDINARI ── */}
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'1.5px', marginBottom:'3px', whiteSpace:'nowrap' }}>⚡ STRAORD.</div>
+                <div style={{ background: hasStrao?'rgba(249,115,22,0.1)':BG3, border:'1px solid '+(hasStrao?'rgba(249,115,22,0.45)':BORDER2), borderRadius:'9px', padding:'5px 8px', minWidth:'52px', textAlign:'center' }}>
+                  <div style={{ fontSize:'16px', fontWeight:'bold', color:hasStrao?ORANGE:DIM, lineHeight:1, letterSpacing:'-0.5px', whiteSpace:'nowrap' }}>
+                    {hasStrao ? oreLabel+' · '+totPersStrao+'p' : '—'}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'3px' }}>C/ORA</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                  {[90,100].map(function(v) {
+                    return (
+                      <button key={v} onClick={function(){setRate(v);}}
+                        style={{ width:'52px', padding:'6px 4px', borderRadius:'8px', border:'2px solid '+(rate==v?PURPLE:BORDER2), background:rate==v?'rgba(167,139,250,0.2)':'transparent', color:rate==v?PURPLE:DIM, fontFamily:FONT, fontSize:'14px', fontWeight:'bold', cursor:'pointer', transition:'all 0.2s', textAlign:'center' }}>
+                        {v}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })()}
 
       </div>
 
@@ -995,7 +1024,7 @@ function PageTurni(props) {
   }
 
   function copiaPian() {
-    var lines = ['📦 TURNI MAGAZZINO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
+    var lines = ['📦 TURNIPRO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
     turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
     var hasS=false;
     stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','RINFORZI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
