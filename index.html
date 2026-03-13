@@ -1483,29 +1483,59 @@ function PageAI(props) {
     var chiusura = res && res.ok ? res.fineEx : null;
     if (res && res.ok) res.anticipo = calcAnticipo(allT, chiusura, Number(rate));
 
+    // Turni base
     var turniInfo = turni.map(function(t) {
       var sp = (stra || []).find(function(s){ return s.id === t.id; }) || { righe: [] };
       var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
-      var straoLines = (sp.righe || []).filter(function(r){ return r.inizio && r.fine && Number(r.persone) > 0; })
-        .map(function(r){ return r.persone + ' pers ' + r.inizio + '→' + r.fine; });
-      return t.nome + ': ' + eff + ' persone eff.' +
-        (t.assenti > 0 ? ' (' + t.assenti + ' assenti)' : '') +
-        (straoLines.length > 0 ? ' | straord: ' + straoLines.join(', ') : '');
+      var durMin = tMin(t.fine) - tMin(t.inizio);
+      if (t.pIn && t.pOut) durMin -= (tMin(t.pOut) - tMin(t.pIn));
+      var colliTurno = Math.round(eff * Number(rate) * durMin / 60);
+      var righeStrao = (sp.righe || []).filter(function(r){ return r.inizio && r.fine && Number(r.persone) > 0; });
+      var straoDetail = righeStrao.map(function(r){
+        var durS = tMin(r.fine) - tMin(r.inizio);
+        var colliS = Math.round(Number(r.persone) * Number(rate) * durS / 60);
+        return '    → STRAORDINARIO: ' + r.persone + ' persone dalle ' + r.inizio + ' alle ' + r.fine + ' (' + durS + ' min) = ' + colliS.toLocaleString('it-IT') + ' colli extra';
+      });
+      var lines = [t.nome + ' (' + t.inizio + '→' + t.fine + '): ' + eff + ' persone effettive' +
+        (t.assenti > 0 ? ' (' + t.assenti + ' assenti su ' + t.persone + ')' : '') +
+        ' | ' + colliTurno.toLocaleString('it-IT') + ' colli previsti'];
+      if (straoDetail.length > 0) lines = lines.concat(straoDetail);
+      return lines.join('\n');
     }).join('\n');
+
+    // Punto situazione salvato oggi
+    var puntiOggi = lsg(K.puntiSit, []).filter(function(p){ return p.data === oggi(); });
+    var puntoInfo = '';
+    if (puntiOggi.length > 0) {
+      var ultimo = puntiOggi[0];
+      puntoInfo = 'Ultimo punto situazione (ore ' + ultimo.ora + '):\n' +
+        '  Colli rimanenti: ' + (ultimo.colliRim||0).toLocaleString('it-IT') + '\n' +
+        '  Colli fatti: ' + (colliN ? Math.max(0, colliN - (ultimo.colliRim||0)).toLocaleString('it-IT') : '—') + '\n' +
+        '  Esito: ' + (ultimo.ok ? '✅ CE LA FACCIAMO → chiusura stimata ' + (ultimo.fine||'—') : '🔴 NON CE LA FACCIAMO') + '\n' +
+        (ultimo.anticipo > 0 ? '  Anticipo: +' + ultimo.anticipo.toLocaleString('it-IT') + ' colli\n' : '') +
+        (ultimo.manca > 0 && !ultimo.ok ? '  Capacità mancante: ' + ultimo.manca.toLocaleString('it-IT') + ' colli\n' : '') +
+        '  Persone ancora in turno: ' + (ultimo.persone||0) + '\n';
+    }
 
     var storico = lsg(K.storico, []).slice(0, 5).map(function(e){
-      return e.data + ': ' + e.colli.toLocaleString('it-IT') + ' colli → chiusura ' + (e.chiusura || '—');
+      return e.data + ': ' + e.colli.toLocaleString('it-IT') + ' colli → chiusura ' + (e.chiusura || '—') +
+        (e.anticipo > 0 ? ' (+' + e.anticipo.toLocaleString('it-IT') + ' extra)' : '');
     }).join('\n');
 
-    return 'Contesto TurniPro (magazzino):\n' +
+    var oraReale = (function(){ var n = new Date(); return (n.getHours()<10?'0':'')+n.getHours()+':'+(n.getMinutes()<10?'0':'')+n.getMinutes(); })();
+
+    return '=== DATI TURNO IN TEMPO REALE ===\n' +
+      'Ora attuale: ' + oraReale + '\n' +
       'Data: ' + oggi() + '\n' +
-      'Colli target: ' + (colli || '—') + '\n' +
+      'Colli target: ' + (colliN ? colliN.toLocaleString('it-IT') : '—') + '\n' +
       'Velocità: ' + rate + ' colli/ora/persona\n' +
-      'Turni:\n' + turniInfo + '\n' +
-      'Chiusura stimata: ' + (chiusura || 'non calcolabile') + '\n' +
+      '\n--- TURNI ---\n' + turniInfo + '\n' +
+      '\n--- RISULTATO GLOBALE ---\n' +
+      'Chiusura stimata: ' + (chiusura || 'NON RAGGIUNGIBILE con le persone attuali') + '\n' +
       (res && res.ok && res.anticipo > 0 ? 'Anticipo colli: +' + res.anticipo.toLocaleString('it-IT') + '\n' : '') +
-      (res && !res.ok ? 'Colli mancanti: ' + (colliN - res.cum).toLocaleString('it-IT') + '\n' : '') +
-      (storico ? 'Storico ultime giornate:\n' + storico + '\n' : '');
+      (res && !res.ok ? 'Colli mancanti per chiudere: ' + (colliN - res.cum).toLocaleString('it-IT') + '\n' : '') +
+      (puntoInfo ? '\n--- PUNTO SITUAZIONE ---\n' + puntoInfo : '') +
+      (storico ? '\n--- STORICO ULTIME GIORNATE ---\n' + storico + '\n' : '');
   }
 
   var SYSTEM_PROMPT = 'Sei un assistente esperto di logistica e gestione magazzino integrato in TurniPro. ' +
