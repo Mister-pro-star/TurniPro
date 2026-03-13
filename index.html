@@ -73,7 +73,7 @@ function applicaTema(t) {
   GREEN=c.GREEN; GREEN2=c.GREEN2; RED=c.RED; ORANGE=c.ORANGE; BLUE=c.BLUE; TEAL=c.TEAL;
   document.body.style.background = BG;
 }
-var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template' };
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template', geminiKey:'tm_gemini_key' };
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
 
 async function sha256(str) {
@@ -1521,77 +1521,7 @@ function PageSettings(props) {
     }
   }
 
-  // AI assistant state
-  var _aiMsgs = useState([]); var aiMsgs = _aiMsgs[0]; var setAiMsgs = _aiMsgs[1];
-  var _aiInput = useState(''); var aiInput = _aiInput[0]; var setAiInput = _aiInput[1];
-  var _aiLoading = useState(false); var aiLoading = _aiLoading[0]; var setAiLoading = _aiLoading[1];
-  var aiEndRef = useRef(null);
-
-  function buildAiContext() {
-    var t = turni || []; var s = stra || [];
-    var storico = lsg(K.storico, []).slice(0, 10);
-    var ctx = '=== DATI ATTUALI APP TURNIPRO ===\n';
-    ctx += 'Colli target: ' + (lsg(K.colli,'') || 'non impostato') + '\n';
-    ctx += 'Velocità: ' + (lsg(K.rate,90)) + ' colli/ora\n\n';
-    ctx += 'TURNI:\n';
-    t.forEach(function(tr) {
-      var eff = Math.max(0,(tr.persone||0)-(tr.assenti||0));
-      ctx += '- ' + tr.nome + ': ' + tr.inizio + '-' + tr.fine + ', ' + (tr.persone||0) + ' pers' + (tr.assenti>0?' ('+tr.assenti+' assenti)':'') + ', effettivi: ' + eff + '\n';
-    });
-    var hasStra = s.some(function(sp){return (sp.righe||[]).some(function(r){return Number(r.persone)>0;});});
-    if (hasStra) {
-      ctx += '\nSTRAORDINARI:\n';
-      s.forEach(function(sp) {
-        var turno = t.find(function(x){return x.id===sp.id;});
-        (sp.righe||[]).forEach(function(r) {
-          if (r.inizio && r.fine && Number(r.persone)>0)
-            ctx += '- ' + (turno?turno.nome:'') + ': ' + r.inizio + '-' + r.fine + ', ' + r.persone + ' pers\n';
-        });
-      });
-    }
-    if (storico.length > 0) {
-      ctx += '\nSTORICO ULTIME GIORNATE:\n';
-      storico.forEach(function(e) {
-        ctx += '- ' + e.data + ': ' + (e.colli||0) + ' colli, chiusura ' + (e.chiusura||'—') + (e.ok?' ✅':' 🔴') + (e.anticipo>0?' +'+e.anticipo:'') + '\n';
-      });
-    }
-    ctx += '\n=== SEI UN ASSISTENTE ESPERTO DI MAGAZZINO ===\nRispondi in italiano, in modo conciso e pratico. Usa i dati sopra per rispondere in modo preciso.';
-    return ctx;
-  }
-
-  async function inviaMessaggio() {
-    var testo = aiInput.trim();
-    if (!testo || aiLoading) return;
-    var nuoviMsgs = aiMsgs.concat([{role:'user', content:testo}]);
-    setAiMsgs(nuoviMsgs);
-    setAiInput('');
-    setAiLoading(true);
-    try {
-      var systemCtx = buildAiContext();
-      var messages = nuoviMsgs.map(function(m){ return {role:m.role, content:m.content}; });
-      var resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: systemCtx,
-          messages: messages
-        })
-      });
-      var data = await resp.json();
-      var testo_ai = (data.content && data.content[0] && data.content[0].text) || 'Errore nella risposta.';
-      setAiMsgs(nuoviMsgs.concat([{role:'assistant', content:testo_ai}]));
-    } catch(e) {
-      setAiMsgs(nuoviMsgs.concat([{role:'assistant', content:'⚠️ Errore di connessione: ' + e.message}]));
-    }
-    setAiLoading(false);
-    setTimeout(function(){ if(aiEndRef.current) aiEndRef.current.scrollIntoView({behavior:'smooth'}); }, 100);
-  }
-
-  function onAiKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inviaMessaggio(); } }
-
-  var tabs = [{id:'turni',label:'TURNI'},{id:'tema',label:'TEMA'},{id:'ai',label:'🤖 AI'},{id:'pwd',label:'PWD'},{id:'sync',label:'SYNC'}];
+  var tabs = [{id:'turni',label:'TURNI'},{id:'tema',label:'TEMA'},{id:'pwd',label:'PWD'},{id:'sync',label:'SYNC'}];
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
@@ -1705,76 +1635,6 @@ function PageSettings(props) {
                 </button>
               );
             })}
-          </div>
-        )}
-
-        {tab === 'ai' && (
-          <div style={{ display:'flex', flexDirection:'column', height:'calc(100dvh - 200px)' }}>
-            {/* Messaggi */}
-            <div style={{ flex:1, overflowY:'auto', marginBottom:'10px', display:'flex', flexDirection:'column', gap:'10px' }}>
-              {aiMsgs.length === 0 && (
-                <div style={{ padding:'16px', textAlign:'center' }}>
-                  <div style={{ fontSize:'32px', marginBottom:'10px' }}>🤖</div>
-                  <div style={{ fontSize:'11px', fontWeight:'bold', color:BLUE, letterSpacing:'2px', marginBottom:'8px' }}>ASSISTENTE TURNIPRO</div>
-                  <div style={{ fontSize:'9px', color:DIM, lineHeight:1.8 }}>
-                    Conosce i tuoi turni, persone e storico.<br/>Chiedimi qualsiasi cosa!
-                  </div>
-                  <div style={{ marginTop:'14px', display:'flex', flexDirection:'column', gap:'7px' }}>
-                    {['Ce la facciamo oggi?', 'Quante persone mi servono per chiudere alle 15:00?', 'Come è andata questa settimana?', 'Suggeriscimi come ottimizzare i turni'].map(function(q) {
-                      return (
-                        <button key={q} onClick={function(){ setAiInput(q); }}
-                          style={{ padding:'8px 12px', background:BG3, border:'1px solid '+BORDER2, borderRadius:'9px', color:TEXT, fontFamily:FONT, fontSize:'9px', cursor:'pointer', textAlign:'left', transition:'all 0.2s' }}>
-                          💬 {q}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {aiMsgs.map(function(m, i) {
-                var isUser = m.role === 'user';
-                return (
-                  <div key={i} style={{ display:'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
-                    <div style={{
-                      maxWidth:'85%', padding:'10px 13px', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                      background: isUser ? 'rgba(56,189,248,0.15)' : BG3,
-                      border: '1px solid ' + (isUser ? 'rgba(56,189,248,0.4)' : BORDER2),
-                      fontSize:'11px', color:TEXT, lineHeight:1.7, whiteSpace:'pre-wrap', wordBreak:'break-word'
-                    }}>
-                      {!isUser && <div style={{ fontSize:'8px', color:BLUE, fontWeight:'bold', letterSpacing:'1.5px', marginBottom:'5px' }}>🤖 AI</div>}
-                      {m.content}
-                    </div>
-                  </div>
-                );
-              })}
-              {aiLoading && (
-                <div style={{ display:'flex', justifyContent:'flex-start' }}>
-                  <div style={{ padding:'10px 14px', background:BG3, border:'1px solid '+BORDER2, borderRadius:'14px 14px 14px 4px' }}>
-                    <div style={{ display:'flex', gap:'5px', alignItems:'center' }}>
-                      {[0,1,2].map(function(i){ return <div key={i} style={{ width:'7px', height:'7px', borderRadius:'50%', background:BLUE, animation:'pulse 1s infinite', animationDelay:(i*0.2)+'s' }} />; })}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={aiEndRef} />
-            </div>
-
-            {/* Input */}
-            <div style={{ display:'flex', gap:'8px', alignItems:'flex-end', flexShrink:0 }}>
-              <textarea value={aiInput} onChange={function(e){setAiInput(e.target.value);}} onKeyDown={onAiKey}
-                placeholder="Scrivi un messaggio… (Invio per inviare)"
-                rows={2}
-                style={{ flex:1, background:BG3, border:'1px solid '+(aiInput?'rgba(56,189,248,0.5)':BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'12px', padding:'10px 12px', outline:'none', resize:'none', lineHeight:1.5, transition:'border-color 0.2s' }} />
-              <button onClick={inviaMessaggio} disabled={!aiInput.trim() || aiLoading}
-                style={{ width:'44px', height:'44px', borderRadius:'12px', background: aiInput.trim()?'rgba(56,189,248,0.2)':BG3, border:'2px solid '+(aiInput.trim()?BLUE:BORDER2), color:aiInput.trim()?BLUE:DIM, fontSize:'18px', cursor:aiInput.trim()?'pointer':'default', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s' }}>
-                ↑
-              </button>
-            </div>
-            {aiMsgs.length > 0 && (
-              <button onClick={function(){setAiMsgs([]);}} style={{ marginTop:'6px', fontSize:'8px', color:DIM, background:'transparent', border:'none', cursor:'pointer', letterSpacing:'1px' }}>
-                × CANCELLA CONVERSAZIONE
-              </button>
-            )}
           </div>
         )}
 
