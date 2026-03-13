@@ -56,8 +56,24 @@ var DIM     = '#4a4a5e';
 var MID     = '#7a7a90';
 var FONT    = "'Courier New',Consolas,monospace";
 
-// ── STORAGE ──
-var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit' };
+// ── TEMI ──
+var TEMI = {
+  scuro:    { name:'🌙 Scuro',    BG:'#080a11', BG2:'#10121c', BG3:'#181b28', BG4:'#1e2235', BORDER:'#1e2235', BORDER2:'#2a2d3f', TEXT:'#e2e2d8', DIM:'#4a4a5e', MID:'#7a7a90', YELLOW:'#f59e0b', YELLOW2:'#fbbf24', PURPLE:'#a78bfa', GREEN:'#10b981', GREEN2:'#34d399', RED:'#ef4444', ORANGE:'#f97316', BLUE:'#38bdf8', TEAL:'#2dd4bf' },
+  chiaro:   { name:'☀️ Chiaro',   BG:'#f0f2f8', BG2:'#ffffff', BG3:'#e8eaf2', BG4:'#dde0ee', BORDER:'#dde0ee', BORDER2:'#c8ccdf', TEXT:'#1a1d2e', DIM:'#7a7d94', MID:'#9a9db4', YELLOW:'#d97706', YELLOW2:'#f59e0b', PURPLE:'#7c3aed', GREEN:'#059669', GREEN2:'#10b981', RED:'#dc2626', ORANGE:'#ea580c', BLUE:'#0284c7', TEAL:'#0d9488' },
+  terminal: { name:'🖥️ Terminal',  BG:'#0a0a0a', BG2:'#0f1a0f', BG3:'#152215', BG4:'#1a2e1a', BORDER:'#1a2e1a', BORDER2:'#234523', TEXT:'#00ff41', DIM:'#1a6b1a', MID:'#2d9b2d', YELLOW:'#00ff41', YELLOW2:'#33ff66', PURPLE:'#00cc33', GREEN:'#00ff41', GREEN2:'#33ff77', RED:'#ff3333', ORANGE:'#ffaa00', BLUE:'#00ffcc', TEAL:'#00ffaa' },
+  ocean:    { name:'🌊 Ocean',     BG:'#020d1a', BG2:'#041525', BG3:'#061e33', BG4:'#082540', BORDER:'#082540', BORDER2:'#0d3560', TEXT:'#b0d4f0', DIM:'#2a5070', MID:'#4a80a0', YELLOW:'#fbbf24', YELLOW2:'#fcd34d', PURPLE:'#818cf8', GREEN:'#34d399', GREEN2:'#6ee7b7', RED:'#f87171', ORANGE:'#fb923c', BLUE:'#38bdf8', TEAL:'#2dd4bf' },
+  sunset:   { name:'🔥 Sunset',    BG:'#120508', BG2:'#1e0a0f', BG3:'#2a1015', BG4:'#35151a', BORDER:'#35151a', BORDER2:'#50202a', TEXT:'#f5d0c0', DIM:'#6b3535', MID:'#9b5555', YELLOW:'#fbbf24', YELLOW2:'#fcd34d', PURPLE:'#c084fc', GREEN:'#4ade80', GREEN2:'#86efac', RED:'#ff6b6b', ORANGE:'#fb923c', BLUE:'#7dd3fc', TEAL:'#5eead4' },
+};
+
+function applicaTema(t) {
+  var c = TEMI[t] || TEMI.scuro;
+  BG=c.BG; BG2=c.BG2; BG3=c.BG3; BG4=c.BG4; BORDER=c.BORDER; BORDER2=c.BORDER2;
+  TEXT=c.TEXT; DIM=c.DIM; MID=c.MID;
+  YELLOW=c.YELLOW; YELLOW2=c.YELLOW2; PURPLE=c.PURPLE;
+  GREEN=c.GREEN; GREEN2=c.GREEN2; RED=c.RED; ORANGE=c.ORANGE; BLUE=c.BLUE; TEAL=c.TEAL;
+  document.body.style.background = BG;
+}
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template' };
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
 
 async function sha256(str) {
@@ -80,6 +96,9 @@ var DEF_STRA = [
 
 function lsg(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e) { return d; } }
 function lss(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+
+// Applica tema salvato al caricamento (ora K e lsg sono definiti)
+(function(){ applicaTema(lsg(K.tema, 'scuro')); })();
 function tMin(t) { if (!t || t.indexOf(':') < 0) return 0; var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
 function mToT(m) { var h = Math.floor(m/60); var mn = Math.round(m % 60); if (mn === 60) { h++; mn = 0; } return (h < 10 ? '0'+h : ''+h) + ':' + (mn < 10 ? '0'+mn : ''+mn); }
 function oggi() { var d = new Date(); return (d.getDate()<10?'0':'')+d.getDate()+'/'+(d.getMonth()<9?'0':'')+(d.getMonth()+1)+'/'+d.getFullYear(); }
@@ -1116,7 +1135,7 @@ function PageTurni(props) {
       <div style={{ padding:'10px 14px 0' }}>
         <button onClick={resetGiornata}
           style={{ width:'100%', padding:'11px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'11px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', transition:'all 0.2s' }}>
-          ↺ AZZERA ASSENTI + RINFORZI
+          ↺ AZZERA ASSENTI E ORE STRAORDINARIE
         </button>
       </div>
 
@@ -1202,7 +1221,7 @@ function PageTurni(props) {
               })}
               <button onClick={function(){addStraRiga(t.id);}}
                 style={{ width:'100%', marginTop:'10px', padding:'8px', background:'rgba(249,115,22,0.05)', border:'1px dashed rgba(249,115,22,0.5)', borderRadius:'9px', color:ORANGE, fontFamily:FONT, fontSize:'8px', letterSpacing:'2px', cursor:'pointer' }}>
-                + AGGIUNGI RINFORZO
+                + AGGIUNGI ORARIO STRAORDINARIO
               </button>
             </Panel>
           );
@@ -1442,6 +1461,7 @@ function PageSettings(props) {
   var turni = props.turni; var setTurni = props.setTurni;
   var stra = props.stra; var setStra = props.setStra;
   var onLogout = props.onLogout;
+  var tema = props.tema; var setTema = props.setTema;
 
   var _tab = useState('turni'); var tab = _tab[0]; var setTab = _tab[1];
   var _op = useState(''); var oldP = _op[0]; var setOldP = _op[1];
@@ -1451,6 +1471,8 @@ function PageSettings(props) {
   var _fb = useState(function(){return lsg(K.fb,{}).url||'';}); var fbUrl = _fb[0]; var setFbUrl = _fb[1];
   var _sm = useState(null); var syncMsg = _sm[0]; var setSyncMsg = _sm[1];
   var _sy = useState(false); var syncing = _sy[0]; var setSyncing = _sy[1];
+
+  // (template rimosso)
 
   // Auto-save config turni
   var turniSaved = useAutoSave(K.turni, turni);
@@ -1499,7 +1521,77 @@ function PageSettings(props) {
     }
   }
 
-  var tabs = [{id:'turni',label:'TURNI'},{id:'pwd',label:'PASSWORD'},{id:'sync',label:'SYNC'}];
+  // AI assistant state
+  var _aiMsgs = useState([]); var aiMsgs = _aiMsgs[0]; var setAiMsgs = _aiMsgs[1];
+  var _aiInput = useState(''); var aiInput = _aiInput[0]; var setAiInput = _aiInput[1];
+  var _aiLoading = useState(false); var aiLoading = _aiLoading[0]; var setAiLoading = _aiLoading[1];
+  var aiEndRef = useRef(null);
+
+  function buildAiContext() {
+    var t = turni || []; var s = stra || [];
+    var storico = lsg(K.storico, []).slice(0, 10);
+    var ctx = '=== DATI ATTUALI APP TURNIPRO ===\n';
+    ctx += 'Colli target: ' + (lsg(K.colli,'') || 'non impostato') + '\n';
+    ctx += 'Velocità: ' + (lsg(K.rate,90)) + ' colli/ora\n\n';
+    ctx += 'TURNI:\n';
+    t.forEach(function(tr) {
+      var eff = Math.max(0,(tr.persone||0)-(tr.assenti||0));
+      ctx += '- ' + tr.nome + ': ' + tr.inizio + '-' + tr.fine + ', ' + (tr.persone||0) + ' pers' + (tr.assenti>0?' ('+tr.assenti+' assenti)':'') + ', effettivi: ' + eff + '\n';
+    });
+    var hasStra = s.some(function(sp){return (sp.righe||[]).some(function(r){return Number(r.persone)>0;});});
+    if (hasStra) {
+      ctx += '\nSTRAORDINARI:\n';
+      s.forEach(function(sp) {
+        var turno = t.find(function(x){return x.id===sp.id;});
+        (sp.righe||[]).forEach(function(r) {
+          if (r.inizio && r.fine && Number(r.persone)>0)
+            ctx += '- ' + (turno?turno.nome:'') + ': ' + r.inizio + '-' + r.fine + ', ' + r.persone + ' pers\n';
+        });
+      });
+    }
+    if (storico.length > 0) {
+      ctx += '\nSTORICO ULTIME GIORNATE:\n';
+      storico.forEach(function(e) {
+        ctx += '- ' + e.data + ': ' + (e.colli||0) + ' colli, chiusura ' + (e.chiusura||'—') + (e.ok?' ✅':' 🔴') + (e.anticipo>0?' +'+e.anticipo:'') + '\n';
+      });
+    }
+    ctx += '\n=== SEI UN ASSISTENTE ESPERTO DI MAGAZZINO ===\nRispondi in italiano, in modo conciso e pratico. Usa i dati sopra per rispondere in modo preciso.';
+    return ctx;
+  }
+
+  async function inviaMessaggio() {
+    var testo = aiInput.trim();
+    if (!testo || aiLoading) return;
+    var nuoviMsgs = aiMsgs.concat([{role:'user', content:testo}]);
+    setAiMsgs(nuoviMsgs);
+    setAiInput('');
+    setAiLoading(true);
+    try {
+      var systemCtx = buildAiContext();
+      var messages = nuoviMsgs.map(function(m){ return {role:m.role, content:m.content}; });
+      var resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: systemCtx,
+          messages: messages
+        })
+      });
+      var data = await resp.json();
+      var testo_ai = (data.content && data.content[0] && data.content[0].text) || 'Errore nella risposta.';
+      setAiMsgs(nuoviMsgs.concat([{role:'assistant', content:testo_ai}]));
+    } catch(e) {
+      setAiMsgs(nuoviMsgs.concat([{role:'assistant', content:'⚠️ Errore di connessione: ' + e.message}]));
+    }
+    setAiLoading(false);
+    setTimeout(function(){ if(aiEndRef.current) aiEndRef.current.scrollIntoView({behavior:'smooth'}); }, 100);
+  }
+
+  function onAiKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inviaMessaggio(); } }
+
+  var tabs = [{id:'turni',label:'TURNI'},{id:'tema',label:'TEMA'},{id:'ai',label:'🤖 AI'},{id:'pwd',label:'PWD'},{id:'sync',label:'SYNC'}];
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
@@ -1584,6 +1676,108 @@ function PageSettings(props) {
           </div>
         )}
 
+        {tab === 'tema' && (
+          <div>
+            <div style={{ fontSize:'9px', color:DIM, marginBottom:'14px', lineHeight:1.7, background:BG2, border:'1px solid '+BORDER, borderRadius:'10px', padding:'10px 12px' }}>
+              Scegli il tema visivo dell'app. Cambia immediatamente senza ricaricare.
+            </div>
+            {Object.keys(TEMI).map(function(key) {
+              var t = TEMI[key];
+              var active = tema === key;
+              return (
+                <button key={key} onClick={function(){ setTema(key); }}
+                  style={{ width:'100%', marginBottom:'8px', padding:'14px 16px', background: active ? 'rgba(245,158,11,0.08)' : t.BG2, border:'2px solid '+(active?YELLOW:t.BORDER2), borderRadius:'13px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', transition:'all 0.2s', fontFamily:FONT }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                    {/* Mini preview */}
+                    <div style={{ width:'36px', height:'36px', borderRadius:'9px', background:t.BG, border:'1px solid '+t.BORDER2, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px', flexShrink:0 }}>
+                      <div style={{ width:'22px', height:'4px', borderRadius:'2px', background:t.YELLOW, opacity:0.9 }} />
+                      <div style={{ width:'22px', height:'4px', borderRadius:'2px', background:t.GREEN, opacity:0.9 }} />
+                      <div style={{ width:'22px', height:'4px', borderRadius:'2px', background:t.BLUE, opacity:0.9 }} />
+                    </div>
+                    <div style={{ textAlign:'left' }}>
+                      <div style={{ fontSize:'12px', fontWeight:'bold', color: active ? YELLOW : TEXT }}>{t.name}</div>
+                      <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>
+                        {key==='scuro'?'Tema predefinito':key==='chiaro'?'Perfetto in ambienti luminosi':key==='terminal'?'Stile retro verde su nero':key==='ocean'?'Blu profondo rilassante':'Caldi toni arancione/rosso'}
+                      </div>
+                    </div>
+                  </div>
+                  {active && <div style={{ fontSize:'16px', color:YELLOW }}>✓</div>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === 'ai' && (
+          <div style={{ display:'flex', flexDirection:'column', height:'calc(100dvh - 200px)' }}>
+            {/* Messaggi */}
+            <div style={{ flex:1, overflowY:'auto', marginBottom:'10px', display:'flex', flexDirection:'column', gap:'10px' }}>
+              {aiMsgs.length === 0 && (
+                <div style={{ padding:'16px', textAlign:'center' }}>
+                  <div style={{ fontSize:'32px', marginBottom:'10px' }}>🤖</div>
+                  <div style={{ fontSize:'11px', fontWeight:'bold', color:BLUE, letterSpacing:'2px', marginBottom:'8px' }}>ASSISTENTE TURNIPRO</div>
+                  <div style={{ fontSize:'9px', color:DIM, lineHeight:1.8 }}>
+                    Conosce i tuoi turni, persone e storico.<br/>Chiedimi qualsiasi cosa!
+                  </div>
+                  <div style={{ marginTop:'14px', display:'flex', flexDirection:'column', gap:'7px' }}>
+                    {['Ce la facciamo oggi?', 'Quante persone mi servono per chiudere alle 15:00?', 'Come è andata questa settimana?', 'Suggeriscimi come ottimizzare i turni'].map(function(q) {
+                      return (
+                        <button key={q} onClick={function(){ setAiInput(q); }}
+                          style={{ padding:'8px 12px', background:BG3, border:'1px solid '+BORDER2, borderRadius:'9px', color:TEXT, fontFamily:FONT, fontSize:'9px', cursor:'pointer', textAlign:'left', transition:'all 0.2s' }}>
+                          💬 {q}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {aiMsgs.map(function(m, i) {
+                var isUser = m.role === 'user';
+                return (
+                  <div key={i} style={{ display:'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                    <div style={{
+                      maxWidth:'85%', padding:'10px 13px', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                      background: isUser ? 'rgba(56,189,248,0.15)' : BG3,
+                      border: '1px solid ' + (isUser ? 'rgba(56,189,248,0.4)' : BORDER2),
+                      fontSize:'11px', color:TEXT, lineHeight:1.7, whiteSpace:'pre-wrap', wordBreak:'break-word'
+                    }}>
+                      {!isUser && <div style={{ fontSize:'8px', color:BLUE, fontWeight:'bold', letterSpacing:'1.5px', marginBottom:'5px' }}>🤖 AI</div>}
+                      {m.content}
+                    </div>
+                  </div>
+                );
+              })}
+              {aiLoading && (
+                <div style={{ display:'flex', justifyContent:'flex-start' }}>
+                  <div style={{ padding:'10px 14px', background:BG3, border:'1px solid '+BORDER2, borderRadius:'14px 14px 14px 4px' }}>
+                    <div style={{ display:'flex', gap:'5px', alignItems:'center' }}>
+                      {[0,1,2].map(function(i){ return <div key={i} style={{ width:'7px', height:'7px', borderRadius:'50%', background:BLUE, animation:'pulse 1s infinite', animationDelay:(i*0.2)+'s' }} />; })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={aiEndRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{ display:'flex', gap:'8px', alignItems:'flex-end', flexShrink:0 }}>
+              <textarea value={aiInput} onChange={function(e){setAiInput(e.target.value);}} onKeyDown={onAiKey}
+                placeholder="Scrivi un messaggio… (Invio per inviare)"
+                rows={2}
+                style={{ flex:1, background:BG3, border:'1px solid '+(aiInput?'rgba(56,189,248,0.5)':BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'12px', padding:'10px 12px', outline:'none', resize:'none', lineHeight:1.5, transition:'border-color 0.2s' }} />
+              <button onClick={inviaMessaggio} disabled={!aiInput.trim() || aiLoading}
+                style={{ width:'44px', height:'44px', borderRadius:'12px', background: aiInput.trim()?'rgba(56,189,248,0.2)':BG3, border:'2px solid '+(aiInput.trim()?BLUE:BORDER2), color:aiInput.trim()?BLUE:DIM, fontSize:'18px', cursor:aiInput.trim()?'pointer':'default', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s' }}>
+                ↑
+              </button>
+            </div>
+            {aiMsgs.length > 0 && (
+              <button onClick={function(){setAiMsgs([]);}} style={{ marginTop:'6px', fontSize:'8px', color:DIM, background:'transparent', border:'none', cursor:'pointer', letterSpacing:'1px' }}>
+                × CANCELLA CONVERSAZIONE
+              </button>
+            )}
+          </div>
+        )}
+
         {tab === 'pwd' && (
           <Panel>
             <SectionHeader color={PURPLE} icon="🔐">CAMBIA PASSWORD</SectionHeader>
@@ -1609,11 +1803,10 @@ function PageSettings(props) {
 
         {tab === 'sync' && (
           <div>
-            <Panel style={{ border:'1px solid rgba(56,189,248,0.25)', marginBottom:'12px' }}>
+            <Panel style={{ border:'1px solid rgba(56,189,248,0.3)', marginBottom:'12px' }}>
               <SectionHeader color={BLUE} icon="💾">SALVATAGGIO LOCALE</SectionHeader>
               <div style={{ fontSize:'9px', color:DIM, lineHeight:1.9 }}>
-                Tutti i dati vengono salvati automaticamente sul <b style={{ color:TEXT }}>dispositivo</b> tramite localStorage.<br/><br/>
-                Non è necessaria nessuna connessione internet.
+                Tutti i dati vengono salvati automaticamente sul <b style={{ color:TEXT }}>dispositivo</b> tramite localStorage. Non è necessaria nessuna connessione internet.
               </div>
             </Panel>
             <div style={{ fontSize:'8px', color:DIM, textAlign:'center', lineHeight:1.9, padding:'10px', background:BG2, borderRadius:'10px', border:'1px solid '+BORDER }}>
@@ -1638,11 +1831,31 @@ function App() {
   var _puntoOra = useState(''); var puntoOra = _puntoOra[0]; var setPuntoOra = _puntoOra[1];
   var _puntoRim = useState(''); var puntoRim = _puntoRim[0]; var setPuntoRim = _puntoRim[1];
   var _puntoRes = useState(null); var puntoRes = _puntoRes[0]; var setPuntoRes = _puntoRes[1];
+  var _tema = useState(function(){ return lsg(K.tema, 'scuro'); }); var tema = _tema[0]; var setTemaRaw = _tema[1];
+
+  function setTema(t) { applicaTema(t); lss(K.tema, t); setTemaRaw(t); }
 
   function setTurni(v) { var n = typeof v === 'function' ? v(turni) : v; setTurniRaw(n); lss(K.turni, n); }
   function setStra(v)  { var n = typeof v === 'function' ? v(stra) : v; setStraRaw(n); lss(K.stra, n); }
   function setColli(v) { setColliRaw(v); lss(K.colli, v); }
   function setRate(v)  { setRateRaw(v); lss(K.rate, v); }
+
+  // ── Importa dati da URL (?d=...) al primo caricamento ──
+  useEffect(function() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var d = params.get('d');
+      if (!d) return;
+      var json = decodeURIComponent(escape(atob(d)));
+      var data = JSON.parse(json);
+      if (data.turni) { lss(K.turni, data.turni); setTurniRaw(data.turni); }
+      if (data.stra)  { lss(K.stra,  data.stra);  setStraRaw(data.stra); }
+      if (data.colli !== undefined) { lss(K.colli, data.colli); setColliRaw(data.colli); }
+      if (data.rate)  { lss(K.rate,  data.rate);  setRateRaw(data.rate); }
+      // Pulisce l'URL senza ricaricare la pagina
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch(e) {}
+  }, []);
 
   useEffect(function() {
     setStra(function(prev) {
@@ -1664,7 +1877,7 @@ function App() {
         {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni'     && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
-        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} />}
+        {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} tema={tema} setTema={setTema} colli={colli} rate={rate} />}
       </div>
       <Nav page={page} setPage={setPage} />
     </div>
