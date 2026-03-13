@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>TurniPro v7.0</title>
+  <title>TurniPro v8.0</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -73,7 +73,7 @@ function applicaTema(t) {
   GREEN=c.GREEN; GREEN2=c.GREEN2; RED=c.RED; ORANGE=c.ORANGE; BLUE=c.BLUE; TEAL=c.TEAL;
   document.body.style.background = BG;
 }
-var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template', geminiKey:'tm_gemini_key' };
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template', geminiKey:'tm_gemini_key', groqKey:'tm_groq_key' };
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
 
 async function sha256(str) {
@@ -319,7 +319,7 @@ function Login(props) {
           <div style={{ fontSize:'56px', marginBottom:'12px', filter:'drop-shadow(0 0 20px rgba(245,158,11,0.4))' }}>📦</div>
           <div style={{ fontSize:'15px', fontWeight:'bold', letterSpacing:'5px', color:YELLOW }}>TURNIPRO</div>
           <div style={{ width:'40px', height:'2px', background:'linear-gradient(90deg,transparent,'+YELLOW+',transparent)', margin:'10px auto' }} />
-          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v7.0 · ACCESSO RICHIESTO</div>
+          <div style={{ fontSize:'9px', color:DIM, letterSpacing:'2px' }}>v8.0 · ACCESSO RICHIESTO</div>
         </div>
         <div style={{ position:'relative', marginBottom:'14px' }}>
           <input type={show ? 'text' : 'password'} value={pwd}
@@ -347,6 +347,7 @@ function Nav(props) {
     { id:'input',     icon:'✏️', label:'TURNI'    },
     { id:'turni',     icon:'⚡', label:'STRAORD.'  },
     { id:'dettaglio', icon:'📋', label:'DETTAGLIO'},
+    { id:'ai',        icon:'🤖', label:'AI'        },
     { id:'settings',  icon:'⚙️', label:'CONFIG'   },
   ];
   return (
@@ -1456,6 +1457,278 @@ function PageDettaglio(props) {
   );
 }
 
+// ── PAGE AI ──
+function PageAI(props) {
+  var turni = props.turni; var stra = props.stra;
+  var colli = props.colli; var rate = props.rate;
+
+  var _apiKey = useState(function(){ return lsg(K.groqKey, ''); }); var apiKey = _apiKey[0]; var setApiKey = _apiKey[1];
+  var _keyInput = useState(''); var keyInput = _keyInput[0]; var setKeyInput = _keyInput[1];
+  var _showKey = useState(false); var showKey = _showKey[0]; var setShowKey = _showKey[1];
+  var _msgs = useState([]); var msgs = _msgs[0]; var setMsgs = _msgs[1];
+  var _input = useState(''); var input = _input[0]; var setInput = _input[1];
+  var _loading = useState(false); var loading = _loading[0]; var setLoading = _loading[1];
+  var _err = useState(''); var err = _err[0]; var setErr = _err[1];
+  var _mode = useState('chat'); var mode = _mode[0]; var setMode = _mode[1]; // 'chat' | 'setup'
+  var scrollRef = useRef(null);
+
+  useEffect(function() {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgs]);
+
+  function buildContext() {
+    var allT = buildAllT(turni, stra, Number(rate));
+    var colliN = Number(colli);
+    var res = colliN ? calcRows(colliN, allT, Number(rate)) : null;
+    var chiusura = res && res.ok ? res.fineEx : null;
+    if (res && res.ok) res.anticipo = calcAnticipo(allT, chiusura, Number(rate));
+
+    var turniInfo = turni.map(function(t) {
+      var sp = (stra || []).find(function(s){ return s.id === t.id; }) || { righe: [] };
+      var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
+      var straoLines = (sp.righe || []).filter(function(r){ return r.inizio && r.fine && Number(r.persone) > 0; })
+        .map(function(r){ return r.persone + ' pers ' + r.inizio + '→' + r.fine; });
+      return t.nome + ': ' + eff + ' persone eff.' +
+        (t.assenti > 0 ? ' (' + t.assenti + ' assenti)' : '') +
+        (straoLines.length > 0 ? ' | straord: ' + straoLines.join(', ') : '');
+    }).join('\n');
+
+    var storico = lsg(K.storico, []).slice(0, 5).map(function(e){
+      return e.data + ': ' + e.colli.toLocaleString('it-IT') + ' colli → chiusura ' + (e.chiusura || '—');
+    }).join('\n');
+
+    return 'Contesto TurniPro (magazzino):\n' +
+      'Data: ' + oggi() + '\n' +
+      'Colli target: ' + (colli || '—') + '\n' +
+      'Velocità: ' + rate + ' colli/ora/persona\n' +
+      'Turni:\n' + turniInfo + '\n' +
+      'Chiusura stimata: ' + (chiusura || 'non calcolabile') + '\n' +
+      (res && res.ok && res.anticipo > 0 ? 'Anticipo colli: +' + res.anticipo.toLocaleString('it-IT') + '\n' : '') +
+      (res && !res.ok ? 'Colli mancanti: ' + (colliN - res.cum).toLocaleString('it-IT') + '\n' : '') +
+      (storico ? 'Storico ultime giornate:\n' + storico + '\n' : '');
+  }
+
+  var SYSTEM_PROMPT = 'Sei un assistente esperto di logistica e gestione magazzino integrato in TurniPro. ' +
+    'Rispondi SEMPRE in italiano, in modo conciso e pratico. Usa emoji dove appropriato. ' +
+    'Hai accesso ai dati in tempo reale del turno corrente. ' +
+    'Per messaggi WhatsApp/riepilogo usa formato testo pulito con emoji. ' +
+    'Per analisi usa dati precisi. Per suggerimenti sii diretto e operativo.';
+
+  var QUICK_ACTIONS = [
+    { label: '📱 Messaggio WhatsApp', prompt: 'Genera un messaggio WhatsApp professionale con il riepilogo completo della giornata: turni, persone, colli target e chiusura stimata.' },
+    { label: '📊 Analisi giornata', prompt: 'Fai un\'analisi completa della giornata: siamo in linea con gli obiettivi? Cosa va bene e cosa potrebbe migliorare?' },
+    { label: '👥 Suggerisci persone', prompt: 'In base ai dati attuali, suggerisci come ottimizzare la distribuzione delle persone tra i turni per migliorare la chiusura.' },
+    { label: '⚡ Serve straordinario?', prompt: 'Analizza se serve fare straordinario oggi e, se sì, quante persone e per quali turni.' },
+  ];
+
+  async function sendMessage(customPrompt) {
+    var text = customPrompt || input.trim();
+    if (!text || loading) return;
+    if (!apiKey) { setMode('setup'); return; }
+    setInput('');
+    setErr('');
+    var ctx = buildContext();
+    var userMsg = { role: 'user', content: text };
+    var newMsgs = msgs.concat([userMsg]);
+    setMsgs(newMsgs);
+    setLoading(true);
+    try {
+      var history = newMsgs.map(function(m){ return { role: m.role, content: m.content }; });
+      var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 800,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT + '\n\n' + ctx }
+          ].concat(history)
+        })
+      });
+      var data = await res.json();
+      if (data.error) throw new Error(data.error.message || 'Errore API');
+      var reply = data.choices[0].message.content;
+      setMsgs(newMsgs.concat([{ role: 'assistant', content: reply }]));
+    } catch(e) {
+      setErr('Errore: ' + e.message);
+      setMsgs(newMsgs.concat([{ role: 'assistant', content: '⚠️ Errore: ' + e.message }]));
+    }
+    setLoading(false);
+  }
+
+  function saveKey() {
+    var k = keyInput.trim();
+    if (!k.startsWith('gsk_')) { setErr('La chiave Groq inizia con "gsk_"'); return; }
+    lss(K.groqKey, k);
+    setApiKey(k);
+    setKeyInput('');
+    setErr('');
+    setMode('chat');
+  }
+
+  function removeKey() { lss(K.groqKey, ''); setApiKey(''); setMsgs([]); }
+
+  // SETUP VIEW
+  if (mode === 'setup' || !apiKey) {
+    return (
+      <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
+        <div style={{ background:'linear-gradient(180deg,'+BG2+','+BG+')', borderBottom:'1px solid '+BORDER, padding:'11px 14px', position:'sticky', top:0, zIndex:10 }}>
+          <div style={{ fontSize:'14px', fontWeight:'bold', letterSpacing:'3px', color:TEAL }}>🤖 AI ASSISTANT</div>
+        </div>
+        <div style={{ padding:'16px' }}>
+          <Panel style={{ border:'1px solid rgba(45,212,191,0.4)', marginBottom:'14px', textAlign:'center' }}>
+            <div style={{ fontSize:'36px', marginBottom:'10px' }}>🤖</div>
+            <div style={{ fontSize:'12px', fontWeight:'bold', color:TEAL, letterSpacing:'2px', marginBottom:'8px' }}>CONFIGURA GROQ AI</div>
+            <div style={{ fontSize:'9px', color:MID, lineHeight:1.8, marginBottom:'14px' }}>
+              Groq è gratuito e ultra-veloce. Ottieni la tua API key su<br/>
+              <span style={{ color:TEAL, fontWeight:'bold' }}>console.groq.com</span><br/>
+              La chiave rimane salvata solo sul tuo dispositivo.
+            </div>
+            <div style={{ marginBottom:'10px' }}>
+              <Lbl>API KEY GROQ</Lbl>
+              <div style={{ position:'relative' }}>
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={keyInput}
+                  onChange={function(e){ setKeyInput(e.target.value); setErr(''); }}
+                  placeholder="gsk_..."
+                  style={{ width:'100%', background:BG3, border:'1px solid '+(keyInput?'rgba(45,212,191,0.5)':BORDER2), borderRadius:'9px', color:TEAL, fontFamily:FONT, fontSize:'13px', padding:'11px 40px 11px 12px', outline:'none', boxSizing:'border-box' }}
+                />
+                <button onClick={function(){setShowKey(!showKey);}} style={{ position:'absolute', right:'10px', top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', cursor:'pointer', fontSize:'16px', color:DIM }}>
+                  {showKey ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+            {err && <div style={{ fontSize:'9px', color:RED, marginBottom:'8px' }}>{err}</div>}
+            <button onClick={saveKey}
+              style={{ width:'100%', padding:'12px', background: keyInput ? 'rgba(45,212,191,0.15)' : BG3, border:'1px solid '+(keyInput?TEAL:BORDER2), borderRadius:'10px', color:keyInput?TEAL:DIM, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor: keyInput?'pointer':'default' }}>
+              SALVA E ATTIVA →
+            </button>
+          </Panel>
+          <Panel style={{ border:'1px solid '+BORDER }}>
+            <SectionHeader color={PURPLE} icon="💡">COSA PUÒ FARE L\'AI</SectionHeader>
+            {[
+              ['📱','Messaggi WhatsApp','Riepilogo giornata pronto da inviare'],
+              ['📊','Analisi turni','Valuta se sei in linea con gli obiettivi'],
+              ['👥','Suggerimenti','Ottimizza la distribuzione delle persone'],
+              ['💬','Chat libera','Fai qualsiasi domanda sui turni'],
+            ].map(function(x,i){
+              return (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:'12px', padding:'9px 0', borderBottom: i<3?'1px solid '+BORDER:'none' }}>
+                  <div style={{ fontSize:'22px', width:'30px', textAlign:'center' }}>{x[0]}</div>
+                  <div>
+                    <div style={{ fontSize:'10px', color:TEXT, fontWeight:'bold' }}>{x[1]}</div>
+                    <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>{x[2]}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </Panel>
+        </div>
+      </div>
+    );
+  }
+
+  // CHAT VIEW
+  return (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column', fontFamily:FONT, overflow:'hidden' }}>
+      {/* HEADER */}
+      <div style={{ background:BG2, borderBottom:'1px solid '+BORDER, padding:'10px 14px', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:'13px', fontWeight:'bold', letterSpacing:'3px', color:TEAL }}>🤖 AI ASSISTANT</div>
+        <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+          <div style={{ fontSize:'8px', color:GREEN, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', borderRadius:'5px', padding:'2px 7px' }}>● GROQ ATTIVO</div>
+          <button onClick={function(){ setMsgs([]); }} style={{ fontSize:'8px', color:DIM, background:'transparent', border:'1px solid '+BORDER2, borderRadius:'5px', padding:'2px 7px', cursor:'pointer' }}>↺ reset</button>
+          <button onClick={removeKey} style={{ fontSize:'8px', color:RED, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', borderRadius:'5px', padding:'2px 7px', cursor:'pointer' }}>× chiave</button>
+        </div>
+      </div>
+
+      {/* QUICK ACTIONS */}
+      <div style={{ flexShrink:0, padding:'8px 10px', borderBottom:'1px solid '+BORDER, display:'flex', gap:'6px', overflowX:'auto' }}>
+        {QUICK_ACTIONS.map(function(a, i) {
+          return (
+            <button key={i} onClick={function(){ sendMessage(a.prompt); }}
+              style={{ whiteSpace:'nowrap', padding:'5px 10px', background:'rgba(45,212,191,0.07)', border:'1px solid rgba(45,212,191,0.3)', borderRadius:'8px', color:TEAL, fontFamily:FONT, fontSize:'8px', cursor:'pointer', letterSpacing:'0.5px', flexShrink:0 }}>
+              {a.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* SCROLL AREA: messaggi + input box tutto dentro, con padding bottom per la navbar assoluta */}
+      <div ref={scrollRef} style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column' }}>
+        {/* messaggi */}
+        <div style={{ flex:1, padding:'12px 14px 8px 14px' }}>
+          {msgs.length === 0 && (
+            <div style={{ textAlign:'center', color:DIM, marginTop:'40px' }}>
+              <div style={{ fontSize:'40px', marginBottom:'12px', opacity:0.5 }}>🤖</div>
+              <div style={{ fontSize:'10px', letterSpacing:'2px', marginBottom:'6px' }}>AI PRONTA</div>
+              <div style={{ fontSize:'8px', color:MID, lineHeight:1.8 }}>
+                Usa i tasti rapidi in alto<br/>o scrivi qui sotto.
+              </div>
+            </div>
+          )}
+          {msgs.map(function(m, i) {
+            var isUser = m.role === 'user';
+            return (
+              <div key={i} className="fadeup" style={{ display:'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom:'10px' }}>
+                <div style={{
+                  maxWidth:'85%',
+                  background: isUser ? 'rgba(45,212,191,0.12)' : BG2,
+                  border: '1px solid ' + (isUser ? 'rgba(45,212,191,0.4)' : BORDER2),
+                  borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                  padding:'10px 13px',
+                  color:TEXT, fontSize:'12px', lineHeight:1.65,
+                  whiteSpace:'pre-wrap', wordBreak:'break-word',
+                }}>
+                  {!isUser && <div style={{ fontSize:'7px', color:TEAL, letterSpacing:'1.5px', marginBottom:'5px', fontWeight:'bold' }}>🤖 AI</div>}
+                  {m.content}
+                  {!isUser && (
+                    <button onClick={function(){
+                      try { navigator.clipboard.writeText(m.content); } catch(e) {}
+                    }} style={{ display:'block', marginTop:'7px', fontSize:'7px', color:DIM, background:'transparent', border:'1px solid '+BORDER2, borderRadius:'4px', padding:'2px 7px', cursor:'pointer', letterSpacing:'1px' }}>
+                      📋 COPIA
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {loading && (
+            <div style={{ display:'flex', justifyContent:'flex-start', marginBottom:'10px' }}>
+              <div style={{ background:BG2, border:'1px solid '+BORDER2, borderRadius:'14px 14px 14px 4px', padding:'12px 16px' }}>
+                <div style={{ display:'flex', gap:'5px', alignItems:'center' }}>
+                  {[0,1,2].map(function(ii){
+                    return <div key={ii} style={{ width:'6px', height:'6px', background:TEAL, borderRadius:'50%', animation:'pulse 1.2s ease-in-out infinite', animationDelay: ii*0.2+'s', opacity:0.7 }} />;
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* INPUT BOX — sticky al fondo dello scroll, con padding per la navbar assoluta */}
+        <div style={{ position:'sticky', bottom:0, background:BG2, borderTop:'1px solid '+BORDER, padding:'10px 14px', paddingBottom:'calc(env(safe-area-inset-bottom) + 78px)', zIndex:10 }}>
+          {err && <div style={{ fontSize:'8px', color:RED, marginBottom:'6px', textAlign:'center' }}>{err}</div>}
+          <div style={{ display:'flex', gap:'8px', alignItems:'flex-end' }}>
+            <textarea
+              value={input}
+              onChange={function(e){ setInput(e.target.value); }}
+              onKeyDown={function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              placeholder="✍️  Scrivi un messaggio..."
+              rows={2}
+              style={{ flex:1, background:BG3, border:'2px solid '+(input?TEAL:BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'14px', padding:'10px 13px', outline:'none', resize:'none', lineHeight:1.5, transition:'border-color 0.2s', maxHeight:'90px', overflowY:'auto' }}
+            />
+            <button onClick={function(){ sendMessage(); }} disabled={!input.trim() || loading}
+              style={{ width:'44px', height:'44px', borderRadius:'12px', background: input.trim() ? 'rgba(45,212,191,0.2)' : BG3, border:'2px solid '+(input.trim()?TEAL:BORDER2), color:input.trim()?TEAL:DIM, fontSize:'20px', cursor:input.trim()?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', fontWeight:'bold' }}>
+              ↑
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PAGE SETTINGS ──
 function PageSettings(props) {
   var turni = props.turni; var setTurni = props.setTurni;
@@ -1737,6 +2010,7 @@ function App() {
         {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni'     && <PageTurni {...pageProps} />}
         {page === 'dettaglio' && <PageDettaglio {...pageProps} />}
+        {page === 'ai'        && <PageAI turni={turni} stra={stra} colli={colli} rate={rate} />}
         {page === 'settings'  && <PageSettings turni={turni} setTurni={setTurni} stra={stra} setStra={setStra} onLogout={logout} tema={tema} setTema={setTema} colli={colli} rate={rate} />}
       </div>
       <Nav page={page} setPage={setPage} />
