@@ -1232,10 +1232,11 @@ function PageTurni(props) {
           var colliStrao = 0;
           righeAttive.forEach(function(r){ colliStrao += Math.round(Number(r.persone)*Number(rate)*(tMin(r.fine)-tMin(r.inizio))/60); });
 
-          // Orari rapidi: usa quelli personalizzati da CONFIG, altrimenti default basati sulla fine turno
+          // Orari rapidi: usa quelli personalizzati da CONFIG se almeno uno è completo, altrimenti default
           var fineM = tMin(t.fine);
-          var orariRapidi = (t.orariRapidi && t.orariRapidi.length > 0)
-            ? t.orariRapidi.filter(function(or){ return or.inizio && or.fine; })
+          var orariCustom = (t.orariRapidi || []).filter(function(or){ return or.inizio && or.fine; });
+          var orariRapidi = orariCustom.length > 0
+            ? orariCustom
             : [
                 { label:'+30\'', inizio: mToT(fineM), fine: mToT(fineM+30) },
                 { label:'+1h',   inizio: mToT(fineM), fine: mToT(fineM+60) },
@@ -2141,16 +2142,19 @@ function PageSettings(props) {
                       </button>
                     </div>
                     <div style={{ fontSize:'8px', color:DIM, marginBottom:'8px', lineHeight:1.6 }}>
-                      Tasti rapidi che appaiono nella pagina STRAORD. per inserire gli orari in un tap.
+                      Tasti rapidi nella pagina STRAORD. — se configuri almeno uno, i default (+30', +1h, +1h30) <b style={{color:ORANGE}}>spariscono</b> e restano solo i tuoi.
                     </div>
                     {(t.orariRapidi||[]).length === 0 && (
-                      <div style={{ fontSize:'8px', color:DIM, fontStyle:'italic', textAlign:'center', padding:'6px 0' }}>
-                        Nessun orario rapido — usa + AGGIUNGI
+                      <div style={{ fontSize:'8px', color:DIM, fontStyle:'italic', textAlign:'center', padding:'6px 0', background:BG3, borderRadius:'8px' }}>
+                        Nessun orario rapido → vengono usati i default (+30', +1h, +1h30)
                       </div>
                     )}
                     {(t.orariRapidi||[]).map(function(or, oi) {
+                      var incompleto = !or.inizio || !or.fine;
                       return (
-                        <div key={oi} style={{ display:'grid', gridTemplateColumns:'2fr 2fr 2fr auto', gap:'6px', marginBottom:'7px', alignItems:'center' }}>
+                        <div key={oi} style={{ marginBottom:'7px', background: incompleto?'rgba(239,68,68,0.05)':'transparent', border: incompleto?'1px solid rgba(239,68,68,0.25)':'1px solid transparent', borderRadius:'8px', padding: incompleto?'6px':'0' }}>
+                          {incompleto && <div style={{ fontSize:'7px', color:RED, marginBottom:'4px', letterSpacing:'1px' }}>⚠️ Orario incompleto — non verrà mostrato</div>}
+                          <div style={{ display:'grid', gridTemplateColumns:'2fr 2fr 2fr auto', gap:'6px', alignItems:'center' }}>
                           <div>
                             <Lbl>ETICHETTA</Lbl>
                             <input type="text" value={or.label||''} placeholder="+1h"
@@ -2180,6 +2184,7 @@ function PageSettings(props) {
                               aggiornaTurno(t.id,'orariRapidi',nr);
                             }} style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:'5px', color:RED, cursor:'pointer', fontSize:'13px', padding:'4px 7px', lineHeight:1 }}>×</button>
                           </div>
+                        </div>
                         </div>
                       );
                     })}
