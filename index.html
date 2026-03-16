@@ -73,7 +73,7 @@ function applicaTema(t) {
   GREEN=c.GREEN; GREEN2=c.GREEN2; RED=c.RED; ORANGE=c.ORANGE; BLUE=c.BLUE; TEAL=c.TEAL;
   document.body.style.background = BG;
 }
-var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template', geminiKey:'tm_gemini_key', groqKey:'tm_groq_key' };
+var K = { pwd:'tm_pwd', auth:'tm_auth', turni:'tm_turni', stra:'tm_stra', colli:'tm_colli', rate:'tm_rate', storico:'tm_storico', fb:'tm_fb', puntiSit:'tm_punti_sit', tema:'tm_tema', template:'tm_template', geminiKey:'tm_gemini_key', groqKey:'tm_groq_key', persone:'tm_persone' };
 var PWD_DEFAULT_HASH = '2716882c405a97cb51cb0224575d250dfe399301e5c0c13688e7893d2d9b295c';
 
 async function sha256(str) {
@@ -1333,12 +1333,41 @@ function PageTurni(props) {
                           <div><div style={{ fontSize:'7px', color:DIM, marginBottom:'3px' }}>ALLE</div><TimeInput value={rr.fine} onChange={function(v){setStraRiga(t.id,ri,'fine',v);}} color={ORANGE} /></div>
                         </div>
 
-                        {/* Nota */}
+                        {/* Nota con autocomplete */}
                         <div>
                           <div style={{ fontSize:'7px', color:DIM, marginBottom:'3px', letterSpacing:'1px' }}>📝 NOTE (es. nomi, squadra...)</div>
                           <input type="text" value={rr.nota||''} onChange={function(e){setStraRiga(t.id,ri,'nota',e.target.value);}}
                             placeholder="es. Mario, Giovanni / Team A"
                             style={{ width:'100%', background:BG2, border:'1px solid '+(rr.nota?'rgba(249,115,22,0.4)':BORDER2), borderRadius:'8px', color:TEXT, fontFamily:FONT, fontSize:'12px', padding:'7px 10px', outline:'none', transition:'border-color 0.2s', boxSizing:'border-box' }} />
+                          {/* Suggerimenti nomi */}
+                          {(function(){
+                            var lista = lsg(K.persone, []);
+                            if (lista.length === 0) return null;
+                            var notaCorrente = rr.nota || '';
+                            // trova l'ultimo nome parziale dopo l'ultima virgola
+                            var parti = notaCorrente.split(',');
+                            var ultimaParte = parti[parti.length-1].trim().toLowerCase();
+                            if (ultimaParte.length < 1) return null;
+                            var suggeriti = lista.filter(function(n){
+                              return n.toLowerCase().indexOf(ultimaParte) === 0 && n.toLowerCase() !== ultimaParte;
+                            }).slice(0, 4);
+                            if (suggeriti.length === 0) return null;
+                            return (
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:'4px', marginTop:'5px' }}>
+                                {suggeriti.map(function(nome) {
+                                  return (
+                                    <button key={nome} onClick={function(){
+                                      var nuoveParti = notaCorrente.split(',');
+                                      nuoveParti[nuoveParti.length-1] = ' '+nome;
+                                      setStraRiga(t.id,ri,'nota', nuoveParti.join(',').replace(/^ /, ''));
+                                    }} style={{ padding:'3px 9px', background:'rgba(249,115,22,0.12)', border:'1px solid rgba(249,115,22,0.4)', borderRadius:'12px', color:ORANGE, fontFamily:FONT, fontSize:'9px', cursor:'pointer' }}>
+                                      {nome}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -2162,7 +2191,21 @@ function PageSettings(props) {
     }
   }
 
-  var tabs = [{id:'turni',label:'TURNI'},{id:'tema',label:'TEMA'},{id:'pwd',label:'PWD'},{id:'sync',label:'SYNC'}];
+  var tabs = [{id:'turni',label:'TURNI'},{id:'persone',label:'PERSONE'},{id:'tema',label:'TEMA'},{id:'pwd',label:'PWD'},{id:'sync',label:'SYNC'}];
+
+  var _listaPers = useState(function(){ return lsg(K.persone, []); }); var listaPers = _listaPers[0]; var setListaPers = _listaPers[1];
+  var _nuovoNome = useState(''); var nuovoNome = _nuovoNome[0]; var setNuovoNome = _nuovoNome[1];
+
+  function aggiungiPersona() {
+    var n = nuovoNome.trim();
+    if (!n || listaPers.indexOf(n) >= 0) return;
+    var updated = listaPers.concat([n]).sort();
+    lss(K.persone, updated); setListaPers(updated); setNuovoNome('');
+  }
+  function rimuoviPersona(nome) {
+    var updated = listaPers.filter(function(p){ return p !== nome; });
+    lss(K.persone, updated); setListaPers(updated);
+  }
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'70px', fontFamily:FONT }}>
@@ -2304,6 +2347,43 @@ function PageSettings(props) {
               💾 SALVA COME DEFAULT
             </button>
             {syncMsg && <div style={{ marginTop:'8px', fontSize:'10px', color:syncMsg.ok?GREEN:RED, textAlign:'center' }}>{syncMsg.t}</div>}
+          </div>
+        )}
+
+        {tab === 'persone' && (
+          <div>
+            <div style={{ fontSize:'9px', color:MID, marginBottom:'14px', lineHeight:1.7, background:BG2, border:'1px solid '+BORDER, borderRadius:'10px', padding:'10px 12px' }}>
+              👥 Lista persone del magazzino. I nomi vengono suggeriti automaticamente quando scrivi le note negli straordinari.
+            </div>
+            {/* Input aggiunta */}
+            <div style={{ display:'flex', gap:'8px', marginBottom:'14px' }}>
+              <input type="text" value={nuovoNome} onChange={function(e){setNuovoNome(e.target.value);}}
+                onKeyDown={function(e){ if(e.key==='Enter') aggiungiPersona(); }}
+                placeholder="Nome e Cognome..."
+                style={{ flex:1, background:BG3, border:'1px solid '+(nuovoNome?TEAL:BORDER2), borderRadius:'10px', color:TEXT, fontFamily:FONT, fontSize:'14px', padding:'10px 13px', outline:'none', transition:'border-color 0.2s' }} />
+              <button onClick={aggiungiPersona}
+                style={{ padding:'10px 16px', background: nuovoNome?'rgba(45,212,191,0.15)':BG3, border:'1px solid '+(nuovoNome?TEAL:BORDER2), borderRadius:'10px', color:nuovoNome?TEAL:DIM, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', cursor:'pointer', whiteSpace:'nowrap' }}>
+                + ADD
+              </button>
+            </div>
+            {/* Lista nomi */}
+            {listaPers.length === 0 ? (
+              <div style={{ textAlign:'center', color:DIM, fontSize:'9px', padding:'20px', fontStyle:'italic' }}>
+                Nessuna persona — usa il campo sopra per aggiungere
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:'7px' }}>
+                {listaPers.map(function(nome) {
+                  return (
+                    <div key={nome} style={{ display:'flex', alignItems:'center', gap:'6px', background:BG2, border:'1px solid '+BORDER2, borderRadius:'20px', padding:'6px 12px' }}>
+                      <span style={{ fontSize:'11px', color:TEXT }}>{nome}</span>
+                      <button onClick={function(){rimuoviPersona(nome);}}
+                        style={{ background:'transparent', border:'none', color:RED, cursor:'pointer', fontSize:'14px', lineHeight:1, padding:0 }}>×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
