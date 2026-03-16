@@ -1133,12 +1133,25 @@ function PageTurni(props) {
 
   function copiaPian() {
     var lines = ['📦 TURNIPRO - '+oggi(),'================================','COLLI: '+(colli||0)+' · C/H: '+rate,'','TURNI','────────────────────────────'];
-    turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff); });
-    var hasS=false;
-    stra.forEach(function(sp){ (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){ if(!hasS){lines.push('','STRAORDINARI','────────────────────────────');hasS=true;} var t=turni.find(function(x){return x.id===sp.id;}); lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone); }); });
+    turni.forEach(function(t){ var eff=Math.max(0,(t.persone||0)-(t.assenti||0)); if(eff>0) lines.push(t.nome+'  '+t.inizio+'→'+t.fine+'  👥'+eff+(t.assenti>0?' ('+t.assenti+' ass.)':'')); });
+
+    // Dettaglio straordinari con nomi
+    var hasS = false;
+    stra.forEach(function(sp){
+      var t = turni.find(function(x){return x.id===sp.id;});
+      (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;}).forEach(function(r){
+        if (!hasS) { lines.push('','⚡ STRAORDINARI','────────────────────────────'); hasS=true; }
+        var durMin = tMin(r.fine)-tMin(r.inizio);
+        var durLabel = durMin>=60 ? Math.floor(durMin/60)+'h'+(durMin%60>0?String(durMin%60).padStart(2,'0'):'') : durMin+'min';
+        var colliS = Math.round(Number(r.persone)*Number(rate)*durMin/60);
+        lines.push('⚡ '+(t?t.nome:'')+'  '+r.inizio+'→'+r.fine+'  👥'+r.persone+'  ('+durLabel+')  📦'+colliS.toLocaleString('it-IT'));
+        if (r.nota) lines.push('   📝 '+r.nota);
+      });
+    });
+
     if (risultato) {
       lines.push('','RISULTATO','────────────────────────────');
-      if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')); }
+      if (risultato.ok) { lines.push('🏁 Chiusura: '+risultato.fineEx); if(risultato.anticipo>0) lines.push('⚡ Anticipo: +'+risultato.anticipo.toLocaleString('it-IT')+' colli'); }
       else lines.push('🔴 Mancano: '+(Number(colli)-risultato.cum).toLocaleString('it-IT'));
     }
     navigator.clipboard.writeText(lines.join('\n')).then(function(){setCopiato(true);setTimeout(function(){setCopiato(false);},2500);}).catch(function(){prompt('Copia:',lines.join('\n'));});
@@ -1360,6 +1373,65 @@ function PageTurni(props) {
             </div>
           </div>
         )}
+
+        {/* ── DETTAGLIO STRAORDINARI ── */}
+        {(function(){
+          var hasStrao = stra.some(function(sp){
+            return (sp.righe||[]).some(function(r){ return r.inizio&&r.fine&&Number(r.persone)>0; });
+          });
+          if (!hasStrao) return null;
+          return (
+            <div className="fadeup" style={{ marginTop:'12px', background:BG2, border:'1px solid rgba(249,115,22,0.35)', borderRadius:'14px', padding:'14px' }}>
+              <SectionHeader color={ORANGE} icon="⚡">DETTAGLIO STRAORDINARI</SectionHeader>
+              {turni.map(function(t) {
+                var sp = stra.find(function(s){return s.id===t.id;}) || {righe:[]};
+                var righeAttive = (sp.righe||[]).filter(function(r){return r.inizio&&r.fine&&Number(r.persone)>0;});
+                var cl = tColor(t.nome);
+                return (
+                  <div key={t.id} style={{ marginBottom:'10px', paddingBottom:'10px', borderBottom:'1px solid '+BORDER }}>
+                    {/* Nome turno */}
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'6px' }}>
+                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:cl }} />
+                      <div style={{ fontSize:'10px', fontWeight:'bold', color:cl }}>{t.nome}</div>
+                    </div>
+                    {righeAttive.length === 0 ? (
+                      <div style={{ fontSize:'9px', color:DIM, marginLeft:'14px', fontStyle:'italic' }}>Nessuno</div>
+                    ) : (
+                      righeAttive.map(function(r, ri) {
+                        var durMin = tMin(r.fine) - tMin(r.inizio);
+                        var durLabel = durMin >= 60
+                          ? Math.floor(durMin/60)+'h'+(durMin%60>0?String(durMin%60).padStart(2,'0'):'')
+                          : durMin+'min';
+                        var colliStrao = Math.round(Number(r.persone) * Number(rate) * durMin / 60);
+                        return (
+                          <div key={ri} style={{ background:BG3, border:'1px solid rgba(249,115,22,0.25)', borderRadius:'10px', padding:'9px 12px', marginLeft:'14px', marginBottom:'6px' }}>
+                            {/* orario + persone + durata */}
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: r.nota?'7px':'0' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                                <div style={{ fontSize:'13px', fontWeight:'bold', color:ORANGE }}>{r.inizio}→{r.fine}</div>
+                                <div style={{ fontSize:'9px', color:DIM }}>({durLabel})</div>
+                              </div>
+                              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                                <div style={{ fontSize:'11px', fontWeight:'bold', color:ORANGE }}>👤 {r.persone}</div>
+                                <div style={{ fontSize:'9px', color:DIM }}>📦 {colliStrao.toLocaleString('it-IT')}</div>
+                              </div>
+                            </div>
+                            {/* note / nomi */}
+                            {r.nota && (
+                              <div style={{ fontSize:'10px', color:TEXT, background:BG2, borderRadius:'7px', padding:'5px 9px', borderLeft:'3px solid '+ORANGE }}>
+                                {r.nota}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* OBIETTIVO INVERSO */}
         <div style={{ marginTop:'12px', background:BG2, border:'1px solid '+BORDER, borderRadius:'14px', padding:'14px' }}>
