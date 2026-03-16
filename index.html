@@ -1621,8 +1621,30 @@ function PageAI(props) {
   var _showCtx = useState(false); var showCtx = _showCtx[0]; var setShowCtx = _showCtx[1];
   var _listening = useState(false); var listening = _listening[0]; var setListening = _listening[1];
   var _puntoCmp = useState(null); var puntoCmp = _puntoCmp[0]; var setPuntoCmp = _puntoCmp[1];
+  var _imgPreview = useState(null); var imgPreview = _imgPreview[0]; var setImgPreview = _imgPreview[1];
+  var _imgBase64 = useState(null); var imgBase64 = _imgBase64[0]; var setImgBase64 = _imgBase64[1];
   var scrollRef = useRef(null);
   var recognRef = useRef(null);
+  var fileInputRef = useRef(null);
+  var cameraInputRef = useRef(null);
+
+  function handleFileSelect(e, fromCamera) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var result = ev.target.result; // data:image/jpeg;base64,...
+      var base64 = result.split(',')[1];
+      var preview = result;
+      setImgBase64(base64);
+      setImgPreview(preview);
+      setErr('');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
+  function removeImage() { setImgBase64(null); setImgPreview(null); }
 
   // ── ESTRAI ORA E COLLI DAL TESTO ──
   function estraiPunto(text) {
@@ -1826,13 +1848,16 @@ function PageAI(props) {
 
   async function sendMessage(customPrompt) {
     var text = customPrompt || input.trim();
-    if (!text || loading) return;
+    var hasImg = !!imgBase64;
+    if (!text && !hasImg || loading) return;
     if (!apiKey) { setMode('setup'); return; }
     setInput('');
     setErr('');
+    var imgB64 = imgBase64; var imgPrev = imgPreview;
+    removeImage();
 
     // ── RILEVA ORA E COLLI → COMPILA PUNTO SITUAZIONE ──
-    var estratto = estraiPunto(text);
+    var estratto = text ? estraiPunto(text) : { ora: null, colli: null };
     var puntoApplicato = false;
     if (estratto.ora && estratto.colli) {
       setPuntoOra(estratto.ora);
@@ -1842,8 +1867,6 @@ function PageAI(props) {
     }
 
     var ctx = buildContext();
-
-    // Aggiunge al contesto il risultato del punto situazione se appena compilato
     var puntoCtxExtra = '';
     if (puntoApplicato) {
       puntoCtxExtra = '\n--- PUNTO SITUAZIONE APPENA INSERITO ---\n' +
@@ -1852,27 +1875,44 @@ function PageAI(props) {
         '(Il calcolo è in aggiornamento — analizza in base ai dati dei turni disponibili)\n';
     }
 
-    var userMsg = { role: 'user', content: text };
+    // Messaggio utente — con o senza immagine
+    var userContent;
+    if (hasImg) {
+      userContent = [
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + imgB64 } },
+        { type: 'text', text: text || 'Analizza questa immagine. Se è un sondaggio WhatsApp per straordinari, leggi gli orari e i nomi di chi ha votato per ogni fascia oraria. Poi dimmi cosa hai trovato in modo chiaro.' }
+      ];
+    } else {
+      userContent = text;
+    }
+
+    var userMsg = { role: 'user', content: hasImg ? '[📸 Foto] ' + (text || 'Analizza sondaggio') : text, _content: userContent };
     var newMsgs = msgs.concat([userMsg]);
     setMsgs(newMsgs);
     setLoading(true);
 
     var extraInstr = puntoApplicato
-      ? '\nL\'utente ha appena indicato ora e colli rimanenti. Ho compilato automaticamente il punto situazione. Analizza la situazione: ce la fanno a chiudere? A che ora? Hanno anticipo o mancano colli? Sii diretto e concreto.'
+      ? '\nL\'utente ha appena indicato ora e colli rimanenti. Ho compilato automaticamente il punto situazione. Analizza la situazione.'
+      : hasImg
+      ? '\nSe l\'immagine mostra un sondaggio WhatsApp con orari e nomi, elenca chiaramente: per ogni orario quante persone hanno votato e i loro nomi. Poi chiedi se vuoi che compili automaticamente gli straordinari.'
       : '';
 
     var sysPrompt = aiMod === 'libero'
-      ? 'Sei un assistente intelligente e versatile. Rispondi SEMPRE in italiano, in modo chiaro e utile. Usa emoji dove appropriato.\n\nHai anche accesso ai dati del turno di magazzino corrente nel caso servano:\n\n' + ctx + puntoCtxExtra
+      ? 'Sei un assistente intelligente e versatile. Rispondi SEMPRE in italiano, in modo chiaro e utile.\n\nDati turno:\n' + ctx + puntoCtxExtra
       : SYSTEM_PROMPT + extraInstr + '\n\n' + ctx + puntoCtxExtra;
 
     try {
-      var history = newMsgs.map(function(m){ return { role: m.role, content: m.content }; });
+      // Costruisce history con i content originali
+      var history = newMsgs.map(function(m){
+        return { role: m.role, content: m._content || m.content };
+      });
+
       var res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 800,
+          model: hasImg ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile',
+          max_tokens: 1000,
           messages: [{ role: 'system', content: sysPrompt }].concat(history)
         })
       });
@@ -2094,6 +2134,23 @@ function PageAI(props) {
         {/* INPUT BOX — sticky al fondo dello scroll, con padding per la navbar assoluta */}
         <div style={{ position:'sticky', bottom:0, background:BG2, borderTop:'1px solid '+BORDER, padding:'10px 14px', paddingBottom:'calc(env(safe-area-inset-bottom) + 78px)', zIndex:10 }}>
           {err && <div style={{ fontSize:'8px', color:RED, marginBottom:'6px', textAlign:'center' }}>{err}</div>}
+
+          {/* Input file nascosti */}
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }}
+            onChange={function(e){ handleFileSelect(e, false); }} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }}
+            onChange={function(e){ handleFileSelect(e, true); }} />
+
+          {/* Preview immagine selezionata */}
+          {imgPreview && (
+            <div style={{ marginBottom:'8px', position:'relative', display:'inline-block' }}>
+              <img src={imgPreview} style={{ maxHeight:'80px', maxWidth:'100%', borderRadius:'10px', border:'2px solid rgba(45,212,191,0.5)' }} />
+              <button onClick={removeImage}
+                style={{ position:'absolute', top:'-6px', right:'-6px', width:'20px', height:'20px', borderRadius:'50%', background:RED, border:'none', color:'white', fontSize:'12px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>×</button>
+              <div style={{ fontSize:'7px', color:TEAL, marginTop:'3px', letterSpacing:'1px' }}>📸 Pronto — premi ↑ per inviare</div>
+            </div>
+          )}
+
           {listening && (
             <div style={{ textAlign:'center', marginBottom:'8px' }}>
               <div style={{ display:'inline-flex', alignItems:'center', gap:'8px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'20px', padding:'5px 14px' }}>
@@ -2102,21 +2159,35 @@ function PageAI(props) {
               </div>
             </div>
           )}
-          <div style={{ display:'flex', gap:'8px', alignItems:'flex-end' }}>
+
+          <div style={{ display:'flex', gap:'6px', alignItems:'flex-end' }}>
+            {/* Microfono */}
             <button onClick={startVoice}
-              style={{ width:'44px', height:'44px', borderRadius:'12px', background: listening?'rgba(239,68,68,0.2)':BG3, border:'2px solid '+(listening?RED:BORDER2), color:listening?RED:DIM, fontSize:'20px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s' }}>
+              style={{ width:'40px', height:'40px', borderRadius:'11px', background: listening?'rgba(239,68,68,0.2)':BG3, border:'2px solid '+(listening?RED:BORDER2), color:listening?RED:DIM, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s' }}>
               🎤
             </button>
+            {/* Fotocamera */}
+            <button onClick={function(){ cameraInputRef.current && cameraInputRef.current.click(); }}
+              style={{ width:'40px', height:'40px', borderRadius:'11px', background: BG3, border:'2px solid '+BORDER2, color:DIM, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              📷
+            </button>
+            {/* Galleria */}
+            <button onClick={function(){ fileInputRef.current && fileInputRef.current.click(); }}
+              style={{ width:'40px', height:'40px', borderRadius:'11px', background: imgPreview?'rgba(45,212,191,0.15)':BG3, border:'2px solid '+(imgPreview?TEAL:BORDER2), color:imgPreview?TEAL:DIM, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              🖼️
+            </button>
+            {/* Testo */}
             <textarea
               value={input}
               onChange={function(e){ setInput(e.target.value); }}
               onKeyDown={function(e){ if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="✍️  Scrivi o parla con il 🎤..."
+              placeholder={imgPreview ? "Aggiungi testo opzionale..." : "✍️  Scrivi o parla con il 🎤..."}
               rows={2}
-              style={{ flex:1, background:BG3, border:'2px solid '+(input?TEAL:BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'14px', padding:'10px 13px', outline:'none', resize:'none', lineHeight:1.5, transition:'border-color 0.2s', maxHeight:'90px', overflowY:'auto' }}
+              style={{ flex:1, background:BG3, border:'2px solid '+(input?TEAL:imgPreview?'rgba(45,212,191,0.3)':BORDER2), borderRadius:'12px', color:TEXT, fontFamily:FONT, fontSize:'14px', padding:'10px 13px', outline:'none', resize:'none', lineHeight:1.5, transition:'border-color 0.2s', maxHeight:'90px', overflowY:'auto' }}
             />
-            <button onClick={function(){ sendMessage(); }} disabled={!input.trim() || loading}
-              style={{ width:'44px', height:'44px', borderRadius:'12px', background: input.trim()?'rgba(45,212,191,0.2)':BG3, border:'2px solid '+(input.trim()?TEAL:BORDER2), color:input.trim()?TEAL:DIM, fontSize:'20px', cursor:input.trim()?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', fontWeight:'bold' }}>
+            {/* Invia */}
+            <button onClick={function(){ sendMessage(); }} disabled={(!input.trim() && !imgPreview) || loading}
+              style={{ width:'44px', height:'44px', borderRadius:'12px', background: (input.trim()||imgPreview)?'rgba(45,212,191,0.2)':BG3, border:'2px solid '+((input.trim()||imgPreview)?TEAL:BORDER2), color:(input.trim()||imgPreview)?TEAL:DIM, fontSize:'20px', cursor:(input.trim()||imgPreview)?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', fontWeight:'bold' }}>
               ↑
             </button>
           </div>
