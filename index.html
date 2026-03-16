@@ -722,8 +722,20 @@ function PageInput(props) {
           ══════════════════════════════════════════════════ */}
       <div style={{ flex:1, overflowY:'auto', padding:'14px', paddingBottom:'80px' }}>
 
-        {/* ── PERSONE PER TURNO con colli inline ── */}
-        <SectionHeader color={YELLOW} icon="👥">PERSONE PER TURNO</SectionHeader>
+        {/* ── PERSONE PER TURNO — layout compatto riga unica ── */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+          <SectionHeader color={YELLOW} icon="👥">PERSONE PER TURNO</SectionHeader>
+          {Object.values(assenti).some(function(v){return v>0;}) && (
+            <button onClick={function(){
+              var newA = {};
+              props.turni.forEach(function(t){ newA[t.id] = 0; });
+              setAssenti(newA);
+              triggerAutoSave(undefined, undefined, newA);
+            }} style={{ fontSize:'8px', color:RED, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.35)', borderRadius:'7px', padding:'4px 10px', cursor:'pointer', fontFamily:FONT, letterSpacing:'1px', fontWeight:'bold', marginBottom:'10px' }}>
+              ↺ AZZERA ASSENTI
+            </button>
+          )}
+        </div>
         {props.turni.map(function(t) {
           var cl = tColor(t.nome);
           var p = persone[t.id] || 0;
@@ -731,38 +743,53 @@ function PageInput(props) {
           var eff = Math.max(0, p - a);
           var cT = colliPerTurno(t);
           return (
-            <Panel key={t.id} style={{ marginBottom:'8px', border: p > 0 ? '1px solid rgba('+hexToRgb(cl)+',0.4)' : '1px solid '+BORDER, transition:'border-color 0.2s' }}>
-              {/* Nome turno + Colli */}
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
-                <div>
-                  <div style={{ fontSize:'11px', fontWeight:'bold', color:cl, letterSpacing:'1px' }}>{t.nome}</div>
-                  <div style={{ fontSize:'8px', color:DIM, marginTop:'2px' }}>{t.inizio} – {t.fine}</div>
+            <div key={t.id} style={{ background:BG2, border:'1px solid '+(p>0?'rgba('+hexToRgb(cl)+',0.45)':BORDER), borderRadius:'13px', padding:'10px 12px', marginBottom:'6px', display:'flex', alignItems:'center', gap:'8px', transition:'border-color 0.2s' }}>
+
+              {/* Pallino + nome + orario */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'2px' }}>
+                  <div style={{ width:'9px', height:'9px', borderRadius:'50%', background:cl, flexShrink:0, boxShadow: p>0?'0 0 6px '+cl:'none' }} />
+                  <div style={{ fontSize:'10px', fontWeight:'bold', color:cl, letterSpacing:'0.5px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.nome}</div>
                 </div>
-                {cT > 0 && (
-                  <div style={{ background:'rgba('+hexToRgb(cl)+',0.1)', border:'1px solid rgba('+hexToRgb(cl)+',0.4)', borderRadius:'10px', padding:'6px 12px', textAlign:'center' }}>
-                    <div style={{ fontSize:'7px', color:DIM, letterSpacing:'1.5px', marginBottom:'2px' }}>📦 COLLI</div>
-                    <div style={{ fontSize:'18px', fontWeight:'bold', color:cl, lineHeight:1, letterSpacing:'-0.5px' }}>{cT.toLocaleString('it-IT')}</div>
-                  </div>
-                )}
+                <div style={{ fontSize:'7px', color:DIM, marginLeft:'15px' }}>{t.inizio}–{t.fine}</div>
               </div>
-              {/* Persone + Assenti */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px', marginBottom:'8px' }}>
-                <div><Lbl>👥 PERSONE</Lbl><NumInput value={p} onChange={function(v){setPers(t.id, v);}} color={cl} /></div>
-                <div><Lbl>🚫 ASSENTI</Lbl><NumInput value={a} onChange={function(v){setAss(t.id, v);}} color={RED} /></div>
-              </div>
-              {/* Effettivi + Colli */}
-              {p > 0 && (
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba('+hexToRgb(cl)+',0.07)', border:'1px solid rgba('+hexToRgb(cl)+',0.3)', borderRadius:'10px', padding:'8px 14px' }}>
-                  <div>
-                    <div style={{ fontSize:'7px', color:DIM, letterSpacing:'2px', marginBottom:'2px' }}>✅ LAVORANO OGGI</div>
-                    <div style={{ fontSize:'9px', color:MID }}>{p} – {a} assenti</div>
-                  </div>
-                  <div style={{ fontSize:'42px', fontWeight:'bold', color: eff>0?cl:DIM, lineHeight:1, letterSpacing:'-2px', textShadow: eff>0?'0 0 20px rgba('+hexToRgb(cl)+',0.3)':'none' }}>
-                    {eff}
-                  </div>
+
+              {/* PERSONE */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'1px' }}>👥</div>
+                <div style={{ display:'flex', alignItems:'center', gap:'3px' }}>
+                  <button onClick={function(){setPers(t.id, Math.max(0,p-1));}}
+                    style={{ width:'32px', height:'32px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:cl, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+                  <input type="number" value={p===0?'':p} placeholder="0"
+                    onChange={function(e){setPers(t.id, e.target.value===''?0:Math.max(0,Number(e.target.value)));}}
+                    style={{ width:'36px', textAlign:'center', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:cl, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
+                  <button onClick={function(){setPers(t.id, p+1);}}
+                    style={{ width:'32px', height:'32px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:cl, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
                 </div>
-              )}
-            </Panel>
+              </div>
+
+              {/* ASSENTI */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'1px' }}>🚫</div>
+                <div style={{ display:'flex', alignItems:'center', gap:'3px' }}>
+                  <button onClick={function(){setAss(t.id, Math.max(0,a-1));}}
+                    style={{ width:'32px', height:'32px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:RED, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
+                  <input type="number" value={a===0?'':a} placeholder="0"
+                    onChange={function(e){setAss(t.id, e.target.value===''?0:Math.max(0,Number(e.target.value)));}}
+                    style={{ width:'36px', textAlign:'center', background:BG3, border:'1px solid '+BORDER2, borderRadius:'8px', color:RED, fontFamily:FONT, fontSize:'16px', fontWeight:'bold', padding:'5px 2px', outline:'none' }} />
+                  <button onClick={function(){setAss(t.id, a+1);}}
+                    style={{ width:'32px', height:'32px', borderRadius:'8px', border:'1px solid '+BORDER2, background:BG3, color:RED, fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+                </div>
+              </div>
+
+              {/* EFF + COLLI */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', minWidth:'46px' }}>
+                <div style={{ fontSize:'7px', color:DIM, letterSpacing:'1px', marginBottom:'1px' }}>EFF.</div>
+                <div style={{ fontSize:'30px', fontWeight:'bold', color:eff>0?cl:DIM, lineHeight:1, letterSpacing:'-1.5px', textShadow:eff>0?'0 0 12px rgba('+hexToRgb(cl)+',0.4)':'none' }}>{eff}</div>
+                {cT > 0 && <div style={{ fontSize:'8px', color:cl, marginTop:'1px', fontWeight:'bold' }}>{cT.toLocaleString('it-IT')}</div>}
+              </div>
+
+            </div>
           );
         })}
 
@@ -791,7 +818,7 @@ function PageInput(props) {
         )}
 
         {/* nota straordinari */}
-        <div style={{ fontSize:'8px', color:DIM, textAlign:'center', padding:'8px 0', marginBottom:'10px', letterSpacing:'0.5px' }}>
+        <div style={{ fontSize:'8px', color:DIM, marginBottom:'10px', marginTop:'4px', letterSpacing:'0.5px' }}>
           Per straordinari → ⚡ STRAORD.
         </div>
 
@@ -1079,8 +1106,7 @@ function PageTurni(props) {
   var _openT = useState(null); var openTurno = _openT[0]; var setOpenTurno = _openT[1];
   function toggleTurno(id) { setOpenTurno(function(prev){ return prev===id ? null : id; }); }
   function resetGiornata() {
-    // azzera solo assenti e persone straordinari — le persone dei turni rimangono
-    setTurni(function(prev){return prev.map(function(t){return Object.assign({},t,{assenti:0});});});
+    // azzera solo le ore straordinari — assenti rimangono
     setStra(function(prev){return prev.map(function(sp){return Object.assign({},sp,{righe:(sp.righe||[]).map(function(r){return Object.assign({},r,{persone:0});})});});});
   }
 
@@ -1182,16 +1208,21 @@ function PageTurni(props) {
         </div>
       </div>
 
-      <div style={{ padding:'10px 14px 0' }}>
-        <button onClick={resetGiornata}
-          style={{ width:'100%', padding:'11px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.4)', borderRadius:'11px', color:RED, fontFamily:FONT, fontSize:'10px', fontWeight:'bold', letterSpacing:'2px', cursor:'pointer', transition:'all 0.2s' }}>
-          ↺ AZZERA ASSENTI E ORE STRAORDINARIE
-        </button>
-      </div>
-
       <div style={{ padding:'14px', fontFamily:FONT }}>
 
-        <SectionHeader color={YELLOW}>TURNI DI LAVORO</SectionHeader>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+          <SectionHeader color={YELLOW}>TURNI DI LAVORO</SectionHeader>
+          {(function(){
+            var hasStrao = stra.some(function(sp){ return (sp.righe||[]).some(function(r){ return Number(r.persone)>0; }); });
+            if (!hasStrao) return null;
+            return (
+              <button onClick={resetGiornata}
+                style={{ fontSize:'8px', color:ORANGE, background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.35)', borderRadius:'7px', padding:'4px 10px', cursor:'pointer', fontFamily:FONT, letterSpacing:'1px', fontWeight:'bold', marginBottom:'10px' }}>
+                ↺ AZZERA STRAORDINARI
+              </button>
+            );
+          })()}
+        </div>
         {turni.map(function(t) {
           var eff = Math.max(0, (t.persone||0) - (t.assenti||0));
           var cl = tColor(t.nome);
