@@ -541,7 +541,17 @@ function PageInput(props) {
     return Math.round(eff * r2 * min / 60);
   }
 
-  var totaleColli = props.turni.reduce(function(s, t) { return s + colliPerTurno(t); }, 0);
+  // Colli totali inclusi straordinari
+  var totaleColli = (function() {
+    var base = props.turni.reduce(function(s, t) { return s + colliPerTurno(t); }, 0);
+    var strao = (props.stra || []).reduce(function(s, sp) {
+      return s + (sp.righe || []).reduce(function(s2, r) {
+        if (!r.inizio || !r.fine || !Number(r.persone)) return s2;
+        return s2 + Math.round(Number(r.persone) * r2 * (tMin(r.fine) - tMin(r.inizio)) / 60);
+      }, 0);
+    }, 0);
+    return base + strao;
+  })();
 
   // ── PUNTO SITUAZIONE — include straordinari se presenti ──
   useEffect(function() {
@@ -749,9 +759,12 @@ function PageInput(props) {
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'2px' }}>
                   <div style={{ width:'9px', height:'9px', borderRadius:'50%', background:cl, flexShrink:0, boxShadow: p>0?'0 0 6px '+cl:'none' }} />
-                  <div style={{ fontSize:'10px', fontWeight:'bold', color:cl, letterSpacing:'0.5px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.nome}</div>
+                  <div style={{ fontSize:'9px', fontWeight:'bold', color: p>0 ? cl : MID, letterSpacing:'0.5px' }}>{t.nome}</div>
                 </div>
-                <div style={{ fontSize:'7px', color:DIM, marginLeft:'15px' }}>{t.inizio}–{t.fine}</div>
+                <div style={{ fontSize:'7px', color:DIM, marginLeft:'15px', lineHeight:1.6 }}>
+                  {t.inizio}–{t.fine}
+                  {t.pIn && t.pOut && <span> · ☕{t.pIn}–{t.pOut}</span>}
+                </div>
               </div>
 
               {/* PERSONE */}
