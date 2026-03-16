@@ -1911,7 +1911,7 @@ function PageAI(props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
         body: JSON.stringify({
-          model: hasImg ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile',
+          model: hasImg ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile',
           max_tokens: 1000,
           messages: [{ role: 'system', content: sysPrompt }].concat(history)
         })
