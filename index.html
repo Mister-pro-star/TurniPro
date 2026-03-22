@@ -27,6 +27,20 @@
     .slidein{animation:slideIn 0.25s ease}
     .savedpop{animation:savedPop 0.3s ease}
     button:active{opacity:0.75;transform:scale(0.97)}
+    /* ── RESPONSIVE PC ── */
+    @media(min-width:600px){
+      body{ background:#04060d; }
+      #root{ display:flex; align-items:center; justify-content:center; }
+    }
+    @media(min-width:600px) and (max-width:900px){
+      .tp-app{ max-width:560px !important; border-radius:20px; box-shadow:0 8px 40px rgba(0,0,0,0.6); }
+    }
+    @media(min-width:900px){
+      .tp-app{ max-width:640px !important; border-radius:24px; box-shadow:0 12px 60px rgba(0,0,0,0.7); height:92dvh !important; }
+    }
+    @media(min-width:1400px){
+      .tp-app{ max-width:720px !important; }
+    }
   </style>
 </head>
 <body>
@@ -2584,7 +2598,7 @@ function App() {
   var pageProps = { turni:turni, setTurni:setTurni, stra:stra, setStra:setStra, colli:colli, setColli:setColli, rate:rate, setRate:setRate, puntoOra:puntoOra, setPuntoOra:setPuntoOra, puntoRim:puntoRim, setPuntoRim:setPuntoRim, puntoRes:puntoRes, setPuntoRes:setPuntoRes };
 
   return (
-    <div style={{ height:'100dvh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
+    <div className="tp-app" style={{ height:'100dvh', maxWidth:'480px', margin:'0 auto', position:'relative', display:'flex', flexDirection:'column', background:BG, overflow:'hidden' }}>
       <div key={page} style={{ flex:1, overflow:'hidden', animation:'fadeUp 0.22s ease' }}>
         {page === 'input'     && <PageInput {...pageProps} setPage={setPage} />}
         {page === 'turni'     && <PageTurni {...pageProps} />}
